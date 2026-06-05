@@ -1,8 +1,8 @@
 import {CONFIG, CELL_TYPE} from './config.js';
-import {Logger} from './logger.js';
-import {CpuSimBackend} from './sim/cpuBackend.js';
-import {GpuSimBackend} from './sim/gpuBackend.js';
-import {HashlifeCache} from './sim/hashlife.js';
+  import {Logger} from './logger.js';
+  import {CpuSimBackend} from './sim/cpuBackend.js';
+  import {GpuSimBackend} from './sim/gpuBackend.js';
+  import {HashlifeCache} from './sim/hashlife.js';
 
 /**
  * Simulation runs the Game of Life tick with extensions:
@@ -28,7 +28,9 @@ export class Simulation {
     this.onMissileReturn = null; // (x, y, kind) - kind: 'return' | 'bounce'
     this.onAnnihilation = null;
     this.onCityHit = null;
+     this.onBreach = null; // (x, y) - missile reached the rear dead zone
     this.returnFireFired = new Uint8Array(grid.cells.length);
+     this.breachFired = new Uint8Array(grid.cells.length);
     // When true, missile cells are frozen (no aging, no Life evolution,
     // no return-fire detection). Defense cells continue to evolve normally.
     // Used by Time Stop ability and the M:N timestep ratio.
@@ -46,7 +48,10 @@ export class Simulation {
     this._defenseNbr = new Uint8Array(grid.cells.length);
 
     this._initBackend();
-    this.hashlife = new HashlifeCache();
+   this.hashlife = new HashlifeCache();
+   // Note: hashlife is only used when CONFIG.SIM_HASHLIFE_ENABLED is true.
+   // The cache is kept allocated so it can be re-enabled at runtime without
+   // a full rebuild; it just won't be consulted when the flag is false.
   }
 
   _initBackend() {
@@ -82,6 +87,7 @@ export class Simulation {
       this.nextColor = new Uint8Array(n);
       this.nextDir = new Uint8Array(n);
       this.returnFireFired = new Uint8Array(n);
+       this.breachFired = new Uint8Array(n);
       this._annihilated = new Uint8Array(n);
       this._ageDespawn = new Uint8Array(n);
       this._lifeNbr = new Uint8Array(n);
@@ -325,6 +331,7 @@ export class Simulation {
     // cells aren't moving, so anything in the dead zone is stale state.
     if (!freezeEnemies) {
       this._detectReturnFire(dzMinY, dzMaxY);
+       this._detectBreach();
     }
   }
 
@@ -369,8 +376,8 @@ export class Simulation {
     }
   }
 
-  _detectReturnFire(minY, maxY) {
-    if (!this.onMissileReturn) return;
+    _detectReturnFire(minY, maxY) {
+      if (!this.onMissileReturn) return;
     const g = this.grid;
     const w = g.width;
     const h = g.height;
@@ -427,4 +434,34 @@ export class Simulation {
       }
     }
   }
+   // Detect MISSILE cells that have arrived in the rear dead zone, meaning
+   // they slipped past the player's defenses without hitting a city.
+   _detectBreach() {
+     if (!this.onBreach) return;
+     const g = this.grid;
+     const w = g.width;
+     const h = g.height;
+     const cells = g.cells;
+     const fired = this.breachFired;
+     // Reset stale flags.
+     for (let i = 0; i < fired.length; i++) {
+       if (fired[i] && cells[i] !== CELL_TYPE.MISSILE) {
+         fired[i] = 0;
+       }
+     }
+     const minY = g.rearDeadZoneMinY();
+     if (minY >= h) return;
+     for (let y = minY; y < h; y++) {
+       for (let x = 0; x < w; x++) {
+         const i = y * w + x;
+         if (cells[i] !== CELL_TYPE.MISSILE) continue;
+         if (fired[i]) continue;
+         this.onBreach(x, y);
+         fired[i] = 1;
+         // Explode it immediately so it doesn't keep marching past.
+         cells[i] = CELL_TYPE.EXPLOSION;
+         g.explosionTimers[i] = 6;
+       }
+     }
+   }
 }

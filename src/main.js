@@ -1,4 +1,4 @@
-import {CONFIG, SPEED_PRESETS, RESOLUTION_PRESETS} from './config.js';
+import {CONFIG, SPEED_PRESETS, RESOLUTION_PRESETS, GAME_MODE_PRESETS} from './config.js';
 import {Grid} from './grid.js';
 import {Simulation} from './simulation.js';
 import {Cities} from './entities/cities.js';
@@ -10,12 +10,21 @@ import {HUD} from './hud.js';
 import {GameState, STATE} from './gameState.js';
 import {Settings, SettingsPanel, computeAutoGrid} from './settings.js';
 import {GuidePanel} from './guide.js';
-import {DrawToolsPanel} from './drawTools.js';
+  import {DrawToolsPanel} from './drawTools.js';
 import {StoryEngine} from './story.js';
 import {Logger} from './logger.js';
 import {CELL_TYPE} from './config.js';
 import {Sfx} from './audio.js';
 import {FreeplayAbilityManager} from './abilities.js';
+import {
+   registerServiceWorker,
+   initInstallPrompt,
+   initNetworkIndicator,
+   checkAutoStart,
+   requestWakeLock,
+   releaseWakeLock,
+   toggleFullscreen,
+} from './pwa.js';
 
 class Game {
   constructor() {
@@ -38,6 +47,9 @@ class Game {
     this.helpButton = document.getElementById('help-button');
     this.guideButton = document.getElementById('guide-button');
     this.ingameSettingsButton = document.getElementById('ingame-settings-button');
+     this.howToPlayButton = document.getElementById('howtoplay-button');
+     this.howToPlayIngameButton = document.getElementById('howtoplay-ingame-button');
+     this.fullscreenButton = document.getElementById('fullscreen-button');
 
     this._buildWorld();
 
@@ -66,6 +78,10 @@ class Game {
     // Console hacking guide overlay. Pauses the game while open.
     this._guidePauseSpeed = null;
     this.guidePanel = new GuidePanel({
+         overlayId: 'guide-overlay',
+         bodyId: 'guide-body',
+         closeId: 'guide-close-button',
+         markdownUrl: '/console_guide.md',
       onOpen: () => {
         // Hide other overlays so the guide is unambiguous.
         this._guidePrevOverlayHidden = this.overlay.classList.contains('hidden');
@@ -90,6 +106,32 @@ class Game {
         }
       },
     });
+     // How-to-play guide overlay (README.md). Same pause behaviour.
+     this._helpPanelPauseSpeed = null;
+     this.helpGuidePanel = new GuidePanel({
+         overlayId: 'help-overlay',
+         bodyId: 'help-body',
+         closeId: 'help-close-button',
+         markdownUrl: '/README.md',
+         onOpen: () => {
+             this._helpPrevOverlayHidden = this.overlay.classList.contains('hidden');
+             this.overlay.classList.add('hidden');
+             this._helpPanelPauseSpeed = CONFIG.SPEED_MULTIPLIER;
+             CONFIG.SPEED_MULTIPLIER = 0;
+             if (this.speedLabel) this.speedLabel.textContent = 'PAUSED (help)';
+         },
+         onClose: () => {
+             if (this._helpPanelPauseSpeed != null) {
+                 CONFIG.SPEED_MULTIPLIER = this._helpPanelPauseSpeed;
+                 this._helpPanelPauseSpeed = null;
+             }
+             if (this.speedSlider) this._applySpeedFromSlider();
+             if (!this._helpPrevOverlayHidden &&
+                 (this.gameState.is(STATE.MENU) || this.gameState.is(STATE.GAME_OVER))) {
+                 this.overlay.classList.remove('hidden');
+             }
+         },
+     });
     // Drawing tools panel (mode switcher, line width/dash, pattern editor).
     this.drawTools = new DrawToolsPanel(this.input);
     // Story engine. Adds Story Mode button to menu, runs chapters,
@@ -128,17 +170,33 @@ class Game {
     if (this.guideButton) {
       this.guideButton.addEventListener('click', () => this.openGuide());
     }
+     if (this.howToPlayButton) {
+       this.howToPlayButton.addEventListener('click', () => this.openHelpGuide());
+     }
+     if (this.howToPlayIngameButton) {
+       this.howToPlayIngameButton.addEventListener('click', () => this.openHelpGuide());
+     }
     if (this.ingameSettingsButton) {
       this.ingameSettingsButton.addEventListener('click', () => this.openIngameSettings());
       this._updateIngameSettingsButton();
     }
+     // Fullscreen toggle button.
+     if (this.fullscreenButton) {
+       this.fullscreenButton.addEventListener('click', () => toggleFullscreen());
+       document.addEventListener('fullscreenchange', () => {
+         this.fullscreenButton.textContent = document.fullscreenElement ? '⛶' : '⛶';
+         this.fullscreenButton.title = document.fullscreenElement
+           ? 'Exit fullscreen [F11]'
+           : 'Enter fullscreen [F11]';
+       });
+     }
 
     this._initSpeedControls();
     this._initKeyboardShortcuts();
     this._initHotkeyHelp();
     window.addEventListener('resize', () => this._onWindowResize());
 
-    this.showOverlay('Missile Defense',
+    this.showOverlay('The Arcade of Life',
       `Defend your cities from incoming missiles!<br>
                  Draw defensive patterns on the bottom half of the screen.<br>
                  Released cells evolve via Conway's Game of Life.<br><br>
@@ -168,6 +226,7 @@ class Game {
       CELL_TYPE,
       SPEED_PRESETS,
       RESOLUTION_PRESETS,
+     GAME_MODE_PRESETS,
       Logger,
       // Class references for advanced poking / subclassing.
       classes: {Grid, Simulation, Cities, Missiles, Defenses, Renderer, HUD},
@@ -184,13 +243,13 @@ class Game {
   _printHackBanner() {
     // Use plain console so the banner is always visible regardless of log level.
     const css = 'color:#00ffff;font-weight:bold;';
-    console.log('%c[MissileDefense] Console API ready.', css);
+    console.log('%c[ArcadeOfLife] Console API ready.', css);
     console.log('  window.game        - live Game instance');
     console.log('  window.CONFIG      - live config (mutate to tune)');
     console.log('  window.CELL_TYPE   - {EMPTY, DEFENSE, MISSILE, CITY, EXPLOSION}');
     console.log('  window.cheats      - cheat shortcuts (try cheats.help())');
     console.log('  window.MD          - namespaced bundle');
-    console.log('  MissileDefenseLogger.setLevel("debug") for verbose logs');
+    console.log('  ArcadeOfLifeLogger.setLevel("debug") for verbose logs');
   }
 
   _makeCheats() {
@@ -213,6 +272,9 @@ class Game {
           'cheats.gosperGun(x=5,y=45)   - drop a Gosper glider gun',
           'cheats.dump()                - print live game stats',
           'cheats.resetHighScore()      - clear saved high score',
+             'cheats.setMode(id)           - apply a game mode preset by id',
+             'cheats.listModes()           - list available game mode preset ids',
+             'cheats.setVfx(bool)          - enable/disable all visual effects at once',
         ].join('\n'));
       },
       infiniteInk() {
@@ -347,6 +409,25 @@ class Game {
           Logger.warn('Cheat: could not reset high score.', e);
         }
       },
+       setMode(id) {
+         if (self.settings) {
+           self.settings.applyGameMode(id);
+           Logger.info(`Cheat: game mode set to "${id}".`);
+         }
+       },
+       listModes() {
+         console.table(GAME_MODE_PRESETS.map(m => ({id: m.id, name: m.name, desc: m.desc})));
+       },
+       setVfx(enabled) {
+         const v = !!enabled;
+         CONFIG.VFX_PARTICLES = v;
+         CONFIG.VFX_SHOCKWAVES = v;
+         CONFIG.VFX_FLOATERS = v;
+         CONFIG.VFX_SCREEN_SHAKE = v;
+         CONFIG.VFX_CELL_GLOW = v;
+         CONFIG.VFX_DRAW_ZONE_TINT = v;
+         Logger.info(`Cheat: all VFX ${v ? 'enabled' : 'disabled'}.`);
+       },
     };
   }
 
@@ -359,6 +440,8 @@ class Game {
       this.cities.place();
       this.missiles.startWave(Math.max(0, this.hud.wave - 1));
     }
+    // Re-initialize speed controls so max scales with new board size.
+    this._initSpeedControls();
     Logger.info(`World rebuilt: ${CONFIG.GRID_WIDTH}x${CONFIG.GRID_HEIGHT}.`);
   }
 
@@ -546,7 +629,7 @@ class Game {
         Logger.error('onCityHit handler failed.', e);
       }
     };
-    this.simulation.onMissileReturn = (x, y, kind) => {
+this.simulation.onMissileReturn = (x, y, kind) => {
       try {
         if (kind === 'ricochet') {
           Sfx.ricochet();
@@ -629,6 +712,94 @@ class Game {
         Logger.error('onMissileSpawn handler failed.', e);
       }
     };
+     // Breach: missile entered the rear dead zone (slipped past defenses).
+     this.simulation.onBreach = (x, y) => {
+       try {
+         Sfx.cityHit();
+         if (this.renderer) {
+           this.renderer.addBigFloater(x, y - 2, '⚠ BREACH!', '#ff8844', 1.4);
+           this.renderer.addShockwave(x, y, {
+             maxRadius: 30, color: '#ff8844', ttl: 24, width: 2,
+           });
+           this.renderer.addParticleBurst(x, y, {
+             count: 18,
+             colors: ['#ff8844', '#ffaa66', '#ffff88', '#ff4422'],
+             speed: 2.0,
+             ttl: 35,
+             size: 2.6,
+             glow: 10,
+             gravity: 0.05,
+           });
+           this.renderer.addShake(3, 18);
+         }
+         // Slight score penalty — they got past your defenses.
+         this.hud.addScore(-15);
+       } catch (e) {
+         Logger.error('onBreach handler failed.', e);
+       }
+     };
+     // Base destroyed: nice reward.
+     this.missiles.onBaseSpawn = (cx, cy, kind) => {
+       try {
+         if (!this.renderer) return;
+         const colorMap = {
+           fortress: '#ff3333',
+           bunker: '#ff8833',
+           cruiser_e: '#ff5555',
+           cruiser_w: '#ff5555',
+         };
+         const color = colorMap[kind] || '#ff3333';
+         this.renderer.addShockwave(cx, cy, {
+           maxRadius: 40, color, ttl: 30, width: 3,
+         });
+         const labelMap = {
+           fortress: '⚠ FORTRESS DEPLOYED',
+           bunker: '⚠ BUNKER DEPLOYED',
+           cruiser_e: '⚠ CRUISER (E) DEPLOYED',
+           cruiser_w: '⚠ CRUISER (W) DEPLOYED',
+         };
+         this.renderer.addBigFloater(cx, cy - 2,
+           labelMap[kind] || '⚠ BASE DEPLOYED', color, 1.3);
+         this.renderer.addParticleBurst(cx, cy, {
+           count: 18,
+           colors: [color, '#ffaa00', '#ffffff'],
+           speed: 1.8,
+           ttl: 32,
+           size: 2.6,
+           glow: 10,
+         });
+       } catch (e) {
+         Logger.error('onBaseSpawn handler failed.', e);
+       }
+     };
+     this.missiles.onBaseDestroyed = (cx, cy, kind) => {
+       try {
+         const scoreMap = {
+           fortress: 600, bunker: 350,
+           cruiser_e: 450, cruiser_w: 450,
+         };
+         const score = scoreMap[kind] || 400;
+         this.hud.addScore(score);
+         if (!this.renderer) return;
+         this.renderer.addBigFloater(cx, cy,
+           `BASE DOWN! +${score}`, '#ffff44', 1.8);
+         this.renderer.addShockwave(cx, cy, {
+           maxRadius: 70, color: '#ffff44', ttl: 38, width: 3,
+         });
+         this.renderer.addParticleBurst(cx, cy, {
+           count: 55,
+           colors: ['#ffff66', '#ff8800', '#ffffff', '#ff0033'],
+           speed: 3.5,
+           ttl: 60,
+           size: 3.2,
+           glow: 12,
+           gravity: 0.05,
+         });
+         this.renderer.addShake(7, 28);
+       } catch (e) {
+         Logger.error('onBaseDestroyed handler failed.', e);
+       }
+     };
   }
 
   _wireInput() {
@@ -684,8 +855,27 @@ class Game {
   _initSpeedControls() {
     if (!this.speedSlider) return;
     // Slider value is an index into SPEED_PRESETS.
+    // Cap the max slider index based on grid size — small boards don't need
+    // ultra-high speeds, large boards benefit from them.
+    const cells = (CONFIG.GRID_WIDTH | 0) * (CONFIG.GRID_HEIGHT | 0);
+    let maxIdx = SPEED_PRESETS.length - 1;
+    if (cells < 12000) {
+      // Small boards: cap at 16x (index of 'Hyper 16x').
+      const idx16 = SPEED_PRESETS.findIndex(p => p.value === 16.0);
+      if (idx16 >= 0) maxIdx = idx16;
+    } else if (cells < 30000) {
+      // Medium boards: cap at 32x.
+      const idx32 = SPEED_PRESETS.findIndex(p => p.value === 32.0);
+      if (idx32 >= 0) maxIdx = idx32;
+    } else if (cells < 60000) {
+      // Large boards: cap at 64x.
+      const idx64 = SPEED_PRESETS.findIndex(p => p.value === 64.0);
+      if (idx64 >= 0) maxIdx = idx64;
+    }
+    // XL+ boards: full range.
+    this._maxSpeedIdx = maxIdx;
     this.speedSlider.min = '0';
-    this.speedSlider.max = String(SPEED_PRESETS.length - 1);
+    this.speedSlider.max = String(maxIdx);
     this.speedSlider.step = '1';
     // Default to "1x" preset.
     const defaultIdx = SPEED_PRESETS.findIndex(p => p.value === 1.0);
@@ -695,7 +885,8 @@ class Game {
   }
 
   _applySpeedFromSlider() {
-    const idx = Math.max(0, Math.min(SPEED_PRESETS.length - 1,
+    const maxIdx = (this._maxSpeedIdx != null) ? this._maxSpeedIdx : (SPEED_PRESETS.length - 1);
+    const idx = Math.max(0, Math.min(maxIdx,
       parseInt(this.speedSlider.value, 10) || 0));
     const preset = SPEED_PRESETS[idx];
     CONFIG.SPEED_MULTIPLIER = preset.value;
@@ -704,7 +895,8 @@ class Game {
 
   _setSpeedIndex(idx) {
     if (!this.speedSlider) return;
-    const clamped = Math.max(0, Math.min(SPEED_PRESETS.length - 1, idx));
+    const maxIdx = (this._maxSpeedIdx != null) ? this._maxSpeedIdx : (SPEED_PRESETS.length - 1);
+    const clamped = Math.max(0, Math.min(maxIdx, idx));
     this.speedSlider.value = String(clamped);
     this._applySpeedFromSlider();
   }
@@ -724,6 +916,8 @@ class Game {
       }
       // If the guide is open, swallow other game hotkeys.
       if (this.guidePanel && this.guidePanel.isVisible()) return;
+       // If the help guide is open, swallow other game hotkeys.
+       if (this.helpGuidePanel && this.helpGuidePanel.isVisible()) return;
       // ESC: universal close/cancel — close settings, hide help overlay,
       // cancel an active draw, or close menu overlay if in-game.
       if (e.key === 'Escape') {
@@ -737,14 +931,19 @@ class Game {
           this.settingsPanel.hide();
           return;
         }
+         if (this.helpGuidePanel && this.helpGuidePanel.isVisible()) {
+           e.preventDefault();
+           this.helpGuidePanel.hide();
+           return;
+         }
         if (this.input && this.input.drawing) {
           e.preventDefault();
           this.input.cancelDrawing();
           return;
         }
       }
-      // ? or H: show/hide hotkey help overlay.
-      if (e.key === '?' || e.key === 'h' || e.key === 'H') {
+       // ?: show/hide hotkey help overlay.
+       if (e.key === '?') {
         e.preventDefault();
         this._toggleHotkeyHelp();
         return;
@@ -780,7 +979,8 @@ class Game {
       // Digit hotkeys (no shift): 0..(N-1) map to speed preset index.
       if (!e.shiftKey && /^[0-9]$/.test(e.key)) {
         const digit = parseInt(e.key, 10);
-        if (digit < SPEED_PRESETS.length) this._setSpeedIndex(digit);
+        const maxIdx = (this._maxSpeedIdx != null) ? this._maxSpeedIdx : (SPEED_PRESETS.length - 1);
+        if (digit <= maxIdx) this._setSpeedIndex(digit);
         return;
       }
       // C: Clear defenses.
@@ -812,6 +1012,12 @@ class Game {
         this.guidePanel.toggle();
         return;
       }
+       // H: Toggle the how-to-play / README guide.
+       if (e.key === 'h' || e.key === 'H') {
+         e.preventDefault();
+         this.helpGuidePanel.toggle();
+         return;
+       }
       // S: Open in-play settings (when enabled).
       if (e.key === 's' || e.key === 'S') {
         if (CONFIG.IN_PLAY_SETTINGS_ENABLED &&
@@ -847,6 +1053,12 @@ class Game {
         }
         return;
       }
+     // F11: toggle fullscreen.
+     if (e.key === 'F11') {
+       e.preventDefault();
+       toggleFullscreen();
+       return;
+     }
     });
   }
 
@@ -872,7 +1084,8 @@ class Game {
            <div class="hk-row"><kbd>L</kbd><span>Line mode</span></div>
            <div class="hk-row"><kbd>P</kbd><span>Pattern mode</span></div>
            <div class="hk-row"><kbd>R</kbd><span>Rotate pattern</span></div>
-           <div class="hk-row"><kbd>X</kbd><span>Flip pattern</span></div>
+           <div class="hk-row"><kbd>X</kbd><span>Flip pattern horizontally</span></div>
+           <div class="hk-row"><kbd>Y</kbd><span>Flip pattern vertically</span></div>
            <div class="hk-row"><kbd>+</kbd> <kbd>=</kbd><span>Wider brush</span></div>
            <div class="hk-row"><kbd>-</kbd><span>Narrower brush</span></div>
          </div>
@@ -890,7 +1103,8 @@ class Game {
            <h3>Menus</h3>
            <div class="hk-row"><kbd>Enter</kbd><span>Start game (from menu)</span></div>
            <div class="hk-row"><kbd>G</kbd> <kbd>F1</kbd><span>Hacking guide</span></div>
-           <div class="hk-row"><kbd>?</kbd> <kbd>H</kbd><span>This help</span></div>
+          <div class="hk-row"><kbd>H</kbd><span>How to Play guide</span></div>
+          <div class="hk-row"><kbd>?</kbd><span>This hotkey help</span></div>
          </div>
        </div>
        <p class="hk-hint">Press <kbd>?</kbd> or <kbd>Esc</kbd> to close.</p>
@@ -941,6 +1155,10 @@ class Game {
   openGuide() {
     this.guidePanel.show();
   }
+   openHelpGuide() {
+     this.helpGuidePanel.show();
+   }
+
 
   // Open settings from within a running game. Pauses the simulation
   // while open; restores prior speed when closed.
@@ -984,6 +1202,8 @@ class Game {
   startGame() {
     Logger.info('Starting game.');
     Sfx.waveStart();
+     // Acquire wake lock so the screen stays on during gameplay.
+     requestWakeLock();
     // Apply any pending settings (may have changed resolution / gliders).
     this.settings.apply();
     // If resolution changed since last build, rebuild world.
@@ -993,6 +1213,8 @@ class Game {
       this._fitCellSize();
       this._buildWorld();
       this.renderer.setGrid(this.grid);
+      // Re-init speed controls for the new board size.
+      this._initSpeedControls();
     }
     this.defenses.maxInk = CONFIG.MAX_INK;
     this.grid.cells.fill(0);
@@ -1062,6 +1284,7 @@ class Game {
   gameOver() {
     this.gameState.set(STATE.GAME_OVER);
     Sfx.gameOver();
+     releaseWakeLock();
     Logger.info(`Game over. Score=${this.hud.score}, wave=${this.hud.wave}, high=${this.hud.highScore}.`);
     this.showOverlay('Game Over',
       `All cities destroyed!<br><br>
@@ -1221,6 +1444,11 @@ class Game {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+   // PWA bootstrap (runs independently of game init).
+   registerServiceWorker();
+   initInstallPrompt();
+   initNetworkIndicator();
+
   // Global error nets. Browsers will already log these, but routing them
   // through our logger keeps consistent formatting and lets us filter.
   window.addEventListener('error', (ev) => {
@@ -1231,6 +1459,11 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   try {
     new Game();
+     // Auto-start if launched via shortcut (?autostart=1).
+     checkAutoStart(() => {
+       const btn = document.getElementById('start-button');
+       if (btn) btn.click();
+     });
   } catch (e) {
     Logger.error('Fatal error during Game construction.', e);
     const overlay = document.getElementById('overlay');

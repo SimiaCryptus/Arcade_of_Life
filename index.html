@@ -1,247 +1,489 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Missile Defense - Game of Life</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="yes" name="mobile-web-app-capable">
+    <meta content="yes" name="apple-mobile-web-app-capable">
+    <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style">
+    <meta content="Arcade of Life" name="apple-mobile-web-app-title">
+    <meta content="#00ffff" name="theme-color">
+    <meta content="Defend your cities from incoming missiles using Conway's Game of Life!" name="description">
+    <meta content="The Arcade of Life" property="og:title">
+    <meta content="A Conway's Game of Life missile-defense game. Draw patterns to defend your cities!"
+          property="og:description">
+    <meta content="website" property="og:type">
+    <title>The Arcade of Life</title>
+    <link href="/manifest.json" rel="manifest">
+    <link href="/icons/icon-192.png" rel="apple-touch-icon">
+    <link href="/icons/icon-96.png" rel="icon" sizes="32x32" type="image/png">
+    <link href="style.css" rel="stylesheet">
 </head>
 <body>
 <div id="game-container">
-  <canvas id="game-canvas"></canvas>
-  <div id="speed-control">
-    <label for="speed-slider" id="speed-control-label">Speed:</label>
-    <input type="range" id="speed-slider" min="0" max="7" step="1" value="3">
-    <span id="speed-label">1x</span>
-    <button id="clear-defenses-button" title="Clear all defense cells and refund ink">Clear Defenses</button>
-     <button id="ingame-settings-button" title="Open settings (pauses game) [S]">⚙ Settings</button>
-    <button id="help-button" title="Open the Console Hacking Guide (pauses game)">Guide</button>
-     <span id="speed-hint">[Space=pause, [ ] slow/fast, 0–7 speed, C clear, Z undo, S settings, M mute, ? help]</span>
-  </div>
-  <div id="draw-tools">
-    <div class="tool-group">
-      <label>Mode:</label>
-      <button class="mode-btn active" data-mode="freehand" title="Freehand draw (F)">Freehand</button>
-      <button class="mode-btn" data-mode="line" title="Straight line (L)">Line</button>
-      <button class="mode-btn" data-mode="pattern" title="Pattern stamp (P)">Pattern</button>
+    <canvas id="game-canvas"></canvas>
+    <div id="speed-control">
+        <label for="speed-slider" id="speed-control-label">Speed:</label>
+        <input id="speed-slider" max="7" min="0" step="1" type="range" value="3">
+        <span id="speed-label">1x</span>
+        <button id="clear-defenses-button" title="Clear all defense cells and refund ink">Clear Defenses</button>
+        <button id="ingame-settings-button" title="Open settings (pauses game) [S]">⚙ Settings</button>
+        <button id="howtoplay-ingame-button" title="Open How to Play guide [H]">Help</button>
+        <button id="help-button" title="Open the Console Hacking Guide (pauses game)">Guide</button>
+        <button id="fullscreen-button" title="Toggle fullscreen [F11]">⛶</button>
+        <span id="speed-hint">[Space=pause, [ ] slow/fast, 0–7 speed, C clear, Z undo, S settings, M mute, H help, ? hotkeys]</span>
     </div>
-    <div class="tool-group" id="line-tools">
-      <label for="line-width">Width:</label>
-      <input type="range" id="line-width" min="1" max="8" step="1" value="1">
-      <span id="line-width-label">1</span>
-      <label for="line-dash">Dash:</label>
-      <select id="line-dash">
-        <option value="solid">Solid</option>
-        <option value="dashed">Dashed</option>
-        <option value="dotted">Dotted</option>
-        <option value="sparse">Sparse</option>
-      </select>
+    <div id="draw-tools">
+        <div class="tool-group">
+            <label>Mode:</label>
+            <button class="mode-btn active" data-mode="freehand" title="Freehand draw (F)">Freehand</button>
+            <button class="mode-btn" data-mode="line" title="Straight line (L)">Line</button>
+            <button class="mode-btn" data-mode="pattern" title="Pattern stamp (P)">Pattern</button>
+        </div>
+        <div class="tool-group" id="line-tools">
+            <label for="line-width">Width:</label>
+            <input id="line-width" max="8" min="1" step="1" type="range" value="1">
+            <span id="line-width-label">1</span>
+            <label for="line-dash">Dash:</label>
+            <select id="line-dash">
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+                <option value="sparse">Sparse</option>
+            </select>
+        </div>
+        <div class="tool-group" id="pattern-tools">
+            <label>Pattern:</label>
+            <canvas height="120" id="pattern-editor" width="120"></canvas>
+            <div class="pattern-buttons">
+                <select id="pattern-presets" title="Load a preset pattern">
+                    <option value="">-- Preset --</option>
+                    <option value="glider">Glider</option>
+                    <option value="blinker">Blinker</option>
+                    <option value="block">Block</option>
+                    <option value="lwss">LWSS</option>
+                    <option value="rpentomino">R-Pentomino</option>
+                    <option value="acorn">Acorn</option>
+                    <option value="toad">Toad</option>
+                    <option value="beacon">Beacon</option>
+                </select>
+                <button id="pattern-clear">Clear</button>
+            </div>
+            <span class="tool-hint">Click cells to toggle. R=rotate, X=flip H, Y=flip V.</span>
+        </div>
+        <span class="tool-hint">[F/L/P mode, Tab cycle, R rotate, X flip H, Y flip V, +/- width, Shift+1-8 preset]</span>
     </div>
-    <div class="tool-group" id="pattern-tools">
-      <label>Pattern:</label>
-      <canvas id="pattern-editor" width="120" height="120"></canvas>
-      <div class="pattern-buttons">
-        <select id="pattern-presets" title="Load a preset pattern">
-          <option value="">-- Preset --</option>
-          <option value="glider">Glider</option>
-          <option value="blinker">Blinker</option>
-          <option value="block">Block</option>
-          <option value="lwss">LWSS</option>
-          <option value="rpentomino">R-Pentomino</option>
-          <option value="acorn">Acorn</option>
-          <option value="toad">Toad</option>
-          <option value="beacon">Beacon</option>
-        </select>
-        <button id="pattern-clear">Clear</button>
-      </div>
-      <span class="tool-hint">Click cells to toggle. R=rotate.</span>
+    <div class="overlay hidden" id="overlay">
+        <div id="overlay-content">
+            <h1 id="overlay-title">The Arcade of Life</h1>
+            <p id="overlay-message">
+                Defend your cities from incoming missiles!<br>
+                Draw defensive patterns on the bottom half of the screen.<br>
+                Released cells evolve via Conway's Game of Life.<br><br>
+                <strong>Click and drag</strong> to draw defenses.<br>
+                Release to commit them to the simulation.
+            </p>
+            <button id="start-button">Start Game</button>
+            <button id="settings-button">Settings</button>
+            <button id="howtoplay-button">How to Play</button>
+            <button id="guide-button">Console Hacking Guide</button>
+            <div class="overlay-footer">
+                <a class="github-link" href="https://github.com/SimiaCryptus/Arcade_of_Life" rel="noopener noreferrer"
+                   target="_blank">
+                    <svg class="github-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                              fill="currentColor"/>
+                    </svg>
+                    View Source on GitHub
+                </a>
+            </div>
+        </div>
     </div>
-    <span class="tool-hint">[F/L/P mode, Tab cycle, R rotate, X flip, +/- width, Shift+1-8 preset]</span>
-  </div>
-  <div id="overlay" class="overlay hidden">
-    <div id="overlay-content">
-      <h1 id="overlay-title">Missile Defense</h1>
-      <p id="overlay-message">
-        Defend your cities from incoming missiles!<br>
-        Draw defensive patterns on the bottom half of the screen.<br>
-        Released cells evolve via Conway's Game of Life.<br><br>
-        <strong>Click and drag</strong> to draw defenses.<br>
-        Release to commit them to the simulation.
-      </p>
-      <button id="start-button">Start Game</button>
-      <button id="settings-button">Settings</button>
-      <button id="guide-button">Console Hacking Guide</button>
+    <div class="overlay hidden" id="settings-overlay">
+        <div id="overlay-content">
+            <h1 id="overlay-title">Settings</h1>
+            <div id="settings-tabs">
+                <button class="settings-tab active" data-tab="gameplay">🎮 Gameplay</button>
+                <button class="settings-tab" data-tab="enemies">🚀 Enemies</button>
+                <button class="settings-tab" data-tab="drawing">✏️ Drawing</button>
+                <button class="settings-tab" data-tab="abilities">⚡ Abilities</button>
+                <button class="settings-tab" data-tab="display">🖥️ Display</button>
+                <button class="settings-tab" data-tab="advanced">⚙️ Advanced</button>
+            </div>
+            <div id="settings-list">
+
+                <!-- ===== GAMEPLAY TAB ===== -->
+                <div class="settings-tab-panel active" data-panel="gameplay">
+                    <div class="setting-row">
+                        <label for="setting-game-mode">Game Mode Preset</label>
+                        <select class="setting-select" id="setting-game-mode"></select>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                    <div class="setting-row">
+                        <label>&nbsp;</label>
+                        <p id="setting-game-mode-desc"
+                           style="font-size:12px;color:#a0a0c0;font-style:italic;margin:0;grid-column:2/4;"></p>
+                        <span></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-resolution">Resolution</label>
+                        <select class="setting-select" id="setting-resolution"></select>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                    <div class="setting-row" id="setting-custom-res-row" style="display:none;">
+                        <label>Custom Grid (W × H)</label>
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input id="setting-custom-w" max="800" min="60" step="10"
+                                   style="width:70px;background:#0a0a20;color:#e0e0ff;border:1px solid #4040a0;padding:4px;font-family:inherit;border-radius:3px;"
+                                   type="number"
+                                   value="160">
+                            <span style="color:#a0a0c0;">×</span>
+                            <input id="setting-custom-h" max="600" min="40" step="10"
+                                   style="width:70px;background:#0a0a20;color:#e0e0ff;border:1px solid #4040a0;padding:4px;font-family:inherit;border-radius:3px;"
+                                   type="number"
+                                   value="100">
+                        </div>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-city-count">City Count</label>
+                        <input id="setting-city-count" max="10" min="1" step="1" type="range">
+                        <span class="setting-value" id="setting-city-count-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-ink">Starting Ink</label>
+                        <input id="setting-ink" max="500" min="50" step="10" type="range">
+                        <span class="setting-value" id="setting-ink-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-max-ink">Max Ink</label>
+                        <input id="setting-max-ink" max="800" min="100" step="10" type="range">
+                        <span class="setting-value" id="setting-max-ink-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-ink-regen">Ink Regen / Tick</label>
+                        <input id="setting-ink-regen" max="3" min="0" step="0.1" type="range">
+                        <span class="setting-value" id="setting-ink-regen-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-clear-refund">Clear Defenses Refund</label>
+                        <input id="setting-clear-refund" max="1" min="0" step="0.05" type="range">
+                        <span class="setting-value" id="setting-clear-refund-value"></span>
+                    </div>
+                    <div class="setting-row setting-row-checks">
+                        <label>Friendly Fire</label>
+                        <div class="setting-checkboxes">
+                            <label><input id="setting-hardcore" type="checkbox"> Defenses damage cities
+                                (Hardcore)</label>
+                        </div>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                </div><!-- /gameplay -->
+
+                <!-- ===== ENEMIES TAB ===== -->
+                <div class="settings-tab-panel" data-panel="enemies">
+                    <div class="setting-row setting-row-checks">
+                        <label>Glider Types</label>
+                        <div class="setting-checkboxes">
+                            <label><input id="setting-glider-se" type="checkbox"> R-Glider (SE) — classic</label>
+                            <label><input id="setting-glider-sw" type="checkbox"> L-Glider (SW) — mirrored</label>
+                            <label><input id="setting-glider-heavy" type="checkbox"> Target Emplacements — stationary
+                                spawners</label>
+                            <label><input id="setting-glider-lwss" type="checkbox"> Lightweight Spaceship (LWSS)</label>
+                            <label><input id="setting-glider-mwss" type="checkbox"> Middleweight Spaceship
+                                (MWSS)</label>
+                            <label><input id="setting-glider-twin" type="checkbox"> Twin Glider Formation</label>
+                            <label><input id="setting-glider-gun" type="checkbox"> ⚠ Gosper Glider Gun (RARE &amp;
+                                DEADLY)</label>
+                        </div>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-missiles-base">Missiles / Wave (base)</label>
+                        <input id="setting-missiles-base" max="30" min="1" step="1" type="range">
+                        <span class="setting-value" id="setting-missiles-base-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-missiles-inc">Missiles / Wave (increment)</label>
+                        <input id="setting-missiles-inc" max="10" min="0" step="1" type="range">
+                        <span class="setting-value" id="setting-missiles-inc-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-spawn-interval">Spawn Interval (ms)</label>
+                        <input id="setting-spawn-interval" max="3000" min="200" step="50" type="range">
+                        <span class="setting-value" id="setting-spawn-interval-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-spawn-decrement">Speed-up / Wave (ms)</label>
+                        <input id="setting-spawn-decrement" max="200" min="0" step="5" type="range">
+                        <span class="setting-value" id="setting-spawn-decrement-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-spawn-min">Min Spawn Interval (ms)</label>
+                        <input id="setting-spawn-min" max="2000" min="100" step="50" type="range">
+                        <span class="setting-value" id="setting-spawn-min-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-missile-age">Missile Max Age (ticks)</label>
+                        <input id="setting-missile-age" max="1000" min="20" step="10" type="range">
+                        <span class="setting-value" id="setting-missile-age-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-cascade-ticks">Cascade Window (ticks)</label>
+                        <input id="setting-cascade-ticks" max="100" min="0" step="1" type="range">
+                        <span class="setting-value" id="setting-cascade-ticks-value"></span>
+                    </div>
+                    <div class="setting-section-header">Enemy Bases</div>
+                    <div class="setting-row setting-row-checks">
+                        <label>Base Spawning</label>
+                        <div class="setting-checkboxes">
+                            <label><input id="setting-base-spawn-enabled" type="checkbox"> Spawn destructible bases each
+                                wave</label>
+                        </div>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-base-zone">Base Zone Height (rows)</label>
+                        <input id="setting-base-zone" max="20" min="0" step="1" type="range">
+                        <span class="setting-value" id="setting-base-zone-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-base-count-base">Bases / Wave (base)</label>
+                        <input id="setting-base-count-base" max="6" min="0" step="1" type="range">
+                        <span class="setting-value" id="setting-base-count-base-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-base-count-inc">Bases / Wave (increment)</label>
+                        <input id="setting-base-count-inc" max="2" min="0" step="0.1" type="range">
+                        <span class="setting-value" id="setting-base-count-inc-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-base-max">Max Bases (cap)</label>
+                        <input id="setting-base-max" max="12" min="1" step="1" type="range">
+                        <span class="setting-value" id="setting-base-max-value"></span>
+                    </div>
+                </div><!-- /enemies -->
+
+                <!-- ===== DRAWING TAB ===== -->
+                <div class="settings-tab-panel" data-panel="drawing">
+                    <div class="setting-row">
+                        <label for="setting-ink-dry">Ink Drying Time (ticks)</label>
+                        <input id="setting-ink-dry" max="30" min="0" step="1" type="range">
+                        <span class="setting-value" id="setting-ink-dry-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-draw-zone">Draw Zone Size</label>
+                        <input id="setting-draw-zone" max="0.8" min="0.2" step="0.05" type="range">
+                        <span class="setting-value" id="setting-draw-zone-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-rear-zone">Rear Dead Zone (rows)</label>
+                        <input id="setting-rear-zone" max="10" min="0" step="1" type="range">
+                        <span class="setting-value" id="setting-rear-zone-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-cell-age">Defense Cell Max Age (ticks)</label>
+                        <input id="setting-cell-age" max="1000" min="20" step="10" type="range">
+                        <span class="setting-value" id="setting-cell-age-value"></span>
+                    </div>
+                    <div class="setting-row setting-row-checks">
+                        <label>Draw Zone Display</label>
+                        <div class="setting-checkboxes">
+                            <label><input id="setting-show-draw-zone" type="checkbox"> Show drawable area
+                                indicator</label>
+                        </div>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                </div><!-- /drawing -->
+
+                <!-- ===== ABILITIES TAB ===== -->
+                <div class="settings-tab-panel" data-panel="abilities">
+                    <p class="settings-tab-desc">Choose which abilities are available in free-play mode. In Story Mode,
+                        abilities are unlocked via perk selection.</p>
+                    <div class="setting-section-header">Passive Abilities</div>
+                    <div class="setting-row setting-row-checks">
+                        <label>&nbsp;</label>
+                        <div class="setting-checkboxes">
+                            <label><input id="setting-ability-double-score" type="checkbox"> ⭐ Combat Bonuses — +50%
+                                score from kills</label>
+                            <label><input id="setting-ability-no-dry" type="checkbox"> ⚡ Instant Set — ink commits with
+                                no drying delay</label>
+                            <label><input id="setting-ability-wave-bonus" type="checkbox"> 💰 Veteran Pay — +30 ink at
+                                wave start</label>
+                            <label><input id="setting-ability-safe-zone" type="checkbox"> 🛡 Demilitarized Zone —
+                                disables friendly fire</label>
+                            <label><input id="setting-ability-slow-missiles" type="checkbox"> 🐢 Atmospheric Drag —
+                                missiles spawn 20% slower</label>
+                        </div>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                    <div class="setting-section-header">Active Abilities <span class="setting-section-note">(triggered via Q / W / E hotkeys)</span>
+                    </div>
+                    <div class="setting-row setting-row-checks">
+                        <label>&nbsp;</label>
+                        <div class="setting-checkboxes">
+                            <label><input id="setting-ability-emp-burst" type="checkbox"> 💥 EMP Burst — vaporize all
+                                missiles (30s cooldown)</label>
+                            <label><input id="setting-ability-ink-surge" type="checkbox"> 🎁 Ink Surge — refill +200 ink
+                                instantly (20s cooldown)</label>
+                            <label><input id="setting-ability-freeze" type="checkbox"> ⏱ Time Stop — freeze enemies for
+                                5s (45s cooldown)</label>
+                        </div>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                </div><!-- /abilities -->
+
+                <!-- ===== DISPLAY TAB ===== -->
+                <div class="settings-tab-panel" data-panel="display">
+                    <div class="setting-row">
+                        <label for="setting-resolution">Resolution Preset</label>
+                        <!-- resolution select is duplicated here for convenience; JS syncs both -->
+                        <select class="setting-select" id="setting-resolution-display"></select>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                    <p class="settings-tab-desc" style="margin:4px 0 12px;">
+                        Cell size is computed automatically to fit your window. Use the Resolution preset to change grid
+                        density.
+                    </p>
+                    <div class="setting-row setting-row-checks">
+                        <label>Draw Zone</label>
+                        <div class="setting-checkboxes">
+                            <label><input id="setting-show-draw-zone-display" type="checkbox"> Show drawable area
+                                boundary &amp; tint</label>
+                        </div>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                    <div class="setting-section-header">About</div>
+                    <div class="settings-about">
+                        <p>The Arcade of Life — a Conway's Game of Life missile-defense game.</p>
+                        <p>
+                            <a class="github-link-inline" href="https://github.com/SimiaCryptus/Arcade_of_Life"
+                               rel="noopener noreferrer" target="_blank">
+                                <svg class="github-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                                          fill="currentColor"/>
+                                </svg>
+                                github.com/SimiaCryptus/Arcade_of_Life
+                            </a>
+                        </p>
+                        <p>Open source — contributions welcome!</p>
+                    </div>
+                </div><!-- /display -->
+
+                <!-- ===== ADVANCED TAB ===== -->
+                <div class="settings-tab-panel" data-panel="advanced">
+                    <p class="settings-tab-desc">These settings affect simulation internals. Changing them mid-game may
+                        cause unexpected behaviour.</p>
+                    <div class="setting-row">
+                        <label for="setting-tick-rate">Tick Rate (ms)</label>
+                        <input id="setting-tick-rate" max="300" min="40" step="10" type="range">
+                        <span class="setting-value" id="setting-tick-rate-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-defender-ticks"
+                               title="M in M:N timestep ratio. Higher = defenders evolve faster.">Defender Ticks
+                            (M)</label>
+                        <input id="setting-defender-ticks" max="8" min="1" step="1" type="range">
+                        <span class="setting-value" id="setting-defender-ticks-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-attacker-ticks"
+                               title="N in M:N timestep ratio. Higher = attackers evolve faster.">Attacker Ticks
+                            (N)</label>
+                        <input id="setting-attacker-ticks" max="8" min="1" step="1" type="range">
+                        <span class="setting-value" id="setting-attacker-ticks-value"></span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-cell-age-adv" title="Same as Drawing tab">Defense Cell Max Age
+                            (ticks)</label>
+                        <input id="setting-cell-age-adv" max="1000" min="20" step="10" type="range">
+                        <span class="setting-value" id="setting-cell-age-adv-value"></span>
+                    </div>
+                    <div class="setting-section-header">Simulation</div>
+                    <div class="setting-row setting-row-checks">
+                        <label>Hashlife Cache</label>
+                        <div class="setting-checkboxes">
+                            <label><input id="setting-hashlife" type="checkbox"> Enable Hashlife memoization (speeds up
+                                large static defense regions)</label>
+                        </div>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                    <div class="setting-row">
+                        <label for="setting-base-glider-buffer"
+                               title="Extra rows between base zone bottom and glider spawn row">Base↔Glider Buffer
+                            (rows)</label>
+                        <input id="setting-base-glider-buffer" max="12" min="1" step="1" type="range">
+                        <span class="setting-value" id="setting-base-glider-buffer-value"></span>
+                    </div>
+                    <div class="setting-section-header">Visual Effects</div>
+                    <div class="setting-row setting-row-checks">
+                        <label>Effects</label>
+                        <div class="setting-checkboxes">
+                            <label><input id="setting-vfx-particles" type="checkbox"> Particle bursts (explosions,
+                                plumes)</label>
+                            <label><input id="setting-vfx-shockwaves" type="checkbox"> Shockwave rings</label>
+                            <label><input id="setting-vfx-floaters" type="checkbox"> Floating text labels</label>
+                            <label><input id="setting-vfx-shake" type="checkbox"> Screen shake</label>
+                            <label><input id="setting-vfx-glow" type="checkbox"> Missile cell glow</label>
+                            <label><input id="setting-vfx-draw-zone-tint" type="checkbox"> Draw-zone tint &amp; boundary</label>
+                        </div>
+                        <span class="setting-value">&nbsp;</span>
+                    </div>
+                    <p class="settings-tab-desc" style="margin-top:16px;">
+                        <strong>Console access:</strong> Open browser DevTools and type <code>cheats.help()</code> for a
+                        full list of cheat commands, or <code>CONFIG</code> to inspect/mutate live settings.
+                    </p>
+                </div><!-- /advanced -->
+
+            </div><!-- /#settings-list -->
+            <div class="settings-buttons">
+                <button id="settings-reset-button">Reset to Defaults</button>
+                <button id="settings-back-button">Back</button>
+            </div>
+        </div>
     </div>
-  </div>
-  <div id="settings-overlay" class="overlay hidden">
-    <div id="overlay-content">
-      <h1 id="overlay-title">Settings</h1>
-      <div id="settings-list">
-        <div class="setting-row">
-          <label for="setting-resolution">Resolution</label>
-          <select id="setting-resolution" class="setting-select"></select>
-          <span class="setting-value">&nbsp;</span>
-        </div>
-        <div class="setting-row" id="setting-custom-res-row" style="display:none;">
-          <label>Custom Grid (W × H)</label>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <input type="number" id="setting-custom-w" min="60" max="800" step="10" value="160"
-                   style="width:70px;background:#0a0a20;color:#e0e0ff;border:1px solid #4040a0;padding:4px;font-family:inherit;border-radius:3px;">
-            <span style="color:#a0a0c0;">×</span>
-            <input type="number" id="setting-custom-h" min="40" max="600" step="10" value="100"
-                   style="width:70px;background:#0a0a20;color:#e0e0ff;border:1px solid #4040a0;padding:4px;font-family:inherit;border-radius:3px;">
-          </div>
-          <span class="setting-value">&nbsp;</span>
-        </div>
-        <div class="setting-row setting-row-checks">
-          <label>Enabled Glider Types</label>
-          <div class="setting-checkboxes">
-            <label><input type="checkbox" id="setting-glider-se"> R-Glider (SE)</label>
-            <label><input type="checkbox" id="setting-glider-sw"> L-Glider (SW)</label>
-            <label><input type="checkbox" id="setting-glider-heavy"> Heavy Descender</label>
-            <label><input type="checkbox" id="setting-glider-lwss"> Lightweight Spaceship</label>
-            <label><input type="checkbox" id="setting-glider-mwss"> Middleweight Spaceship</label>
-            <label><input type="checkbox" id="setting-glider-twin"> Twin Glider Formation</label>
-            <label><input type="checkbox" id="setting-glider-gun"> ⚠ Gosper Glider Gun (RARE)</label>
-          </div>
-          <span class="setting-value">&nbsp;</span>
-        </div>
-        <div class="setting-row setting-row-checks">
-           <label>Friendly Fire</label>
-          <div class="setting-checkboxes">
-            <label><input type="checkbox" id="setting-hardcore"> Defenses damage cities</label>
-          </div>
-          <span class="setting-value">&nbsp;</span>
-        </div>
-         <div class="setting-row setting-row-checks">
-           <label>Enabled Abilities</label>
-           <div class="setting-checkboxes">
-             <label><input type="checkbox" id="setting-ability-double-score"> ⭐ Combat Bonuses (+50% score)</label>
-             <label><input type="checkbox" id="setting-ability-no-dry"> ⚡ Instant Set (no ink drying)</label>
-             <label><input type="checkbox" id="setting-ability-wave-bonus"> 💰 Veteran Pay (+30 ink/wave)</label>
-             <label><input type="checkbox" id="setting-ability-safe-zone"> 🛡 Demilitarized Zone (no friendly fire)</label>
-             <label><input type="checkbox" id="setting-ability-slow-missiles"> 🐢 Atmospheric Drag (-20% missile speed)</label>
-             <label><input type="checkbox" id="setting-ability-emp-burst"> 💥 EMP Burst (active)</label>
-             <label><input type="checkbox" id="setting-ability-ink-surge"> 🎁 Ink Surge (active)</label>
-             <label><input type="checkbox" id="setting-ability-freeze"> ⏱ Time Stop (active)</label>
-           </div>
-           <span class="setting-value">&nbsp;</span>
-         </div>
-        <div class="setting-row">
-          <label for="setting-ink">Starting Ink</label>
-          <input type="range" id="setting-ink" min="50" max="500" step="10">
-          <span class="setting-value" id="setting-ink-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-max-ink">Max Ink</label>
-          <input type="range" id="setting-max-ink" min="100" max="800" step="10">
-          <span class="setting-value" id="setting-max-ink-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-ink-regen">Ink Regen / Tick</label>
-          <input type="range" id="setting-ink-regen" min="0" max="3" step="0.1">
-          <span class="setting-value" id="setting-ink-regen-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-tick-rate">Tick Rate (ms)</label>
-          <input type="range" id="setting-tick-rate" min="40" max="300" step="10">
-          <span class="setting-value" id="setting-tick-rate-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-defender-ticks" title="M in M:N timestep ratio. Higher = defenders evolve faster.">Defender Ticks (M)</label>
-          <input type="range" id="setting-defender-ticks" min="1" max="8" step="1">
-          <span class="setting-value" id="setting-defender-ticks-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-attacker-ticks" title="N in M:N timestep ratio. Higher = attackers evolve faster.">Attacker Ticks (N)</label>
-          <input type="range" id="setting-attacker-ticks" min="1" max="8" step="1">
-          <span class="setting-value" id="setting-attacker-ticks-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-missiles-base">Missiles / Wave (base)</label>
-          <input type="range" id="setting-missiles-base" min="1" max="30" step="1">
-          <span class="setting-value" id="setting-missiles-base-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-missiles-inc">Missiles / Wave (increment)</label>
-          <input type="range" id="setting-missiles-inc" min="0" max="10" step="1">
-          <span class="setting-value" id="setting-missiles-inc-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-spawn-interval">Missile Spawn Interval (ms)</label>
-          <input type="range" id="setting-spawn-interval" min="200" max="3000" step="50">
-          <span class="setting-value" id="setting-spawn-interval-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-spawn-decrement">Missile Speed-up / Wave (ms)</label>
-          <input type="range" id="setting-spawn-decrement" min="0" max="200" step="5">
-          <span class="setting-value" id="setting-spawn-decrement-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-spawn-min">Missile Spawn Min Interval (ms)</label>
-          <input type="range" id="setting-spawn-min" min="100" max="2000" step="50">
-          <span class="setting-value" id="setting-spawn-min-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-cell-age">Cell Max Age (ticks)</label>
-          <input type="range" id="setting-cell-age" min="20" max="1000" step="10">
-          <span class="setting-value" id="setting-cell-age-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-missile-age">Missile Max Age (ticks)</label>
-          <input type="range" id="setting-missile-age" min="20" max="1000" step="10">
-          <span class="setting-value" id="setting-missile-age-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-cascade-ticks">Missile Cascade Window (ticks)</label>
-          <input type="range" id="setting-cascade-ticks" min="0" max="100" step="1">
-          <span class="setting-value" id="setting-cascade-ticks-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-city-count">City Count</label>
-          <input type="range" id="setting-city-count" min="1" max="10" step="1">
-          <span class="setting-value" id="setting-city-count-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-clear-refund">Clear Defenses Refund</label>
-          <input type="range" id="setting-clear-refund" min="0" max="1" step="0.05">
-          <span class="setting-value" id="setting-clear-refund-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-ink-dry">Ink Drying Time (ticks)</label>
-          <input type="range" id="setting-ink-dry" min="0" max="30" step="1">
-          <span class="setting-value" id="setting-ink-dry-value"></span>
-        </div>
-        <div class="setting-row">
-          <label for="setting-draw-zone">Draw Zone Size</label>
-          <input type="range" id="setting-draw-zone" min="0.2" max="0.8" step="0.05">
-          <span class="setting-value" id="setting-draw-zone-value"></span>
-        </div>
-        <div class="setting-row setting-row-checks">
-          <label>Draw Zone Display</label>
-          <div class="setting-checkboxes">
-            <label><input type="checkbox" id="setting-show-draw-zone"> Show drawable area indicator</label>
-          </div>
-          <span class="setting-value">&nbsp;</span>
-        </div>
-      </div>
-      <div class="settings-buttons">
-        <button id="settings-reset-button">Reset to Defaults</button>
-        <button id="settings-back-button">Back</button>
-      </div>
-    </div>
-  </div>
 </div>
-<div id="guide-overlay" class="overlay hidden">
-  <div id="guide-content">
-    <h1 id="guide-title">Console Hacking Guide</h1>
-    <div id="guide-body">Loading…</div>
-    <div class="guide-buttons">
-      <button id="guide-close-button">Close</button>
+<div class="overlay hidden" id="guide-overlay">
+    <div id="guide-content">
+        <h1 id="guide-title">Console Hacking Guide</h1>
+        <div id="guide-body">Loading…</div>
+        <div class="guide-buttons">
+            <button id="guide-close-button">Close</button>
+            <a class="github-link" href="https://github.com/SimiaCryptus/Arcade_of_Life" rel="noopener noreferrer"
+               style="margin-left:12px;" target="_blank">
+                <svg class="github-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                          fill="currentColor"/>
+                </svg>
+                Source on GitHub
+            </a>
+        </div>
     </div>
-  </div>
+</div>
+<div class="overlay hidden" id="help-overlay">
+    <div id="help-content">
+        <h1 id="help-title">How to Play</h1>
+        <div id="help-body">Loading…</div>
+        <div class="guide-buttons">
+            <button id="help-close-button">Close</button>
+            <a class="github-link" href="https://github.com/SimiaCryptus/Arcade_of_Life" rel="noopener noreferrer"
+               style="margin-left:12px;" target="_blank">
+                <svg class="github-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                          fill="currentColor"/>
+                </svg>
+                Source on GitHub
+            </a>
+        </div>
+    </div>
 </div>
 <script src="src/marked.min.js"></script>
-<script type="module" src="src/main.js"></script>
+<script src="src/main.js" type="module"></script>
+<script type="module">
+    import { registerServiceWorker, initInstallPrompt, initNetworkIndicator } from '/src/pwa.js';
+    registerServiceWorker();
+    initInstallPrompt();
+    initNetworkIndicator();
+</script>
 </body>
 </html>

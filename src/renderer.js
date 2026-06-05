@@ -115,8 +115,9 @@ export class Renderer {
 
   // Trigger screen shake for `ticks` frames with given intensity in px.
   addShake(intensity, ticks) {
-    if (intensity > this.shakeIntensity) this.shakeIntensity = intensity;
-    if (ticks > this.shakeTime) this.shakeTime = ticks;
+     if (CONFIG.VFX_SCREEN_SHAKE === false) return;
+     if (intensity > this.shakeIntensity) this.shakeIntensity = intensity;
+     if (ticks > this.shakeTime) this.shakeTime = ticks;
   }
 
 
@@ -160,12 +161,28 @@ export class Renderer {
 
     // Draw the draw-zone boundary + a subtle tint over the drawable area.
     const dzMinY = this.grid.drawZoneMinY();
+     const dzMaxY = this.grid.drawZoneMaxY();
     const midY = dzMinY * cs + gridYOffset;
-    if (CONFIG.SHOW_DRAW_ZONE !== false) {
+     const rearY = this.grid.rearDeadZoneMinY() * cs + gridYOffset;
+     // Base zone band (between top dead zone and missile spawn line).
+     const bz = this.grid.baseZoneBounds();
+   if (CONFIG.SHOW_DRAW_ZONE !== false && CONFIG.VFX_DRAW_ZONE_TINT !== false) {
       // Subtle background tint for the drawable region.
       ctx.fillStyle = colors.DRAW_ZONE_TINT || 'rgba(0,255,136,0.04)';
-      ctx.fillRect(0, midY, this.canvas.width,
-        this.grid.height * cs + gridYOffset - midY);
+       ctx.fillRect(0, midY, this.canvas.width, rearY - midY);
+       // Rear dead zone tint (red-ish "no man's land").
+       if (rearY < this.grid.height * cs + gridYOffset) {
+         ctx.fillStyle = 'rgba(255, 80, 80, 0.06)';
+         ctx.fillRect(0, rearY, this.canvas.width,
+           this.grid.height * cs + gridYOffset - rearY);
+       }
+       // Base zone tint (subtle amber).
+       if (bz) {
+         const bzY = bz.minY * cs + gridYOffset;
+         const bzH = (bz.maxY - bz.minY + 1) * cs;
+         ctx.fillStyle = 'rgba(255, 180, 60, 0.05)';
+         ctx.fillRect(0, bzY, this.canvas.width, bzH);
+       }
       // Pulsing boundary line.
       const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 400);
       ctx.save();
@@ -177,6 +194,29 @@ export class Renderer {
       ctx.moveTo(0, midY + 0.5);
       ctx.lineTo(this.canvas.width, midY + 0.5);
       ctx.stroke();
+       // Rear dead zone boundary line (red).
+       if (rearY < this.grid.height * cs + gridYOffset) {
+         ctx.strokeStyle = 'rgba(255, 80, 80, 0.5)';
+         ctx.beginPath();
+         ctx.moveTo(0, rearY + 0.5);
+         ctx.lineTo(this.canvas.width, rearY + 0.5);
+         ctx.stroke();
+       }
+       // Base zone boundary lines (amber, no dashes for differentiation).
+       if (bz) {
+         ctx.strokeStyle = 'rgba(255, 180, 60, 0.4)';
+         ctx.setLineDash([4, 4]);
+         const bzTop = bz.minY * cs + gridYOffset;
+         const bzBot = (bz.maxY + 1) * cs + gridYOffset;
+         ctx.beginPath();
+         ctx.moveTo(0, bzTop + 0.5);
+         ctx.lineTo(this.canvas.width, bzTop + 0.5);
+         ctx.stroke();
+         ctx.beginPath();
+         ctx.moveTo(0, bzBot + 0.5);
+         ctx.lineTo(this.canvas.width, bzBot + 0.5);
+         ctx.stroke();
+       }
       ctx.setLineDash([]);
       ctx.restore();
       // Small label on the left edge.
@@ -186,6 +226,15 @@ export class Renderer {
       ctx.textBaseline = 'bottom';
       ctx.textAlign = 'left';
       ctx.fillText('▼ DRAW ZONE', 4, midY - 2);
+       if (bz) {
+         ctx.fillStyle = 'rgba(255, 180, 60, 0.7)';
+         ctx.fillText('◆ BASE ZONE',
+           4, bz.minY * cs + gridYOffset - 2);
+       }
+       if (rearY < this.grid.height * cs + gridYOffset) {
+         ctx.fillStyle = 'rgba(255, 100, 100, 0.7)';
+         ctx.fillText('▲ REAR DEAD ZONE', 4, rearY - 2);
+       }
       ctx.restore();
     } else {
       // Fallback: just the old midline.
@@ -225,7 +274,7 @@ export class Renderer {
         }
         // For missile cells, add a subtle glow to maximize contrast
         // against defenses & background.
-        if (t === CELL_TYPE.MISSILE && cs >= 4) {
+   if (t === CELL_TYPE.MISSILE && cs >= 4 && CONFIG.VFX_CELL_GLOW !== false) {
           ctx.save();
           ctx.shadowColor = color;
           ctx.shadowBlur = Math.min(8, cs);
@@ -264,10 +313,11 @@ export class Renderer {
     // Draw preview overlay (pattern stamp hover / line drag preview).
     this._renderPreview(gridYOffset);
     // Render particles & shockwaves over cells but under floaters.
-    this._renderShockwaves();
-    this._renderParticles();
+   if (CONFIG.VFX_SHOCKWAVES !== false) this._renderShockwaves();
+   if (CONFIG.VFX_PARTICLES !== false) this._renderParticles();
     // Update + draw floaters (rising, fading text effects).
-    this._renderFloaters();
+   if (CONFIG.VFX_FLOATERS !== false) this._renderFloaters();
+   else this._tickFloatersOnly(); // still age them out even if not drawn
     ctx.restore();
 
 
@@ -366,15 +416,16 @@ export class Renderer {
   }
 
 
-  _renderFloaters() {
-    const ctx = this.ctx;
-    for (let i = this.floaters.length - 1; i >= 0; i--) {
+_renderFloaters() {
+      const ctx = this.ctx;
+      for (let i = this.floaters.length - 1; i >= 0; i--) {
       const f = this.floaters[i];
       f.ttl--;
       if (f.ttl <= 0) {
         this.floaters.splice(i, 1);
         continue;
       }
+     // (rendering code below)
       const t = f.ttl / f.maxTtl; // 1 -> 0
       const alpha = Math.min(1, t * 1.5);
       const yOff = (1 - t) * 30;
@@ -395,6 +446,13 @@ export class Renderer {
       ctx.restore();
     }
   }
+   // Age out floaters without drawing them (used when VFX_FLOATERS is off).
+   _tickFloatersOnly() {
+     for (let i = this.floaters.length - 1; i >= 0; i--) {
+       this.floaters[i].ttl--;
+       if (this.floaters[i].ttl <= 0) this.floaters.splice(i, 1);
+     }
+   }
 
   _renderHUD(hud) {
     const ctx = this.ctx;

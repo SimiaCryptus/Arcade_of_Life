@@ -61,6 +61,26 @@ export const CONFIG = {
   // have arrived via Game-of-Life evolution from below — i.e. "return fire".
   RETURN_FIRE_ZONE_MIN_Y: 0,
   RETURN_FIRE_ZONE_MAX_Y: 4,
+   // Player-side rear dead zone: rows near the BOTTOM where nothing is
+   // spawned and the player cannot draw. If MISSILE cells appear in this
+   // range, they slipped past defenses without hitting a city — registers
+   // as "BREACH!" event. Measured in rows from the very bottom of the
+   // grid (0 = no rear zone). Default 2 rows.
+   REAR_DEAD_ZONE_HEIGHT: 2,
+   // Base spawning zone: a band of rows BELOW the top dead zone but ABOVE
+   // the regular missile spawn line, where static "bases" and horizontal
+   // spaceships can spawn. Bases persist until the player destroys them.
+   // Wave is not complete until all bases are cleared.
+    BASE_ZONE_HEIGHT: 12,           // rows in the base zone (larger = more buffer from glider spawn)
+   BASE_SPAWN_ENABLED: true,       // master toggle for base spawning
+   BASE_SPAWN_COUNT_BASE: 1,       // bases per wave at wave 1
+   BASE_SPAWN_COUNT_INC: 0.5,      // additional bases per wave (rounded)
+   BASE_SPAWN_MAX: 6,              // hard cap on simultaneous bases
+   // Per-base-type spawn weights. Higher = more common. Set to 0 to disable.
+   BASE_TYPE_FORTRESS: 1.0,        // static block emplacement (emits gliders)
+   BASE_TYPE_BUNKER: 0.8,          // smaller static block
+   BASE_TYPE_CRUISER_E: 0.7,       // spaceship moving east (horizontal only)
+   BASE_TYPE_CRUISER_W: 0.7,       // spaceship moving west (horizontal only)
   // Hardcore mode: when enabled, the player's own defense cells damage cities
   // on contact, just like missiles do.
   HARDCORE_MODE: false,
@@ -86,11 +106,24 @@ export const CONFIG = {
   // - 'cpu' forces the bitpacked CPU path (best for tiny grids and debugging).
   // - 'gpu' forces WebGL2; throws & falls back if unsupported.
   SIM_BACKEND: 'auto',
+   // Hashlife memoization cache for pure-defense regions.
+   // Speeds up large boards with static defense lattices. Disable for debugging.
+   SIM_HASHLIFE_ENABLED: true,
   // Allow opening the Settings panel during active gameplay (via S hotkey
   // or the in-game gear button). When true, opening Settings mid-game
   // pauses the simulation; closing resumes it. When false, Settings is
   // only accessible from the main menu / game over screen.
   IN_PLAY_SETTINGS_ENABLED: true,
+   // Visual effects toggles. Disabling reduces GPU/CPU load on slow devices.
+   VFX_PARTICLES: true,       // particle bursts (explosions, plumes, sparks)
+   VFX_SHOCKWAVES: true,      // expanding ring shockwaves
+   VFX_FLOATERS: true,        // floating text labels (RETURN FIRE!, CITY HIT!, etc.)
+   VFX_SCREEN_SHAKE: true,    // screen shake on impacts
+   VFX_CELL_GLOW: true,       // per-cell glow on missile cells
+   VFX_DRAW_ZONE_TINT: true,  // draw-zone background tint & boundary line
+   // Minimum buffer rows between the base zone bottom and the glider spawn row.
+   // Increase this if bases and gliders are colliding on spawn.
+   BASE_GLIDER_BUFFER: 4,
 
 
   // Colors
@@ -145,6 +178,10 @@ export const SPEED_PRESETS = [
   {name: '4x', value: 4.0},
   {name: '8x', value: 8.0},
   {name: 'Hyper 16x', value: 16.0},
+  {name: 'Hyper 32x', value: 32.0},
+  {name: 'Hyper 64x', value: 64.0},
+  {name: 'Ultra 128x', value: 128.0},
+  {name: 'Ultra 256x', value: 256.0},
 ];
 
 // Cell type constants
@@ -156,3 +193,156 @@ export const CELL_TYPE = {
   EXPLOSION: 4,
   PENDING: 5,
 };
+/**
+  * Preset game modes. Each entry patches a subset of CONFIG keys.
+  * Applied via Settings.applyGameMode(id).
+  *
+  * Keys not listed in a preset are left at their current values so
+  * presets can be layered on top of custom settings.
+  */
+export const GAME_MODE_PRESETS = [
+   {
+     id: 'custom',
+     name: '— Custom —',
+     desc: 'Your current settings (no preset applied).',
+     patch: null,
+   },
+   {
+     id: 'tutorial',
+     name: '🌱 Tutorial',
+     desc: 'Very slow, generous ink, few enemies. Great for learning.',
+     patch: {
+       INITIAL_INK: 400, MAX_INK: 500, INK_REGEN_RATE: 1.2,
+       MISSILES_PER_WAVE_BASE: 2, MISSILES_PER_WAVE_INC: 1,
+       MISSILE_SPAWN_INTERVAL: 2200, MISSILE_SPAWN_MIN: 1200,
+       MISSILE_SPAWN_DECREMENT: 20,
+       GLIDER_SE: true, GLIDER_SW: false, GLIDER_HEAVY: false,
+       GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: false, GLIDER_GUN: false,
+       CELL_MAX_AGE_TICKS: 400, MISSILE_MAX_AGE_TICKS: 180,
+       INK_DRY_TICKS: 2, HARDCORE_MODE: false,
+       BASE_SPAWN_ENABLED: false,
+       CITY_COUNT: 5,
+     },
+   },
+   {
+     id: 'classic',
+     name: '🎮 Classic',
+     desc: 'Balanced default experience. SE + SW gliders, moderate pace.',
+     patch: {
+       INITIAL_INK: 200, MAX_INK: 300, INK_REGEN_RATE: 0.5,
+       MISSILES_PER_WAVE_BASE: 8, MISSILES_PER_WAVE_INC: 3,
+       MISSILE_SPAWN_INTERVAL: 800, MISSILE_SPAWN_MIN: 300,
+       MISSILE_SPAWN_DECREMENT: 75,
+       GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: false,
+       GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: false, GLIDER_GUN: false,
+       CELL_MAX_AGE_TICKS: 200, MISSILE_MAX_AGE_TICKS: 150,
+       INK_DRY_TICKS: 5, HARDCORE_MODE: false,
+       BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 1, BASE_SPAWN_COUNT_INC: 0.5,
+       CITY_COUNT: 5,
+     },
+   },
+   {
+     id: 'blitz',
+     name: '⚡ Blitz',
+     desc: 'Fast spawns, short-lived cells, high pressure. Reflexes required.',
+     patch: {
+       INITIAL_INK: 250, MAX_INK: 400, INK_REGEN_RATE: 1.6,
+       MISSILES_PER_WAVE_BASE: 12, MISSILES_PER_WAVE_INC: 4,
+       MISSILE_SPAWN_INTERVAL: 500, MISSILE_SPAWN_MIN: 200,
+       MISSILE_SPAWN_DECREMENT: 60,
+       GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: true,
+       GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: true, GLIDER_GUN: false,
+       CELL_MAX_AGE_TICKS: 120, MISSILE_MAX_AGE_TICKS: 90,
+       INK_DRY_TICKS: 2, HARDCORE_MODE: false,
+       BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 2, BASE_SPAWN_COUNT_INC: 0.75,
+       CITY_COUNT: 5,
+     },
+   },
+   {
+     id: 'armada',
+     name: '🛸 Armada',
+     desc: 'Spaceships and twin formations. Bigger patterns, more ink.',
+     patch: {
+       INITIAL_INK: 300, MAX_INK: 500, INK_REGEN_RATE: 1.0,
+       MISSILES_PER_WAVE_BASE: 6, MISSILES_PER_WAVE_INC: 2,
+       MISSILE_SPAWN_INTERVAL: 900, MISSILE_SPAWN_MIN: 400,
+       MISSILE_SPAWN_DECREMENT: 50,
+       GLIDER_SE: false, GLIDER_SW: false, GLIDER_HEAVY: false,
+       GLIDER_LWSS: true, GLIDER_MWSS: true, GLIDER_TWIN: true, GLIDER_GUN: false,
+       CELL_MAX_AGE_TICKS: 250, MISSILE_MAX_AGE_TICKS: 160,
+       INK_DRY_TICKS: 4, HARDCORE_MODE: false,
+       BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 1, BASE_SPAWN_COUNT_INC: 0.5,
+       CITY_COUNT: 5,
+     },
+   },
+   {
+     id: 'siege',
+     name: '🏰 Siege',
+     desc: 'Heavy bases dominate. Destroy them or be overwhelmed.',
+     patch: {
+       INITIAL_INK: 350, MAX_INK: 550, INK_REGEN_RATE: 1.3,
+       MISSILES_PER_WAVE_BASE: 5, MISSILES_PER_WAVE_INC: 2,
+       MISSILE_SPAWN_INTERVAL: 1000, MISSILE_SPAWN_MIN: 500,
+       MISSILE_SPAWN_DECREMENT: 40,
+       GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: true,
+       GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: false, GLIDER_GUN: false,
+       CELL_MAX_AGE_TICKS: 300, MISSILE_MAX_AGE_TICKS: 200,
+       INK_DRY_TICKS: 4, HARDCORE_MODE: false,
+       BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 3, BASE_SPAWN_COUNT_INC: 1.0,
+       BASE_SPAWN_MAX: 8,
+       CITY_COUNT: 5,
+     },
+   },
+   {
+     id: 'hardcore',
+     name: '💀 Hardcore',
+     desc: 'Friendly fire on. Your defenses can kill your own cities. Be precise.',
+     patch: {
+       INITIAL_INK: 180, MAX_INK: 280, INK_REGEN_RATE: 0.6,
+       MISSILES_PER_WAVE_BASE: 10, MISSILES_PER_WAVE_INC: 3,
+       MISSILE_SPAWN_INTERVAL: 700, MISSILE_SPAWN_MIN: 300,
+       MISSILE_SPAWN_DECREMENT: 60,
+       GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: true,
+       GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: false, GLIDER_GUN: false,
+       CELL_MAX_AGE_TICKS: 180, MISSILE_MAX_AGE_TICKS: 130,
+       INK_DRY_TICKS: 4, HARDCORE_MODE: true,
+       BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 2, BASE_SPAWN_COUNT_INC: 0.75,
+       CITY_COUNT: 4,
+     },
+   },
+   {
+     id: 'pacifist',
+     name: '🕊 Pacifist',
+     desc: 'Slow and contemplative. Long-lived cells, minimal pressure.',
+     patch: {
+       INITIAL_INK: 500, MAX_INK: 700, INK_REGEN_RATE: 2.0,
+       MISSILES_PER_WAVE_BASE: 3, MISSILES_PER_WAVE_INC: 1,
+       MISSILE_SPAWN_INTERVAL: 2000, MISSILE_SPAWN_MIN: 1000,
+       MISSILE_SPAWN_DECREMENT: 15,
+       GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: false,
+       GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: false, GLIDER_GUN: false,
+       CELL_MAX_AGE_TICKS: 600, MISSILE_MAX_AGE_TICKS: 300,
+       INK_DRY_TICKS: 1, HARDCORE_MODE: false,
+       BASE_SPAWN_ENABLED: false,
+       CITY_COUNT: 6,
+     },
+   },
+   {
+     id: 'chaos',
+     name: '🌀 Chaos',
+     desc: 'Everything enabled. Glider guns, spaceships, bases. Pure mayhem.',
+     patch: {
+       INITIAL_INK: 400, MAX_INK: 700, INK_REGEN_RATE: 2.0,
+       MISSILES_PER_WAVE_BASE: 15, MISSILES_PER_WAVE_INC: 5,
+       MISSILE_SPAWN_INTERVAL: 500, MISSILE_SPAWN_MIN: 200,
+       MISSILE_SPAWN_DECREMENT: 80,
+       GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: true,
+       GLIDER_LWSS: true, GLIDER_MWSS: true, GLIDER_TWIN: true, GLIDER_GUN: true,
+       CELL_MAX_AGE_TICKS: 200, MISSILE_MAX_AGE_TICKS: 120,
+       INK_DRY_TICKS: 2, HARDCORE_MODE: false,
+       BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 3, BASE_SPAWN_COUNT_INC: 1.0,
+       BASE_SPAWN_MAX: 8,
+       CITY_COUNT: 5,
+     },
+   },
+];

@@ -6,7 +6,7 @@
  */
 
 const LEVELS = {debug: 10, info: 20, warn: 30, error: 40, silent: 100};
-const PREFIX = '[MissileDefense]';
+const PREFIX = '[ArcadeOfLife]';
 
 let currentLevel = LEVELS.info;
 
@@ -63,5 +63,7 @@ export const Logger = {
 
 // Expose for ad-hoc debugging from the browser console.
 if (typeof window !== 'undefined') {
+  window.ArcadeOfLifeLogger = Logger;
+  // Back-compat alias.
   window.MissileDefenseLogger = Logger;
 }

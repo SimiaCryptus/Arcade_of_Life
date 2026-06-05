@@ -372,6 +372,11 @@ export class DrawToolsPanel {
           this.input.flipPatternH();
           this._drawEditor();
         }
+            } else if (e.key === 'y' || e.key === 'Y') {
+                if (this.input.mode === DRAW_MODE.PATTERN) {
+                    this.input.flipPatternV();
+                    this._drawEditor();
+                }
       } else if (e.key === 'Tab') {
         e.preventDefault();
         // Cycle through modes.

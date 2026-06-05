@@ -38,8 +38,47 @@ export class Grid {
   // value are drawable; cells above are off-limits.
   drawZoneMinY() {
     const frac = Math.max(0.2, Math.min(0.8, CONFIG.DRAW_ZONE_FRACTION || 0.5));
-    return Math.floor(this.height * (1 - frac));
+     const base = Math.floor(this.height * (1 - frac));
+     // Don't let the draw zone extend into the rear dead zone.
+     const rear = Math.max(0, CONFIG.REAR_DEAD_ZONE_HEIGHT | 0);
+     const maxAllowed = this.height - rear - 1;
+     return Math.min(base, Math.max(0, maxAllowed));
   }
+   // Row index where the draw zone ends (inclusive). Cells with y > this
+   // value are in the rear dead zone and off-limits.
+   drawZoneMaxY() {
+     const rear = Math.max(0, CONFIG.REAR_DEAD_ZONE_HEIGHT | 0);
+     return this.height - rear - 1;
+   }
+   // First row (inclusive) of the rear dead zone. Returns this.height if
+   // the rear zone has zero height.
+   rearDeadZoneMinY() {
+     const rear = Math.max(0, CONFIG.REAR_DEAD_ZONE_HEIGHT | 0);
+     return this.height - rear;
+   }
+   // Inclusive [minY, maxY] of the base spawning zone, which sits between
+   // the top dead zone and the regular missile spawn line. Returns null
+   // if there's no room for a base zone (very small grids).
+   baseZoneBounds() {
+     const top = Math.max(0, CONFIG.RETURN_FIRE_ZONE_MAX_Y | 0) + 1;
+     const height = Math.max(0, CONFIG.BASE_ZONE_HEIGHT | 0);
+     if (height <= 0) return null;
+     const minY = top;
+     const maxY = top + height - 1;
+     // Ensure we don't overlap the draw zone.
+     if (maxY >= this.drawZoneMinY()) return null;
+     return {minY, maxY};
+   }
+   // Row where regular gliders (missiles) spawn. Just below the base zone
+   // (or just below the top dead zone if base zone is disabled).
+   missileSpawnY() {
+     const bz = this.baseZoneBounds();
+      if (bz) {
+        const buffer = Math.max(1, CONFIG.BASE_GLIDER_BUFFER | 0);
+        return bz.maxY + buffer;
+      }
+     return Math.max(1, (CONFIG.RETURN_FIRE_ZONE_MAX_Y | 0) + 1);
+   }
 
 
   inBounds(x, y) {

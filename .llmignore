@@ -1,2 +1,5 @@
 src/marked.min.js
 console_guide.md
+.idea/
+*.md
+*.log

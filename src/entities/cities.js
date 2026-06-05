@@ -20,9 +20,13 @@ export class Cities {
     this.cities = [];
     // Wipe any leftover pending cells so freshly-placed cities aren't drawn over.
     this.grid.clearPending();
-    // Ensure cities are placed within the draw zone (below the boundary).
-    const dzMinY = this.grid.drawZoneMinY();
-    const cy = Math.max(dzMinY, this.grid.height - cityH - 1);
+     // Ensure cities are placed within the draw zone (below the boundary,
+     // above the rear dead zone).
+     const dzMinY = this.grid.drawZoneMinY();
+     const dzMaxY = this.grid.drawZoneMaxY();
+     // Place cities one row above the bottom of the draw zone.
+     let cy = dzMaxY - cityH;
+     if (cy < dzMinY) cy = dzMinY;
     for (let i = 0; i < count; i++) {
       const cx = spacing * (i + 1) - Math.floor(cityW / 2);
       const city = {x: cx, y: cy, width: cityW, height: cityH, alive: true};
