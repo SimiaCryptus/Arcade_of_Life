@@ -153,6 +153,7 @@ class PatternPreview {
     this.sim.stampCentered(pattern.cells);
     this._accumMs = 0;
     this._paused = false;
+    this._dragPaused = false;
     this.draw();
   }
 
@@ -174,6 +175,12 @@ class PatternPreview {
     this.reset();
   }
 
+  // Temporary "drag pause" — separate from user-toggled pause so we can
+  // restore the correct state when the drag ends.
+  setDragPaused(p) {
+    this._dragPaused = !!p;
+  }
+
   setSpeed(s) {
     this.speed = s;
   }
@@ -188,7 +195,7 @@ class PatternPreview {
   }
 
   update(dtMs) {
-    if (this._paused || this.speed <= 0) return;
+    if (this._paused || this._dragPaused || this.speed <= 0) return;
     this._accumMs += dtMs;
     const period = 1000 / this.speed;
     let ticks = 0;
@@ -227,12 +234,28 @@ class PatternPreview {
     // Cells with glow.
     ctx.fillStyle = '#00ff88';
     ctx.shadowColor = '#00ff88';
-    ctx.shadowBlur = Math.max(2, cs * 0.4);
     const cells = this.sim.cells;
+    // Adapt cell rendering to size so small cells stay visible.
+    // - For tiny cells (cs < 3), draw full cell with no inset and boost glow.
+    // - For medium cells, use a 1px inset.
+    // - For large cells, use the original 2px inset for a clean grid look.
+    let inset, drawSize;
+    if (cs < 3) {
+      inset = 0;
+      drawSize = Math.max(1, cs);
+    } else if (cs < 6) {
+      inset = 0.5;
+      drawSize = cs - 1;
+    } else {
+      inset = 1;
+      drawSize = cs - 2;
+    }
+    // Boost glow for small cells so they remain visible against the dark bg.
+    ctx.shadowBlur = cs < 4 ? Math.max(3, cs * 1.5) : Math.max(2, cs * 0.4);
     for (let y = 0; y < this.gridSize; y++) {
       for (let x = 0; x < this.gridSize; x++) {
         if (cells[y * this.gridSize + x]) {
-          ctx.fillRect(x * cs + 1, y * cs + 1, cs - 2, cs - 2);
+          ctx.fillRect(x * cs + inset, y * cs + inset, drawSize, drawSize);
         }
       }
     }
@@ -249,12 +272,25 @@ class PatternPreview {
 // ─────────────────────────────────────────────────────────────────────
 
 const ZOO_DEFAULTS = {
-  gridSize: 20,
   speed: 10,
   rulesetId: 'conway',
   pageSize: 24,
 };
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96, 200];
+// Auto-sizing constants for preview grids.
+const PREVIEW_PADDING = 6; // cells of padding around the pattern on each side
+const PREVIEW_MIN_SIZE = 16;
+const PREVIEW_MAX_SIZE = 64;
+const DETAIL_PADDING = 10;
+const DETAIL_MIN_SIZE = 20;
+const DETAIL_MAX_SIZE = 80;
+// Compute an auto grid size for a pattern: max(width, height) + 2*padding,
+// clamped to the configured min/max.
+function autoGridSize(pattern, padding, min, max) {
+  const dim = Math.max(pattern.width || 1, pattern.height || 1);
+  const n = dim + padding * 2;
+  return Math.max(min, Math.min(max, n));
+}
 
 export class PatternZoo {
   constructor({ game } = {}) {
@@ -262,13 +298,14 @@ export class PatternZoo {
     this.visible = false;
     this.previews = []; // active PatternPreview instances
     this.detailPreview = null;
+    this._dragPauseDepth = 0; // number of sliders currently being dragged
     this.filterCategory = 'all';
     this.filterRuleset = 'all';
     this.filterTag = 'all';
     this.filterSource = 'all'; // 'all' | 'builtin' | 'custom'
     this.searchQuery = '';
-    // Per-card defaults (user-adjustable globally).
-    this.globalGridSize = ZOO_DEFAULTS.gridSize;
+    // Per-card default speed (user-adjustable globally). Grid size is
+    // computed per-pattern based on its bounding box.
     this.globalSpeed = ZOO_DEFAULTS.speed;
     // Paging state.
     this.pageSize = ZOO_DEFAULTS.pageSize;
@@ -389,15 +426,8 @@ export class PatternZoo {
               </div>
               <div class="pz-global-row">
                 <label>
-                  Grid size:
-                  <input id="pz-global-grid" type="range" min="8" max="48" step="1"
-                    style="width:120px;accent-color:#00ffff;vertical-align:middle;">
-                  <span id="pz-global-grid-label" style="color:#00ffff;font-weight:bold;
-                        min-width:32px;display:inline-block;">20</span>
-                </label>
-                <label>
                   Speed:
-                  <input id="pz-global-speed" type="range" min="0" max="40" step="1"
+                  <input id="pz-global-speed" type="range" min="0" max="300" step="1"
                     style="width:120px;accent-color:#00ffff;vertical-align:middle;">
                   <span id="pz-global-speed-label" style="color:#00ffff;font-weight:bold;
                         min-width:48px;display:inline-block;">10/s</span>
@@ -584,21 +614,13 @@ export class PatternZoo {
   }
 
   _wireGlobalControls() {
-    const gridSlider = this.overlay.querySelector('#pz-global-grid');
-    const gridLabel = this.overlay.querySelector('#pz-global-grid-label');
     const speedSlider = this.overlay.querySelector('#pz-global-speed');
     const speedLabel = this.overlay.querySelector('#pz-global-speed-label');
     const pauseBtn = this.overlay.querySelector('#pz-pause-all');
     const resetBtn = this.overlay.querySelector('#pz-reset-all');
-    gridSlider.value = String(this.globalGridSize);
-    gridLabel.textContent = String(this.globalGridSize);
     speedSlider.value = String(this.globalSpeed);
     speedLabel.textContent = `${this.globalSpeed}/s`;
-    gridSlider.addEventListener('input', () => {
-      this.globalGridSize = parseInt(gridSlider.value, 10) || 20;
-      gridLabel.textContent = String(this.globalGridSize);
-      for (const p of this.previews) p.setGridSize(this.globalGridSize);
-    });
+    this._attachDragPause(speedSlider);
     speedSlider.addEventListener('input', () => {
       this.globalSpeed = parseInt(speedSlider.value, 10) || 10;
       speedLabel.textContent = this.globalSpeed === 0 ? 'Paused' : `${this.globalSpeed}/s`;
@@ -613,6 +635,39 @@ export class PatternZoo {
     resetBtn.addEventListener('click', () => {
       for (const p of this.previews) p.reset();
     });
+  }
+  // Attach handlers to a range input so the previews pause while the
+  // user is actively dragging the thumb. This avoids the visual flicker
+  // caused by re-stamping the pattern on every intermediate value.
+  _attachDragPause(slider) {
+    if (!slider || slider._pzDragPauseWired) return;
+    slider._pzDragPauseWired = true;
+    const begin = () => this._beginDragPause();
+    const end = () => this._endDragPause();
+    slider.addEventListener('pointerdown', begin);
+    slider.addEventListener('pointerup', end);
+    slider.addEventListener('pointercancel', end);
+    // Keyboard interaction (arrow keys) — pause for the duration of the
+    // key press so rapid repeats also stay smooth.
+    slider.addEventListener('keydown', begin);
+    slider.addEventListener('keyup', end);
+    // Safety net: if the pointer leaves the window mid-drag, end the pause.
+    slider.addEventListener('blur', end);
+  }
+  _beginDragPause() {
+    this._dragPauseDepth++;
+    if (this._dragPauseDepth === 1) {
+      for (const p of this.previews) p.setDragPaused(true);
+      if (this.detailPreview) this.detailPreview.setDragPaused(true);
+    }
+  }
+  _endDragPause() {
+    if (this._dragPauseDepth <= 0) return;
+    this._dragPauseDepth--;
+    if (this._dragPauseDepth === 0) {
+      for (const p of this.previews) p.setDragPaused(false);
+      if (this.detailPreview) this.detailPreview.setDragPaused(false);
+    }
   }
 
   _bindGlobalKeys() {
@@ -805,6 +860,9 @@ export class PatternZoo {
     const customBadge = pattern._isCustom
       ? '<span class="pz-tag pz-tag-custom">★ CUSTOM</span>'
       : '';
+    const linkBadge = pattern.link
+      ? '<span class="pz-tag pz-tag-link" title="Has reference link" style="color:#66ccff;border-color:#66ccff;">🔗</span>'
+      : '';
     card.innerHTML = `
           <div class="pz-card-canvas-wrap">
             <canvas class="pz-card-canvas" width="160" height="160"></canvas>
@@ -816,6 +874,7 @@ export class PatternZoo {
               <span class="pz-tag pz-tag-cat pz-cat-${pattern.category}">${catLabel}</span>
               <span class="pz-tag pz-tag-period">${periodLabel}</span>
               ${dirLabel ? `<span class="pz-tag pz-tag-dir">${dirLabel}</span>` : ''}
+               ${linkBadge}
             </div>
             <div class="pz-card-size">${pattern.width}×${pattern.height} · ${pattern.cells.length} cells</div>
           </div>
@@ -828,10 +887,11 @@ export class PatternZoo {
           </div>
         `;
     const canvas = card.querySelector('.pz-card-canvas');
+    const cardGridSize = autoGridSize(pattern, PREVIEW_PADDING, PREVIEW_MIN_SIZE, PREVIEW_MAX_SIZE);
     const preview = new PatternPreview({
       pattern,
       canvas,
-      gridSize: this.globalGridSize,
+      gridSize: cardGridSize,
       speed: this.globalSpeed,
       rulesetId: this._getNativeRulesetFor(pattern),
       wrap: pattern.category !== CATEGORY.GUN,
@@ -965,6 +1025,24 @@ export class PatternZoo {
     const sourceHtml = pattern.source
       ? `<div class="pz-detail-row"><strong>Source:</strong> ${this._escape(pattern.source)}</div>`
       : '';
+    // Author row (from RLE #O metadata).
+    const authorHtml = pattern.author
+      ? `<div class="pz-detail-row"><strong>Author:</strong> ${this._escape(pattern.author)}</div>`
+      : '';
+    // Link(s) — render as clickable anchors opening in a new tab.
+    const renderLink = (url) => {
+      const safe = this._escape(url);
+      return `<a href="${safe}" target="_blank" rel="noopener noreferrer"
+               style="color:#66ccff;text-decoration:underline;word-break:break-all;">${safe}</a>`;
+    };
+    let linkHtml = '';
+    if (pattern.link) {
+      linkHtml = `<div class="pz-detail-row"><strong>Link:</strong> ${renderLink(pattern.link)}</div>`;
+    }
+    if (pattern.extraLinks && pattern.extraLinks.length > 0) {
+      const extras = pattern.extraLinks.map(renderLink).join('<br>');
+      linkHtml += `<div class="pz-detail-row"><strong>More:</strong> ${extras}</div>`;
+    }
     const customControls = pattern._isCustom
       ? `<div class="pz-detail-custom-controls" style="margin-top:14px;padding:10px;background:rgba(255,204,68,0.08);border:1px solid #ffcc44;border-radius:4px;">
             <strong style="color:#ffcc44;">★ Custom Pattern</strong>
@@ -991,13 +1069,8 @@ export class PatternZoo {
                    Previewed with <strong style="color:#00ffff;">${this._escape(detailRuleLabel)}</strong>
                  </span>
                 <label>
-                  Grid:
-                  <input id="pz-detail-grid" type="range" min="10" max="80" step="1">
-                  <span id="pz-detail-grid-label">30</span>
-                </label>
-                <label>
                   Speed:
-                  <input id="pz-detail-speed" type="range" min="0" max="60" step="1">
+                  <input id="pz-detail-speed" type="range" min="0" max="300" step="1">
                   <span id="pz-detail-speed-label">10/s</span>
                 </label>
                 <button id="pz-detail-reset" class="pz-tool-btn">↺ Reset</button>
@@ -1018,16 +1091,18 @@ export class PatternZoo {
               <div class="pz-detail-row"><strong>Size:</strong> ${pattern.width} × ${pattern.height}</div>
               <div class="pz-detail-row"><strong>Cells:</strong> ${pattern.cells.length}</div>
               <div class="pz-detail-row"><strong>Rulesets:</strong> ${compatRules}</div>
+             ${authorHtml}
               <div class="pz-detail-row"><strong>Tags:</strong> ${tagHtml}</div>
               ${sourceHtml}
+             ${linkHtml}
               <div class="pz-detail-desc">${this._escape(pattern.description || '')}</div>
                ${customControls}
             </div>
           </div>
         `;
     const canvas = this.detailEl.querySelector('#pz-detail-canvas');
-    // Detail preview state (independent of card defaults).
-    const detailGrid = 30;
+    // Detail preview state — grid auto-sized to fit the pattern with padding.
+    const detailGrid = autoGridSize(pattern, DETAIL_PADDING, DETAIL_MIN_SIZE, DETAIL_MAX_SIZE);
     const detailSpeed = 10;
     this.detailPreview = new PatternPreview({
       pattern,
@@ -1037,19 +1112,11 @@ export class PatternZoo {
       rulesetId: detailRule,
       wrap: pattern.category !== CATEGORY.GUN,
     });
-    const gridSlider = this.detailEl.querySelector('#pz-detail-grid');
-    const gridLabel = this.detailEl.querySelector('#pz-detail-grid-label');
-    gridSlider.value = String(detailGrid);
-    gridLabel.textContent = String(detailGrid);
-    gridSlider.addEventListener('input', () => {
-      const n = parseInt(gridSlider.value, 10) || 30;
-      this.detailPreview.setGridSize(n);
-      gridLabel.textContent = String(n);
-    });
     const speedSlider = this.detailEl.querySelector('#pz-detail-speed');
     const speedLabel = this.detailEl.querySelector('#pz-detail-speed-label');
     speedSlider.value = String(detailSpeed);
     speedLabel.textContent = `${detailSpeed}/s`;
+    this._attachDragPause(speedSlider);
     speedSlider.addEventListener('input', () => {
       const v = parseInt(speedSlider.value, 10) || 0;
       this.detailPreview.setSpeed(v);

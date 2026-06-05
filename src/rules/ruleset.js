@@ -70,18 +70,34 @@ export function listRulesets() {
 /**
  * Parse a B/S notation string (e.g. "B3/S23") into birth/survival arrays.
  * Accepts both uppercase and lowercase. Returns null on parse failure.
+ *
+ * Also accepts the older "S/B" notation (e.g. "23/3"), where the survival
+ * digits come first and the birth digits come second, separated by a slash.
  * @param {string} notation
  * @returns {{birth: number[], survival: number[]}|null}
  */
 export function parseBSNotation(notation) {
   if (typeof notation !== 'string') return null;
-  const m = notation.trim().match(/^B([0-8]*)\/S([0-8]*)$/i);
-  if (!m) return null;
-  const birth = m[1]
+  const trimmed = notation.trim();
+  // Standard B/S notation, e.g. "B3/S23".
+  let m = trimmed.match(/^B([0-8]*)\/S([0-8]*)$/i);
+  let birthStr;
+  let survivalStr;
+  if (m) {
+    birthStr = m[1];
+    survivalStr = m[2];
+  } else {
+    // Older S/B notation, e.g. "23/3" (survival/birth).
+    m = trimmed.match(/^([0-8]*)\/([0-8]*)$/);
+    if (!m) return null;
+    survivalStr = m[1];
+    birthStr = m[2];
+  }
+  const birth = birthStr
     .split('')
     .map((c) => parseInt(c, 10))
     .filter((n) => !isNaN(n));
-  const survival = m[2]
+  const survival = survivalStr
     .split('')
     .map((c) => parseInt(c, 10))
     .filter((n) => !isNaN(n));

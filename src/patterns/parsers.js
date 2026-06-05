@@ -117,12 +117,15 @@ export function parseRLE(text) {
       continue;
     }
     if (/^\s*x\s*=/i.test(line)) {
-      const m = line.match(/x\s*=\s*(\d+)\s*,\s*y\s*=\s*(\d+)(?:\s*,\s*rule\s*=\s*([^,\s]+))?/i);
-      if (m) {
-        meta.width = parseInt(m[1], 10);
-        meta.height = parseInt(m[2], 10);
-        if (m[3]) meta.rule = m[3];
-      }
+      // Robust header parsing: handle any ordering and whitespace around
+      // x, y, and rule. The rule value can contain "/" and ":" (for
+      // topology suffixes) and is terminated by comma or end-of-line.
+      const xm = line.match(/x\s*=\s*(\d+)/i);
+      const ym = line.match(/y\s*=\s*(\d+)/i);
+      const rm = line.match(/rule\s*=\s*([^,\r\n]+?)\s*(?:,|$)/i);
+      if (xm) meta.width = parseInt(xm[1], 10);
+      if (ym) meta.height = parseInt(ym[1], 10);
+      if (rm) meta.rule = rm[1].trim();
       bodyStart = i + 1;
       break;
     }

@@ -23,6 +23,50 @@ import {
   setsEqual,
   findPeriod,
 } from '../../test/sim/lifeSim.js';
+/**
+ * Module-level diagnostic counters. The importer reads these after a run
+ * to surface a detailed breakdown of how each rule string was resolved.
+ *
+ * Buckets:
+ *   - matchedById        : rule resolved by direct id lookup (e.g. "conway")
+ *   - matchedByNotation  : rule resolved by canonical B/S match
+ *   - customAnonymous    : valid B/S parsed but no registered match
+ *   - unparseable        : couldn't parse the rule string at all
+ *   - missing            : no rule field supplied (default Conway)
+ *   - stripped           : count of inputs that had a topology suffix
+ */
+export const RULE_RESOLUTION_STATS = {
+  matchedById: 0,
+  matchedByNotation: 0,
+  customAnonymous: 0,
+  unparseable: 0,
+  missing: 0,
+  stripped: 0,
+  byRawInput: Object.create(null), // raw rule string → count
+  byResolvedId: Object.create(null), // resolved id → count
+  sampleUnparseable: [], // up to 20 examples
+};
+/**
+ * Reset diagnostic counters between runs (useful in tests).
+ */
+export function resetRuleResolutionStats() {
+  RULE_RESOLUTION_STATS.matchedById = 0;
+  RULE_RESOLUTION_STATS.matchedByNotation = 0;
+  RULE_RESOLUTION_STATS.customAnonymous = 0;
+  RULE_RESOLUTION_STATS.unparseable = 0;
+  RULE_RESOLUTION_STATS.missing = 0;
+  RULE_RESOLUTION_STATS.stripped = 0;
+  RULE_RESOLUTION_STATS.byRawInput = Object.create(null);
+  RULE_RESOLUTION_STATS.byResolvedId = Object.create(null);
+  RULE_RESOLUTION_STATS.sampleUnparseable = [];
+}
+function bumpResolved(id) {
+  RULE_RESOLUTION_STATS.byResolvedId[id] = (RULE_RESOLUTION_STATS.byResolvedId[id] || 0) + 1;
+}
+function bumpRaw(raw) {
+  const key = raw == null ? '<none>' : String(raw);
+  RULE_RESOLUTION_STATS.byRawInput[key] = (RULE_RESOLUTION_STATS.byRawInput[key] || 0) + 1;
+}
 
 /**
  * Map a (dx, dy) displacement to a compass direction.
@@ -64,22 +108,67 @@ export function findRulesetByNotation(notation) {
   return null;
 }
 /**
+ * Strip topology/bounded-grid suffixes from a rule string, returning the
+ * base rule plus the suffix as a separate field. RLE files (especially
+ * from LifeWiki) frequently encode bounded universes as suffixes like:
+ *
+ *   B3/S23:T55      torus 55x55
+ *   B3/S23:T55,52   torus 55x52
+ *   B3/S23:K100     Klein bottle width 100
+ *   B3/S23:P30,30   plane (finite rectangle)
+ *   B3/S23:S30,30   sphere
+ *
+ * For metadata inference we only care about the underlying B/S rule,
+ * so we strip anything from the first ':' onward.
+ *
+ * @param {string} rule
+ * @returns {{ base: string, topology: string|null }}
+ */
+export function stripTopologySuffix(rule) {
+  if (typeof rule !== 'string') return { base: rule, topology: null };
+  const idx = rule.indexOf(':');
+  if (idx < 0) return { base: rule.trim(), topology: null };
+  return {
+    base: rule.slice(0, idx).trim(),
+    topology: rule.slice(idx + 1).trim(),
+  };
+}
+/**
  * Resolve a ruleset definition from a B/S string or known id. Falls back to Conway.
  * @param {string|undefined} rule
  * @returns {{def: object, compiled: CompiledRuleset, rulesetId: string}}
  */
 export function resolveRule(rule) {
-  if (!rule) return { def: CONWAY, compiled: new CompiledRuleset(CONWAY), rulesetId: 'conway' };
-  const trimmed = String(rule).trim();
+  bumpRaw(rule);
+  if (!rule) {
+    RULE_RESOLUTION_STATS.missing++;
+    bumpResolved('conway');
+    return { def: CONWAY, compiled: new CompiledRuleset(CONWAY), rulesetId: 'conway' };
+  }
+  const raw = String(rule).trim();
+  // Strip bounded-grid/topology suffixes like ":T55", ":K100", ":P30,30".
+  const { base, topology } = stripTopologySuffix(raw);
+  const trimmed = base;
+  if (topology) {
+    RULE_RESOLUTION_STATS.stripped++;
+    // We don't simulate bounded topologies; we infer metadata on the
+    // infinite plane using just the base B/S rule. Note this in a log
+    // for visibility but proceed normally.
+    // (Topology info could be preserved elsewhere if needed.)
+  }
   // Try id lookup first (e.g. "conway", "highlife").
   const byId = getRuleset(trimmed.toLowerCase());
   if (byId) {
+    RULE_RESOLUTION_STATS.matchedById++;
+    bumpResolved(byId.id);
     return { def: byId, compiled: new CompiledRuleset(byId), rulesetId: byId.id };
   }
   // Try B/S notation: first check if it matches a registered ruleset
   // (so e.g. "B3/S23" → conway, "B36/S23" → highlife, "B368/S245" → move).
   const byNotation = findRulesetByNotation(trimmed);
   if (byNotation) {
+    RULE_RESOLUTION_STATS.matchedByNotation++;
+    bumpResolved(byNotation.id);
     return {
       def: byNotation,
       compiled: new CompiledRuleset(byNotation),
@@ -97,8 +186,15 @@ export function resolveRule(rule) {
       birth: parsed.birth,
       survival: parsed.survival,
     };
+    RULE_RESOLUTION_STATS.customAnonymous++;
+    bumpResolved(def.id);
     return { def, compiled: new CompiledRuleset(def), rulesetId: def.id };
   }
+  RULE_RESOLUTION_STATS.unparseable++;
+  if (RULE_RESOLUTION_STATS.sampleUnparseable.length < 20) {
+    RULE_RESOLUTION_STATS.sampleUnparseable.push(raw);
+  }
+  bumpResolved('conway');
   console.warn(`Unknown ruleset "${trimmed}", falling back to Conway.`);
   return { def: CONWAY, compiled: new CompiledRuleset(CONWAY), rulesetId: 'conway' };
 }

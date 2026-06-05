@@ -33,6 +33,9 @@
  * @property {string[]}   tags
  * @property {string|null} direction
  * @property {string}     [source]
+ * @property {string|null} [link]
+ * @property {string[]}   [extraLinks]
+ * @property {string|null} [author]
  * @property {number}     width
  * @property {number}     height
  */
@@ -117,6 +120,9 @@ export function registerPattern(def) {
     tags: Object.freeze(def.tags || []),
     direction: def.direction || null,
     source: def.source || null,
+    link: def.link || null,
+    extraLinks: Object.freeze(def.extraLinks || []),
+    author: def.author || null,
     width,
     height,
   });
@@ -257,6 +263,33 @@ export async function loadGeneratedLibrary(source) {
 (async () => {
   try {
     const generatedUrl = new URL('./lifewiki.generated.json', import.meta.url).href;
+    // In Node.js, fetch typically can't load file:// URLs. Fall back to
+    // direct filesystem read when the URL is a file:// resource and we
+    // have access to node:fs. In browsers, use fetch normally.
+    const isFileUrl = generatedUrl.startsWith('file://');
+    if (isFileUrl) {
+      try {
+        const fs = await import('node:fs');
+        const { fileURLToPath } = await import('node:url');
+        const filePath = fileURLToPath(generatedUrl);
+        if (!fs.existsSync(filePath)) {
+          console.warn(
+            `Generated pattern library not found at ${filePath}; ` +
+              'run lifewikiImporter.js to generate it.'
+          );
+          return;
+        }
+        const text = fs.readFileSync(filePath, 'utf8');
+        const doc = JSON.parse(text);
+        const n = await loadGeneratedLibrary(doc);
+        console.log(`Registered ${n} imported patterns (from ${filePath})`);
+        return;
+      } catch (e) {
+        // Node modules unavailable (e.g. odd runtime) — silently skip.
+        console.warn(`Generated pattern library auto-load skipped: ${e.message}`);
+        return;
+      }
+    }
     if (typeof fetch !== 'function') return;
     const res = await fetch(generatedUrl);
     if (!res.ok) {
