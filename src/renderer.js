@@ -1,5 +1,33 @@
 import { CONFIG, CELL_TYPE } from './config.js';
 import { Logger } from './logger.js';
+// VFX rate-limit configuration. Tuned to keep the renderer responsive
+// even under chaotic game modes (e.g. Chaos, Apocalypse) where dozens
+// of collisions can occur per tick.
+const VFX_LIMITS = {
+   // Hard caps: once these are exceeded, new effects of that type are
+   // dropped (or replace the oldest, for floaters).
+   MAX_PARTICLES: 800,
+   MAX_SHOCKWAVES: 40,
+   MAX_FLOATERS: 30,
+   // Per-frame spawn budgets. Reset each render() call. Once exceeded,
+   // additional spawn requests are silently dropped.
+   PARTICLES_PER_FRAME: 300,
+   SHOCKWAVES_PER_FRAME: 12,
+   FLOATERS_PER_FRAME: 8,
+   // Adaptive throttling: when active particle count exceeds this
+   // fraction of MAX_PARTICLES, randomly drop a fraction of new
+   // particle spawn requests proportional to how overloaded we are.
+   PARTICLE_THROTTLE_THRESHOLD: 0.6,
+   // Floater deduplication: identical text at near-identical position
+   // within this many pixels is treated as a duplicate.
+
+   FLOATER_DEDUP_RADIUS: 24,
+   // Maximum age (ms) of a floater that blocks duplicates from spawning.
+   FLOATER_DEDUP_WINDOW_MS: 250,
+   // Screen shake: ignore new shake requests if current shake is already
+   // at or above this intensity (avoids stacking).
+   SHAKE_STACK_THRESHOLD: 1.5,
+};
 
 /**
  * Renders the grid and HUD onto the canvas.
@@ -26,6 +54,18 @@ export class Renderer {
     // Screen shake state.
     this.shakeTime = 0;
     this.shakeIntensity = 0;
+     // Per-frame spawn counters (reset in render()).
+     this._frameParticleSpawns = 0;
+     this._frameShockwaveSpawns = 0;
+     this._frameFloaterSpawns = 0;
+     // Drop counters for diagnostics (peek via window.MD.game.renderer._vfxStats).
+     this._vfxStats = {
+       particlesDropped: 0,
+       shockwavesDropped: 0,
+       floatersDropped: 0,
+       floatersDeduped: 0,
+       sinceMs: Date.now(),
+     };
     this.resize();
   }
 
@@ -35,40 +75,123 @@ export class Renderer {
     this.canvas.width = this.grid.width * CONFIG.CELL_SIZE;
     this.canvas.height = this.grid.height * CONFIG.CELL_SIZE + CONFIG.HUD_HEIGHT;
   }
+   // Return whether a floater with the same text would be a duplicate
+   // of a recently-spawned one nearby. Helps prevent floater spam when
+   // many identical events fire in quick succession.
+   _isDuplicateFloater(canvasX, canvasY, text) {
+     const now = performance.now();
+     const r2 = VFX_LIMITS.FLOATER_DEDUP_RADIUS * VFX_LIMITS.FLOATER_DEDUP_RADIUS;
+     for (let i = this.floaters.length - 1; i >= 0; i--) {
+       const f = this.floaters[i];
+       // Only check recently-born floaters.
+       const ageMs = (f.maxTtl - f.ttl) * (1000 / 60); // approx (60fps assumed)
+       if (ageMs > VFX_LIMITS.FLOATER_DEDUP_WINDOW_MS) continue;
+       if (f.text !== text) continue;
+       const dx = f.x - canvasX;
+       const dy = f.y - canvasY;
+       if (dx * dx + dy * dy <= r2) return true;
+     }
+     return false;
+   }
+
 
   addFloater(gx, gy, text, color) {
+     if (CONFIG.VFX_FLOATERS === false) return;
+     if (this._frameFloaterSpawns >= VFX_LIMITS.FLOATERS_PER_FRAME) {
+       this._vfxStats.floatersDropped++;
+       return;
+     }
     const cs = CONFIG.CELL_SIZE;
+     const canvasX = gx * cs + cs / 2;
+     const canvasY = gy * cs + CONFIG.HUD_HEIGHT;
+     if (this._isDuplicateFloater(canvasX, canvasY, text)) {
+       this._vfxStats.floatersDeduped++;
+       return;
+     }
+     // Hard cap: evict oldest floater if at max.
+     if (this.floaters.length >= VFX_LIMITS.MAX_FLOATERS) {
+       this.floaters.shift();
+     }
     this.floaters.push({
-      x: gx * cs + cs / 2,
-      y: gy * cs + CONFIG.HUD_HEIGHT,
+       x: canvasX,
+       y: canvasY,
       text,
       color,
       ttl: 60,
       maxTtl: 60,
       scale: 1.0,
     });
+     this._frameFloaterSpawns++;
   }
 
   addBigFloater(gx, gy, text, color, scale = 1.6) {
+     if (CONFIG.VFX_FLOATERS === false) return;
+     if (this._frameFloaterSpawns >= VFX_LIMITS.FLOATERS_PER_FRAME) {
+       this._vfxStats.floatersDropped++;
+       return;
+     }
     const cs = CONFIG.CELL_SIZE;
+     const canvasX = gx * cs + cs / 2;
+     const canvasY = gy * cs + CONFIG.HUD_HEIGHT;
+     if (this._isDuplicateFloater(canvasX, canvasY, text)) {
+       this._vfxStats.floatersDeduped++;
+       return;
+     }
+     if (this.floaters.length >= VFX_LIMITS.MAX_FLOATERS) {
+       this.floaters.shift();
+     }
     this.floaters.push({
-      x: gx * cs + cs / 2,
-      y: gy * cs + CONFIG.HUD_HEIGHT,
+       x: canvasX,
+       y: canvasY,
       text,
       color,
       ttl: 90,
       maxTtl: 90,
       scale,
     });
+     this._frameFloaterSpawns++;
   }
 
   // Spawn a burst of particles centered on grid (gx, gy).
   // opts: { count, color(s), speed, spread, ttl, size, gravity, glow, vy0 }
   addParticleBurst(gx, gy, opts = {}) {
+     if (CONFIG.VFX_PARTICLES === false) return;
+     // Per-frame budget check.
+     if (this._frameParticleSpawns >= VFX_LIMITS.PARTICLES_PER_FRAME) {
+       this._vfxStats.particlesDropped += opts.count != null ? opts.count : 12;
+       return;
+     }
+     // Hard cap check.
+     if (this.particles.length >= VFX_LIMITS.MAX_PARTICLES) {
+       this._vfxStats.particlesDropped += opts.count != null ? opts.count : 12;
+       return;
+     }
+     // Adaptive throttling: if we're in the overload zone, scale down.
+     const loadFrac = this.particles.length / VFX_LIMITS.MAX_PARTICLES;
+     let countScale = 1;
+     if (loadFrac > VFX_LIMITS.PARTICLE_THROTTLE_THRESHOLD) {
+       // Linear ramp: at threshold -> 1.0, at max -> 0.2.
+       const overload =
+         (loadFrac - VFX_LIMITS.PARTICLE_THROTTLE_THRESHOLD) /
+         (1 - VFX_LIMITS.PARTICLE_THROTTLE_THRESHOLD);
+       countScale = Math.max(0.2, 1 - overload * 0.8);
+     }
     const cs = CONFIG.CELL_SIZE;
     const cx = gx * cs + cs / 2;
     const cy = gy * cs + CONFIG.HUD_HEIGHT + cs / 2;
-    const count = opts.count != null ? opts.count : 12;
+     const requestedCount = opts.count != null ? opts.count : 12;
+     let count = Math.max(1, Math.round(requestedCount * countScale));
+     // Also clamp by remaining per-frame and per-array budgets.
+     const frameRemaining = VFX_LIMITS.PARTICLES_PER_FRAME - this._frameParticleSpawns;
+     const arrayRemaining = VFX_LIMITS.MAX_PARTICLES - this.particles.length;
+     count = Math.min(count, frameRemaining, arrayRemaining);
+     if (count <= 0) {
+       this._vfxStats.particlesDropped += requestedCount;
+       return;
+     }
+     if (count < requestedCount) {
+       this._vfxStats.particlesDropped += requestedCount - count;
+     }
     const colors = Array.isArray(opts.colors)
       ? opts.colors
       : opts.color
@@ -99,10 +222,20 @@ export class Renderer {
         glow,
       });
     }
+     this._frameParticleSpawns += count;
   }
 
   // Add an expanding shockwave ring.
   addShockwave(gx, gy, opts = {}) {
+     if (CONFIG.VFX_SHOCKWAVES === false) return;
+     if (this._frameShockwaveSpawns >= VFX_LIMITS.SHOCKWAVES_PER_FRAME) {
+       this._vfxStats.shockwavesDropped++;
+       return;
+     }
+     if (this.shockwaves.length >= VFX_LIMITS.MAX_SHOCKWAVES) {
+       // Drop the oldest to make room (rings fade quickly so this is fine).
+       this.shockwaves.shift();
+     }
     const cs = CONFIG.CELL_SIZE;
     this.shockwaves.push({
       x: gx * cs + cs / 2,
@@ -114,11 +247,18 @@ export class Renderer {
       maxTtl: opts.ttl != null ? opts.ttl : 24,
       width: opts.width != null ? opts.width : 2,
     });
+     this._frameShockwaveSpawns++;
   }
 
   // Trigger screen shake for `ticks` frames with given intensity in px.
   addShake(intensity, ticks) {
     if (CONFIG.VFX_SCREEN_SHAKE === false) return;
+     // Don't allow shake to stack indefinitely: if current shake is
+     // already strong enough, just refresh the duration.
+     if (this.shakeIntensity >= VFX_LIMITS.SHAKE_STACK_THRESHOLD) {
+       if (ticks > this.shakeTime) this.shakeTime = ticks;
+       return;
+     }
     if (intensity > this.shakeIntensity) this.shakeIntensity = intensity;
     if (ticks > this.shakeTime) this.shakeTime = ticks;
   }
@@ -133,6 +273,10 @@ export class Renderer {
   }
 
   render(hud) {
+     // Reset per-frame VFX spawn budgets.
+     this._frameParticleSpawns = 0;
+     this._frameShockwaveSpawns = 0;
+     this._frameFloaterSpawns = 0;
     const ctx = this.ctx;
     const cs = CONFIG.CELL_SIZE;
     const colors = CONFIG.COLORS;

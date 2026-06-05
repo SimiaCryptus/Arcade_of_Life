@@ -28,6 +28,7 @@ class ToroidalLifeSim {
     this.width = width;
     this.height = height;
     this.rule = rule;
+    this.wrap = true; // set false for guns / open-boundary patterns
     this.cells = new Uint8Array(width * height);
     this.next = new Uint8Array(width * height);
     this.generation = 0;
@@ -44,6 +45,9 @@ class ToroidalLifeSim {
 
   setRule(rule) {
     this.rule = rule;
+  }
+  setWrap(wrap) {
+    this.wrap = wrap;
   }
 
   clear() {
@@ -78,22 +82,28 @@ class ToroidalLifeSim {
     const cells = this.cells;
     const next = this.next;
     const rule = this.rule;
-    // Toroidal wrap in both axes.
+    const wrap = this.wrap;
     for (let y = 0; y < h; y++) {
-      const yUp = (y - 1 + h) % h;
-      const yDn = (y + 1) % h;
+      const yUp = wrap ? (y - 1 + h) % h : y - 1;
+      const yDn = wrap ? (y + 1) % h : y + 1;
       for (let x = 0; x < w; x++) {
-        const xLt = (x - 1 + w) % w;
-        const xRt = (x + 1) % w;
-        const n =
-          cells[yUp * w + xLt] +
-          cells[yUp * w + x] +
-          cells[yUp * w + xRt] +
-          cells[y * w + xLt] +
-          cells[y * w + xRt] +
-          cells[yDn * w + xLt] +
-          cells[yDn * w + x] +
-          cells[yDn * w + xRt];
+        const xLt = wrap ? (x - 1 + w) % w : x - 1;
+        const xRt = wrap ? (x + 1) % w : x + 1;
+        let n = 0;
+        // Sum the 3x3 Moore neighbourhood, skipping out-of-bounds cells
+        // when wrapping is disabled.
+        for (let dy = -1; dy <= 1; dy++) {
+          const ny = y + dy;
+          if (!wrap && (ny < 0 || ny >= h)) continue;
+          const row = wrap ? (ny + h) % h : ny;
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = x + dx;
+            if (!wrap && (nx < 0 || nx >= w)) continue;
+            const col = wrap ? (nx + w) % w : nx;
+            n += cells[row * w + col];
+          }
+        }
         const alive = cells[y * w + x];
         let nextAlive;
         if (alive) nextAlive = rule.shouldSurvive(n) ? 1 : 0;
@@ -120,14 +130,18 @@ class ToroidalLifeSim {
 // ─────────────────────────────────────────────────────────────────────
 
 class PatternPreview {
-  constructor({ pattern, canvas, gridSize, speed, rulesetId }) {
+  constructor({ pattern, canvas, gridSize, speed, rulesetId, wrap }) {
     this.pattern = pattern;
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.gridSize = gridSize;
     this.speed = speed; // ticks per second
     this.rulesetId = rulesetId;
+    // Guns need open boundaries so emitted gliders don't wrap back and
+    // interfere with the gun structure.
+    this.wrap = wrap !== undefined ? wrap : pattern.category !== CATEGORY.GUN;
     this.sim = new ToroidalLifeSim(gridSize, gridSize, this._compileRule());
+    this.sim.setWrap(this.wrap);
     this.sim.stampCentered(pattern.cells);
     this._accumMs = 0;
     this._paused = false;
@@ -148,6 +162,7 @@ class PatternPreview {
   setGridSize(n) {
     this.gridSize = n;
     this.sim.setSize(n, n);
+    this.sim.setWrap(this.wrap);
     this.reset();
   }
 
@@ -598,6 +613,7 @@ export class PatternZoo {
       gridSize: this.globalGridSize,
       speed: this.globalSpeed,
       rulesetId: this.globalRuleset,
+      wrap: pattern.category !== CATEGORY.GUN,
     });
     if (this._allPaused) preview.setPaused(true);
     this.previews.push(preview);
@@ -711,6 +727,7 @@ export class PatternZoo {
               <div class="pz-detail-stats">
                 <span>Generation: <strong id="pz-detail-gen">0</strong></span>
                 <span>Population: <strong id="pz-detail-pop">0</strong></span>
+               ${pattern.category === CATEGORY.GUN ? '<span style="color:#ffaa44;font-size:10px;">⚠ Open boundary (no wrap)</span>' : ''}
               </div>
             </div>
             <div class="pz-detail-info">
@@ -737,6 +754,7 @@ export class PatternZoo {
       gridSize: detailGrid,
       speed: detailSpeed,
       rulesetId: detailRule,
+      wrap: pattern.category !== CATEGORY.GUN,
     });
     // Wire detail controls.
     const ruleSel = this.detailEl.querySelector('#pz-detail-ruleset');

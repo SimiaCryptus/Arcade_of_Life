@@ -425,62 +425,10 @@ registerPattern({
   period: 4,
   direction: 'SE',
   rulesets: ['conway', 'highlife'],
-  description: 'The classic 5-cell spaceship that travels diagonally.',
-  tags: ['common', 'small', 'diagonal'],
-});
-
-registerPattern({
-  id: 'glider_sw',
-  name: 'Glider (SW)',
-  category: CATEGORY.SPACESHIP,
-  cells: [
-    [1, 0],
-    [0, 1],
-    [0, 2],
-    [1, 2],
-    [2, 2],
-  ],
-  period: 4,
-  direction: 'SW',
-  rulesets: ['conway'],
-  description: 'Mirrored glider that travels southwest.',
-  tags: ['small', 'diagonal'],
-});
-
-registerPattern({
-  id: 'glider_ne',
-  name: 'Glider (NE)',
-  category: CATEGORY.SPACESHIP,
-  cells: [
-    [0, 0],
-    [1, 0],
-    [2, 0],
-    [2, 1],
-    [1, 2],
-  ],
-  period: 4,
-  direction: 'NE',
-  rulesets: ['conway'],
-  description: 'Glider traveling northeast.',
-  tags: ['small', 'diagonal'],
-});
-
-registerPattern({
-  id: 'glider_nw',
-  name: 'Glider (NW)',
-  category: CATEGORY.SPACESHIP,
-  cells: [
-    [0, 0],
-    [1, 0],
-    [2, 0],
-    [0, 1],
-    [1, 2],
-  ],
-  period: 4,
-  direction: 'NW',
-  rulesets: ['conway'],
-  description: 'Glider traveling northwest.',
-  tags: ['small', 'diagonal'],
+  description:
+    'The classic 5-cell spaceship that travels diagonally SE. ' +
+    'Rotate or flip to send it in any of the four diagonal directions.',
+  tags: ['common', 'small', 'diagonal', 'transformable'],
 });
 
 registerPattern({
@@ -501,52 +449,10 @@ registerPattern({
   period: 4,
   direction: 'W',
   rulesets: ['conway'],
-  description: 'Smallest orthogonal spaceship. Travels in cardinal direction.',
-  tags: ['orthogonal'],
-});
-
-registerPattern({
-  id: 'lwss_se',
-  name: 'LWSS (East variant)',
-  category: CATEGORY.SPACESHIP,
-  cells: [
-    [1, 0],
-    [2, 0],
-    [3, 0],
-    [4, 0],
-    [0, 1],
-    [4, 1],
-    [4, 2],
-    [0, 3],
-    [3, 3],
-  ],
-  period: 4,
-  direction: 'E',
-  rulesets: ['conway'],
-  description: 'East-traveling LWSS variant used in the game.',
-  tags: ['orthogonal', 'game'],
-});
-
-registerPattern({
-  id: 'lwss_sw',
-  name: 'LWSS (West variant)',
-  category: CATEGORY.SPACESHIP,
-  cells: [
-    [1, 0],
-    [4, 0],
-    [0, 1],
-    [0, 2],
-    [4, 2],
-    [0, 3],
-    [1, 3],
-    [2, 3],
-    [3, 3],
-  ],
-  period: 4,
-  direction: 'W',
-  rulesets: ['conway'],
-  description: 'West-traveling LWSS variant used in the game.',
-  tags: ['orthogonal', 'game'],
+  description:
+    'Smallest orthogonal spaceship, travelling W. ' +
+    'Rotate 180° to send it East, or rotate 90° for N/S travel.',
+  tags: ['orthogonal', 'transformable'],
 });
 
 registerPattern({
@@ -569,56 +475,9 @@ registerPattern({
   period: 4,
   direction: 'W',
   rulesets: ['conway'],
-  description: 'Slightly larger orthogonal spaceship.',
-  tags: ['orthogonal'],
-});
-
-registerPattern({
-  id: 'mwss_se',
-  name: 'MWSS (East variant)',
-  category: CATEGORY.SPACESHIP,
-  cells: [
-    [3, 0],
-    [1, 1],
-    [5, 1],
-    [0, 2],
-    [0, 3],
-    [5, 3],
-    [0, 4],
-    [1, 4],
-    [2, 4],
-    [3, 4],
-    [4, 4],
-  ],
-  period: 4,
-  direction: 'W',
-  rulesets: ['conway'],
-  description: 'West-traveling MWSS variant used in the game.',
-  tags: ['orthogonal', 'game'],
-});
-
-registerPattern({
-  id: 'mwss_sw',
-  name: 'MWSS (West variant)',
-  category: CATEGORY.SPACESHIP,
-  cells: [
-    [2, 0],
-    [0, 1],
-    [4, 1],
-    [5, 2],
-    [5, 3],
-    [0, 3],
-    [1, 4],
-    [2, 4],
-    [3, 4],
-    [4, 4],
-    [5, 4],
-  ],
-  period: 4,
-  direction: 'E',
-  rulesets: ['conway'],
-  description: 'East-traveling MWSS variant used in the game.',
-  tags: ['orthogonal', 'game'],
+  description:
+    'Slightly larger orthogonal spaceship, travelling W. ' + 'Rotate to change direction.',
+  tags: ['orthogonal', 'transformable'],
 });
 
 registerPattern({
@@ -643,52 +502,10 @@ registerPattern({
   period: 4,
   direction: 'W',
   rulesets: ['conway'],
-  description: 'The largest of the three standard orthogonal spaceships.',
-  tags: ['orthogonal', 'large'],
-});
-
-registerPattern({
-  id: 'cruiser_e',
-  name: 'Cruiser (East)',
-  category: CATEGORY.SPACESHIP,
-  cells: [
-    [1, 0],
-    [2, 0],
-    [3, 0],
-    [4, 0],
-    [0, 1],
-    [4, 1],
-    [4, 2],
-    [0, 3],
-    [3, 3],
-  ],
-  period: 4,
-  direction: 'E',
-  rulesets: ['conway'],
-  description: 'Game-specific horizontal LWSS variant moving east.',
-  tags: ['orthogonal', 'game'],
-});
-
-registerPattern({
-  id: 'cruiser_w',
-  name: 'Cruiser (West)',
-  category: CATEGORY.SPACESHIP,
-  cells: [
-    [0, 0],
-    [1, 0],
-    [2, 0],
-    [3, 0],
-    [0, 1],
-    [4, 1],
-    [0, 2],
-    [1, 3],
-    [4, 3],
-  ],
-  period: 4,
-  direction: 'W',
-  rulesets: ['conway'],
-  description: 'Game-specific horizontal LWSS variant moving west.',
-  tags: ['orthogonal', 'game'],
+  description:
+    'The largest of the three standard orthogonal spaceships, travelling W. ' +
+    'Rotate to change direction.',
+  tags: ['orthogonal', 'large', 'transformable'],
 });
 
 // ── Guns ─────────────────────────────────────────────────────────────

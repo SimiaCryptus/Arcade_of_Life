@@ -389,9 +389,6 @@ export class DrawToolsPanel {
   _populatePresetDropdown(sel) {
     const PRETTY = {
       glider: 'Glider (SE)',
-      glider_sw: 'Glider (SW)',
-      glider_ne: 'Glider (NE)',
-      glider_nw: 'Glider (NW)',
       blinker: 'Blinker',
       block: 'Block',
       lwss: 'LWSS',

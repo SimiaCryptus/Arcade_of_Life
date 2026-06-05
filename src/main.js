@@ -395,6 +395,8 @@ class Game {
             'cheats.deletePattern(name)   - delete a saved custom pattern',
             'cheats.clearPatterns()       - delete ALL saved custom patterns',
             'cheats.captureMode()         - toggle pattern capture mode',
+             'cheats.vfxStats()            - show VFX throttling stats (active + dropped)',
+             'cheats.resetVfxStats()       - reset VFX drop counters',
           ].join('\n')
         );
       },
@@ -605,6 +607,46 @@ class Game {
         if (!self.patternCapture) return;
         self.patternCapture.toggle();
       },
+       vfxStats() {
+         if (!self.renderer) return null;
+         const s = self.renderer._vfxStats;
+         const elapsedSec = (Date.now() - s.sinceMs) / 1000;
+         const info = {
+           active: {
+             particles: self.renderer.particles.length,
+             shockwaves: self.renderer.shockwaves.length,
+             floaters: self.renderer.floaters.length,
+           },
+           droppedSinceReset: {
+             particles: s.particlesDropped,
+             shockwaves: s.shockwavesDropped,
+             floaters: s.floatersDropped,
+             floatersDeduped: s.floatersDeduped,
+           },
+           elapsedSec: elapsedSec.toFixed(1),
+           dropRatePerSec: {
+             particles: (s.particlesDropped / Math.max(0.1, elapsedSec)).toFixed(1),
+             shockwaves: (s.shockwavesDropped / Math.max(0.1, elapsedSec)).toFixed(1),
+             floaters: (s.floatersDropped / Math.max(0.1, elapsedSec)).toFixed(1),
+           },
+         };
+         console.table(info.active);
+         console.table(info.droppedSinceReset);
+         console.log(`Elapsed: ${info.elapsedSec}s — drop rates per second:`);
+         console.table(info.dropRatePerSec);
+         return info;
+       },
+       resetVfxStats() {
+         if (!self.renderer) return;
+         self.renderer._vfxStats = {
+           particlesDropped: 0,
+           shockwavesDropped: 0,
+           floatersDropped: 0,
+           floatersDeduped: 0,
+           sinceMs: Date.now(),
+         };
+         Logger.info('Cheat: VFX stats reset.');
+       },
     };
   }
 
