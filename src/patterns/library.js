@@ -36,16 +36,8 @@
  * @property {number}     width
  * @property {number}     height
  */
-
-export const CATEGORY = Object.freeze({
-  STILL_LIFE: 'still_life',
-  OSCILLATOR: 'oscillator',
-  SPACESHIP: 'spaceship',
-  GUN: 'gun',
-  METHUSELAH: 'methuselah',
-  PUFFER: 'puffer',
-  MISC: 'misc',
-});
+import { CATEGORY } from './categories.js';
+export { CATEGORY } from './categories.js';
 
 /** @type {Map<string, Pattern>} */
 const REGISTRY = new Map();
@@ -97,10 +89,26 @@ export function registerPattern(def) {
   if (!valid.includes(def.category)) {
     throw new Error(`Pattern "${def.id}" has invalid category: ${def.category}`);
   }
+  // Strip any trailing `.rle` (case-insensitive) from id and name.
+  const cleanId = String(def.id).replace(/\.rle$/i, '');
+  const cleanName = String(def.name).replace(/\.rle$/i, '');
+  // Dedupe: if a pattern with this id is already registered, return it.
+  if (REGISTRY.has(cleanId)) {
+    return REGISTRY.get(cleanId);
+  }
+  // Dedupe by name as well (case-insensitive, trimmed). The UI lists patterns
+  // by name, so two different ids with the same display name still appear as
+  // duplicates. If we find a name collision, return the existing pattern.
+  const nameKey = cleanName.trim().toLowerCase();
+  for (const existing of REGISTRY.values()) {
+    if (existing.name.trim().toLowerCase() === nameKey) {
+      return existing;
+    }
+  }
   const { cells, width, height } = normalizeCells(def.cells);
   const pattern = Object.freeze({
-    id: def.id,
-    name: def.name,
+    id: cleanId,
+    name: cleanName,
     category: def.category,
     cells: Object.freeze(cells.map((c) => Object.freeze(c.slice()))),
     period: def.period != null ? def.period : 1,
@@ -193,6 +201,78 @@ export function transformCells(cells, { rotate = 0, flipH = false, flipV = false
   }
   return normalizeCells(out).cells;
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Imported pattern definitions
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Load a generated pattern library from a parsed JSON document or a URL.
+ * Works in both browser and other environments without Node-specific IO.
+ *
+ * @param {string|object} source  Either a URL/path to fetch, or an already
+ *                                parsed object with a `patterns` array.
+ * @returns {Promise<number>}     Number of patterns successfully registered.
+ */
+export async function loadGeneratedLibrary(source) {
+  let doc;
+  if (typeof source === 'string') {
+    if (typeof fetch !== 'function') {
+      throw new Error(
+        'loadGeneratedLibrary: fetch is not available; ' +
+          'pass a pre-parsed document instead of a URL.'
+      );
+    }
+    const res = await fetch(source);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch ${source}: ${res.status} ${res.statusText}`);
+    }
+    doc = await res.json();
+  } else if (source && typeof source === 'object') {
+    doc = source;
+  } else {
+    throw new Error('loadGeneratedLibrary: source must be a URL string or parsed object.');
+  }
+  let n = 0;
+  for (const p of doc.patterns || []) {
+    try {
+      registerPattern(p);
+      n++;
+    } catch (e) {
+      console.warn(`Skipped ${p.id}: ${e.message}`);
+    }
+  }
+  return n;
+}
+
+// Attempt to auto-load the generated library if it's available alongside
+// this module. Uses dynamic import with an import attribute when supported,
+// and falls back gracefully otherwise. Callers can also explicitly invoke
+// loadGeneratedLibrary() with a URL or a pre-parsed object.
+// Note: this is intentionally NOT awaited at module top-level. Awaiting
+// here would block the entire module graph (and therefore the game UI)
+// until the fetch resolves — and on a 404 it can hang the import chain
+// depending on browser behaviour. Fire-and-forget keeps startup snappy
+// and the generated patterns simply appear once they finish loading.
+(async () => {
+  try {
+    const generatedUrl = new URL('./lifewiki.generated.json', import.meta.url).href;
+    if (typeof fetch !== 'function') return;
+    const res = await fetch(generatedUrl);
+    if (!res.ok) {
+      console.warn(
+        `Generated pattern library not found at ${generatedUrl}; ` +
+          'run lifewikiImporter.js to generate it.'
+      );
+      return;
+    }
+    const doc = await res.json();
+    const n = await loadGeneratedLibrary(doc);
+    console.log(`Registered ${n} imported patterns`);
+  } catch (e) {
+    console.warn(`Failed to load generated pattern library: ${e.message}`);
+  }
+})();
 
 // ─────────────────────────────────────────────────────────────────────
 // Built-in pattern definitions

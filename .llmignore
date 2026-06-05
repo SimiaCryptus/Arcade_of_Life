@@ -1,7 +1,8 @@
-src/marked.min.js
-console_guide.md
 .idea/
 *.md
 *.log
-src/story.js
 *.png
+*.generated.json
+src/story.js
+src/marked.min.js
+test/

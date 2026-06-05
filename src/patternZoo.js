@@ -252,7 +252,9 @@ const ZOO_DEFAULTS = {
   gridSize: 20,
   speed: 10,
   rulesetId: 'conway',
+  pageSize: 24,
 };
+const PAGE_SIZE_OPTIONS = [12, 24, 48, 96, 200];
 
 export class PatternZoo {
   constructor({ game } = {}) {
@@ -268,8 +270,13 @@ export class PatternZoo {
     // Per-card defaults (user-adjustable globally).
     this.globalGridSize = ZOO_DEFAULTS.gridSize;
     this.globalSpeed = ZOO_DEFAULTS.speed;
-    // Default the zoo preview ruleset to the currently active in-game ruleset.
-    this.globalRuleset = CONFIG.ACTIVE_RULESET || ZOO_DEFAULTS.rulesetId;
+    // Paging state.
+    this.pageSize = ZOO_DEFAULTS.pageSize;
+    this.currentPage = 0;
+    this._filteredCache = null; // cached result of _filteredPatterns()
+    this._customCache = null; // cached result of _getCustomPatterns()
+    // Debounce timer for search input (so we don't rebuild on every keystroke).
+    this._searchDebounceTimer = null;
     this._stashedSpeed = null;
     this._lastFrameTs = 0;
     this._rafHandle = null;
@@ -278,12 +285,21 @@ export class PatternZoo {
     this._bindGlobalKeys();
     // Refresh grid when custom patterns change (save/delete/rename).
     this._unsubCustomChange = onCustomPatternsChanged(() => {
+      this._invalidateCache();
       if (this.visible) this._rebuildGrid();
     });
   }
+  // Invalidate cached filtered/custom lists. Call whenever filters change
+  // or the underlying custom-pattern store mutates.
+  _invalidateCache() {
+    this._filteredCache = null;
+    this._customCache = null;
+  }
+
   // Get all custom patterns as pseudo-Pattern objects compatible with the
   // built-in registry shape, so the same rendering code works on both.
   _getCustomPatterns() {
+    if (this._customCache) return this._customCache;
     const raw = loadCustomPatterns();
     const meta = loadCustomPatternMeta();
     const out = [];
@@ -309,7 +325,21 @@ export class PatternZoo {
         createdAt: m.createdAt || null,
       });
     }
+    this._customCache = out;
     return out;
+  }
+  // Determine which ruleset to use when previewing a pattern. Each pattern
+  // is previewed using its native ruleset (the first explicit entry in
+  // `pattern.rulesets`). Patterns marked universal (`*`) fall back to the
+  // current ruleset filter (if any specific one is selected) or to the
+  // game's active ruleset.
+  _getNativeRulesetFor(pattern) {
+    const rulesets = pattern.rulesets || [];
+    for (const r of rulesets) {
+      if (r && r !== '*') return r;
+    }
+    if (this.filterRuleset && this.filterRuleset !== 'all') return this.filterRuleset;
+    return CONFIG.ACTIVE_RULESET || ZOO_DEFAULTS.rulesetId;
   }
 
   // ── DOM construction ─────────────────────────────────────────────
@@ -347,7 +377,7 @@ export class PatternZoo {
                   <select id="pz-filter-category" class="pz-select"></select>
                 </label>
                 <label>
-                  Ruleset filter:
+                   Ruleset:
                   <select id="pz-filter-ruleset" class="pz-select"></select>
                 </label>
                 <label>
@@ -358,10 +388,6 @@ export class PatternZoo {
                       margin-left:auto;align-self:center;"></span>
               </div>
               <div class="pz-global-row">
-                <label>
-                  Preview ruleset:
-                  <select id="pz-global-ruleset" class="pz-select"></select>
-                </label>
                 <label>
                   Grid size:
                   <input id="pz-global-grid" type="range" min="8" max="48" step="1"
@@ -380,6 +406,18 @@ export class PatternZoo {
                 <button id="pz-reset-all" class="pz-tool-btn">↺ Reset All</button>
                  <button id="pz-new-pattern" class="pz-tool-btn" style="color:#ffcc44;border-color:#ffcc44;">+ New Pattern</button>
               </div>
+               <div class="pz-page-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+                 <button id="pz-page-first" class="pz-tool-btn" title="First page">⏮</button>
+                 <button id="pz-page-prev" class="pz-tool-btn" title="Previous page">◀</button>
+                 <span id="pz-page-indicator" style="color:#e0e0ff;font-size:12px;min-width:140px;text-align:center;">Page 1 / 1</span>
+                 <button id="pz-page-next" class="pz-tool-btn" title="Next page">▶</button>
+                 <button id="pz-page-last" class="pz-tool-btn" title="Last page">⏭</button>
+                 <label style="margin-left:12px;">
+                   Per page:
+                   <select id="pz-page-size" class="pz-select"></select>
+                 </label>
+                 <button id="pz-page-jump-btn" class="pz-tool-btn" title="Jump to page">Go to…</button>
+               </div>
             </div>
             <div id="pattern-zoo-grid"></div>
             <div id="pattern-zoo-footer">
@@ -412,7 +450,54 @@ export class PatternZoo {
     });
     // Populate selects.
     this._populateFilters();
-    this._populateGlobalRuleset();
+    this._populatePageSizeSelect();
+    this._wirePagingControls();
+  }
+  _populatePageSizeSelect() {
+    const sel = this.overlay.querySelector('#pz-page-size');
+    if (!sel) return;
+    sel.innerHTML = '';
+    for (const n of PAGE_SIZE_OPTIONS) {
+      const opt = document.createElement('option');
+      opt.value = String(n);
+      opt.textContent = String(n);
+      sel.appendChild(opt);
+    }
+    sel.value = String(this.pageSize);
+    sel.addEventListener('change', () => {
+      this.pageSize = parseInt(sel.value, 10) || ZOO_DEFAULTS.pageSize;
+      this.currentPage = 0;
+      this._rebuildGrid();
+    });
+  }
+  _wirePagingControls() {
+    const firstBtn = this.overlay.querySelector('#pz-page-first');
+    const prevBtn = this.overlay.querySelector('#pz-page-prev');
+    const nextBtn = this.overlay.querySelector('#pz-page-next');
+    const lastBtn = this.overlay.querySelector('#pz-page-last');
+    const jumpBtn = this.overlay.querySelector('#pz-page-jump-btn');
+    firstBtn.addEventListener('click', () => this._goToPage(0));
+    prevBtn.addEventListener('click', () => this._goToPage(this.currentPage - 1));
+    nextBtn.addEventListener('click', () => this._goToPage(this.currentPage + 1));
+    lastBtn.addEventListener('click', () => this._goToPage(this._pageCount() - 1));
+    jumpBtn.addEventListener('click', () => {
+      const total = this._pageCount();
+      const input = window.prompt(`Jump to page (1 - ${total}):`, String(this.currentPage + 1));
+      if (!input) return;
+      const n = parseInt(input, 10);
+      if (!isNaN(n)) this._goToPage(n - 1);
+    });
+  }
+  _pageCount() {
+    const total = this._getFilteredPatterns().length;
+    return Math.max(1, Math.ceil(total / this.pageSize));
+  }
+  _goToPage(idx) {
+    const pageCount = this._pageCount();
+    const clamped = Math.max(0, Math.min(pageCount - 1, idx));
+    if (clamped === this.currentPage) return;
+    this.currentPage = clamped;
+    this._rebuildGrid();
   }
 
   _populateFilters() {
@@ -462,37 +547,40 @@ export class PatternZoo {
     // Wire filter change events.
     const searchEl = this.overlay.querySelector('#pz-search');
     searchEl.addEventListener('input', () => {
-      this.searchQuery = searchEl.value.trim().toLowerCase();
-      this._rebuildGrid();
+      // Debounce: avoid rebuilding the grid on every keystroke when the
+      // pattern database is large.
+      if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
+      this._searchDebounceTimer = setTimeout(() => {
+        this.searchQuery = searchEl.value.trim().toLowerCase();
+        this._invalidateCache();
+        this.currentPage = 0;
+        this._rebuildGrid();
+      }, 150);
     });
     catSel.addEventListener('change', () => {
       this.filterCategory = catSel.value;
+      this._invalidateCache();
+      this.currentPage = 0;
       this._rebuildGrid();
     });
     ruleSel.addEventListener('change', () => {
       this.filterRuleset = ruleSel.value;
+      this._invalidateCache();
+      this.currentPage = 0;
       this._rebuildGrid();
     });
     tagSel.addEventListener('change', () => {
       this.filterTag = tagSel.value;
+      this._invalidateCache();
+      this.currentPage = 0;
       this._rebuildGrid();
     });
     sourceSel.addEventListener('change', () => {
       this.filterSource = sourceSel.value;
+      this._invalidateCache();
+      this.currentPage = 0;
       this._rebuildGrid();
     });
-  }
-
-  _populateGlobalRuleset() {
-    const sel = this.overlay.querySelector('#pz-global-ruleset');
-    sel.innerHTML = '';
-    for (const def of listRulesets()) {
-      const opt = document.createElement('option');
-      opt.value = def.id;
-      opt.textContent = `${def.name} (${def.notation})`;
-      sel.appendChild(opt);
-    }
-    sel.value = this.globalRuleset;
   }
 
   _wireGlobalControls() {
@@ -500,7 +588,6 @@ export class PatternZoo {
     const gridLabel = this.overlay.querySelector('#pz-global-grid-label');
     const speedSlider = this.overlay.querySelector('#pz-global-speed');
     const speedLabel = this.overlay.querySelector('#pz-global-speed-label');
-    const ruleSel = this.overlay.querySelector('#pz-global-ruleset');
     const pauseBtn = this.overlay.querySelector('#pz-pause-all');
     const resetBtn = this.overlay.querySelector('#pz-reset-all');
     gridSlider.value = String(this.globalGridSize);
@@ -516,10 +603,6 @@ export class PatternZoo {
       this.globalSpeed = parseInt(speedSlider.value, 10) || 10;
       speedLabel.textContent = this.globalSpeed === 0 ? 'Paused' : `${this.globalSpeed}/s`;
       for (const p of this.previews) p.setSpeed(this.globalSpeed);
-    });
-    ruleSel.addEventListener('change', () => {
-      this.globalRuleset = ruleSel.value;
-      for (const p of this.previews) p.setRuleset(this.globalRuleset);
     });
     this._allPaused = false;
     pauseBtn.addEventListener('click', () => {
@@ -551,6 +634,28 @@ export class PatternZoo {
         const search = this.overlay.querySelector('#pz-search');
         if (search) search.focus();
       }
+      // Paging shortcuts (only when detail view is closed and focus is
+      // not in a text field).
+      const inField =
+        document.activeElement &&
+        (document.activeElement.tagName === 'INPUT' ||
+          document.activeElement.tagName === 'SELECT' ||
+          document.activeElement.tagName === 'TEXTAREA');
+      if (inField) return;
+      if (!this.detailEl.classList.contains('hidden')) return;
+      if (e.key === 'PageDown' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        this._goToPage(this.currentPage + 1);
+      } else if (e.key === 'PageUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        this._goToPage(this.currentPage - 1);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        this._goToPage(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        this._goToPage(this._pageCount() - 1);
+      }
     });
   }
 
@@ -558,10 +663,8 @@ export class PatternZoo {
   show() {
     if (this.visible) return;
     this.visible = true;
-    // Sync preview ruleset to current game ruleset.
-    this.globalRuleset = CONFIG.ACTIVE_RULESET || this.globalRuleset;
-    this._populateGlobalRuleset();
-    for (const p of this.previews) p.setRuleset(this.globalRuleset);
+    // Refresh custom-pattern cache in case the store changed while hidden.
+    this._invalidateCache();
     // Pause game.
     if (this.game) {
       this._stashedSpeed = CONFIG.SPEED_MULTIPLIER;
@@ -600,6 +703,13 @@ export class PatternZoo {
   }
 
   // ── Grid building ────────────────────────────────────────────────
+  // Returns the cached filtered list, computing it on first access.
+  _getFilteredPatterns() {
+    if (this._filteredCache) return this._filteredCache;
+    this._filteredCache = this._filteredPatterns();
+    return this._filteredCache;
+  }
+
   _filteredPatterns() {
     const builtins = listPatterns();
     const customs = this._getCustomPatterns();
@@ -631,18 +741,56 @@ export class PatternZoo {
   _rebuildGrid() {
     this._destroyPreviews();
     this.gridEl.innerHTML = '';
-    const patterns = this._filteredPatterns();
-    this.resultCountEl.textContent = `${patterns.length} pattern${patterns.length === 1 ? '' : 's'}`;
-    if (patterns.length === 0) {
+    const allPatterns = this._getFilteredPatterns();
+    const total = allPatterns.length;
+    const pageCount = Math.max(1, Math.ceil(total / this.pageSize));
+    // Clamp current page (filter may have shrunk the list).
+    if (this.currentPage >= pageCount) this.currentPage = pageCount - 1;
+    if (this.currentPage < 0) this.currentPage = 0;
+    const start = this.currentPage * this.pageSize;
+    const end = Math.min(start + this.pageSize, total);
+    const pageSlice = allPatterns.slice(start, end);
+    // Update result count + page indicator.
+    if (total === 0) {
+      this.resultCountEl.textContent = '0 patterns';
+    } else {
+      this.resultCountEl.textContent = `${total} pattern${total === 1 ? '' : 's'} · showing ${start + 1}–${end}`;
+    }
+    this._updatePagingUI(pageCount, total);
+    if (total === 0) {
       const empty = document.createElement('div');
       empty.className = 'pz-empty';
       empty.textContent = 'No patterns match the current filters.';
       this.gridEl.appendChild(empty);
       return;
     }
-    for (const p of patterns) {
+    // Only build cards for the current page — this is the big win for
+    // large databases. Each card has its own canvas + simulator, so we
+    // avoid creating hundreds/thousands of them at once.
+    for (const p of pageSlice) {
       this._buildCard(p);
     }
+    // Scroll grid back to top on page change.
+    this.gridEl.scrollTop = 0;
+  }
+  _updatePagingUI(pageCount, total) {
+    const indicator = this.overlay.querySelector('#pz-page-indicator');
+    const firstBtn = this.overlay.querySelector('#pz-page-first');
+    const prevBtn = this.overlay.querySelector('#pz-page-prev');
+    const nextBtn = this.overlay.querySelector('#pz-page-next');
+    const lastBtn = this.overlay.querySelector('#pz-page-last');
+    const jumpBtn = this.overlay.querySelector('#pz-page-jump-btn');
+    if (indicator) {
+      indicator.textContent =
+        total === 0 ? 'No results' : `Page ${this.currentPage + 1} / ${pageCount}`;
+    }
+    const atFirst = this.currentPage <= 0;
+    const atLast = this.currentPage >= pageCount - 1;
+    if (firstBtn) firstBtn.disabled = atFirst;
+    if (prevBtn) prevBtn.disabled = atFirst;
+    if (nextBtn) nextBtn.disabled = atLast;
+    if (lastBtn) lastBtn.disabled = atLast;
+    if (jumpBtn) jumpBtn.disabled = pageCount <= 1;
   }
 
   _buildCard(pattern) {
@@ -685,7 +833,7 @@ export class PatternZoo {
       canvas,
       gridSize: this.globalGridSize,
       speed: this.globalSpeed,
-      rulesetId: this.globalRuleset,
+      rulesetId: this._getNativeRulesetFor(pattern),
       wrap: pattern.category !== CATEGORY.GUN,
     });
     if (this._allPaused) preview.setPaused(true);
@@ -827,6 +975,11 @@ export class PatternZoo {
             </div>
           </div>`
       : '';
+    const detailRule = this._getNativeRulesetFor(pattern);
+    const detailRuleDef = getRuleset(detailRule);
+    const detailRuleLabel = detailRuleDef
+      ? `${detailRuleDef.name} (${detailRuleDef.notation})`
+      : detailRule;
     this.detailBodyEl.innerHTML = `
           <h2 class="pz-detail-title">${this._escape(pattern.name)}</h2>
           <div class="pz-detail-id">id: <code>${this._escape(pattern.id)}</code></div>
@@ -834,10 +987,9 @@ export class PatternZoo {
             <div class="pz-detail-canvas-wrap">
               <canvas id="pz-detail-canvas" width="400" height="400"></canvas>
               <div class="pz-detail-controls">
-                <label>
-                  Ruleset:
-                  <select id="pz-detail-ruleset" class="pz-select"></select>
-                </label>
+                 <span style="color:#8080a0;font-size:11px;">
+                   Previewed with <strong style="color:#00ffff;">${this._escape(detailRuleLabel)}</strong>
+                 </span>
                 <label>
                   Grid:
                   <input id="pz-detail-grid" type="range" min="10" max="80" step="1">
@@ -877,7 +1029,6 @@ export class PatternZoo {
     // Detail preview state (independent of card defaults).
     const detailGrid = 30;
     const detailSpeed = 10;
-    const detailRule = this.globalRuleset;
     this.detailPreview = new PatternPreview({
       pattern,
       canvas,
@@ -885,18 +1036,6 @@ export class PatternZoo {
       speed: detailSpeed,
       rulesetId: detailRule,
       wrap: pattern.category !== CATEGORY.GUN,
-    });
-    // Wire detail controls.
-    const ruleSel = this.detailEl.querySelector('#pz-detail-ruleset');
-    for (const def of listRulesets()) {
-      const opt = document.createElement('option');
-      opt.value = def.id;
-      opt.textContent = `${def.name} (${def.notation})`;
-      ruleSel.appendChild(opt);
-    }
-    ruleSel.value = detailRule;
-    ruleSel.addEventListener('change', () => {
-      this.detailPreview.setRuleset(ruleSel.value);
     });
     const gridSlider = this.detailEl.querySelector('#pz-detail-grid');
     const gridLabel = this.detailEl.querySelector('#pz-detail-grid-label');

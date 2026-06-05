@@ -5,9 +5,11 @@
  * Usage:  node test/run-all.js
  */
 
-import './patterns/library.test.js';
 import './rules/ruleset.test.js';
+import './patterns/library.test.js';
 import './patterns/simulation.test.js';
+import './patterns/inferMetadata.test.js';
+import './patterns/parsers.test.js';
 import './sim/simulation.test.js';
 import './grid.test.js';
 

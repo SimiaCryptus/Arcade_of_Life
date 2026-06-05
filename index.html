@@ -19,9 +19,9 @@
     />
     <meta content="website" property="og:type" />
     <title>The Arcade of Life</title>
-    <link href="/manifest.json" rel="manifest" />
-    <link href="/icons/icon-192.png" rel="apple-touch-icon" />
-    <link href="/icons/icon-96.png" rel="icon" sizes="32x32" type="image/png" />
+    <link href="./manifest.json" rel="manifest" />
+    <link href="./icons/icon-192.png" rel="apple-touch-icon" />
+    <link href="./icons/icon-96.png" rel="icon" sizes="32x32" type="image/png" />
     <link href="style.css" rel="stylesheet" />
   </head>
   <body>
@@ -182,8 +182,8 @@
         </div>
       </div>
       <div class="overlay hidden" id="settings-overlay">
-        <div id="overlay-content">
-          <h1 id="overlay-title">Settings</h1>
+        <div id="settings-overlay-content" class="overlay-content">
+          <h1 id="settings-overlay-title">Settings</h1>
           <div id="settings-tabs">
             <button class="settings-tab active" data-tab="gameplay">🎮 Gameplay</button>
             <button class="settings-tab" data-tab="enemies">🚀 Enemies</button>
@@ -844,8 +844,8 @@
         </div>
       </div>
       <div class="overlay hidden" id="guide-overlay">
-        <div id="guide-content">
-          <h1 id="guide-title">Console Hacking Guide</h1>
+        <div id="guide-content" class="overlay-content">
+          <h1 id="guide-overlay-title">Console Hacking Guide</h1>
           <div id="guide-body">Loading…</div>
           <div class="guide-buttons">
             <button id="guide-close-button">Close</button>
@@ -868,8 +868,8 @@
         </div>
       </div>
       <div class="overlay hidden" id="help-overlay">
-        <div id="help-content">
-          <h1 id="help-title">How to Play</h1>
+        <div id="help-content" class="overlay-content">
+          <h1 id="help-overlay-title">How to Play</h1>
           <div id="help-body">Loading…</div>
           <div class="guide-buttons">
             <button id="help-close-button">Close</button>
@@ -895,7 +895,7 @@
     <script src="src/marked.min.js"></script>
     <script src="src/main.js" type="module"></script>
     <script type="module">
-      import { registerServiceWorker, initInstallPrompt, initNetworkIndicator } from '/src/pwa.js';
+      import { registerServiceWorker, initInstallPrompt, initNetworkIndicator } from './src/pwa.js';
       registerServiceWorker();
       initInstallPrompt();
       initNetworkIndicator();

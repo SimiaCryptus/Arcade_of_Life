@@ -3,37 +3,40 @@
  * Strategy: Cache-first for static assets, network-first for markdown docs.
  */
 
-const CACHE_NAME = 'arcade-of-life-v3';
+const CACHE_NAME = 'arcade-of-life-v5';
+// Resolve the scope path so cache keys are relative to wherever the SW
+// is registered (root or subdirectory).
+const SCOPE_PATH = new URL(self.registration ? self.registration.scope : './', self.location).pathname;
 const STATIC_ASSETS = [
-    '/',
-    '../index.html',
-    '../style.css',
-    './main.js',
-    './config.js',
-    './grid.js',
-    './simulation.js',
-    './renderer.js',
-    './hud.js',
-    './input.js',
-    './gameState.js',
-    './settings.js',
-    './guide.js',
-    './drawTools.js',
-    './story.js',
-    './logger.js',
-    './audio.js',
-    './abilities.js',
-    './entities/cities.js',
-    './entities/missiles.js',
-    './entities/defenses.js',
-    './marked.min.js',
-    '../icons/icon-192.png',
-    '../icons/icon-512.png',
+     './',
+     './index.html',
+    './style.css',
+    './src/main.js',
+    './src/config.js',
+    './src/grid.js',
+    './src/simulation.js',
+    './src/renderer.js',
+    './src/hud.js',
+    './src/input.js',
+    './src/gameState.js',
+    './src/settings.js',
+    './src/guide.js',
+    './src/drawTools.js',
+    './src/story.js',
+    //'./src/logger.js',
+    './src/audio.js',
+    './src/abilities.js',
+    './src/entities/cities.js',
+    './src/entities/missiles.js',
+    './src/entities/defenses.js',
+    './src/marked.min.js',
+    './icons/icon-192.png',
+    './icons/icon-512.png',
 ];
 
 const NETWORK_FIRST = [
-    '/README.md',
-    '/console_guide.md',
+     'README.md',
+     'console_guide.md',
 ];
 
 // ── Install: pre-cache all static assets ──────────────────────────────────

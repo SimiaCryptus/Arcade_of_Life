@@ -65,6 +65,7 @@ body {
   font-size: 11px;
   color: #8080a0;
 }
+
 /* ── Fullscreen button ─────────────────────────────────────────────────── */
 #fullscreen-button {
   background: transparent;
@@ -78,11 +79,13 @@ body {
   transition: all 0.2s;
   line-height: 1;
 }
+
 #fullscreen-button:hover {
   color: #00ffff;
   border-color: #00ffff;
   box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
 }
+
 /* ── PWA install / update banners ──────────────────────────────────────── */
 #pwa-install-banner,
 #pwa-update-banner {
@@ -105,16 +108,20 @@ body {
   transition: bottom 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   white-space: nowrap;
 }
+
 #pwa-install-banner.pwa-banner-visible,
 #pwa-update-banner.pwa-banner-visible {
   bottom: 16px;
 }
+
 .pwa-banner-icon {
   font-size: 20px;
 }
+
 .pwa-banner-text strong {
   color: #00ffff;
 }
+
 #pwa-install-btn,
 #pwa-update-btn {
   background: #00ffff;
@@ -128,11 +135,13 @@ body {
   border-radius: 3px;
   transition: all 0.15s;
 }
+
 #pwa-install-btn:hover,
 #pwa-update-btn:hover {
   background: #ffffff;
   box-shadow: 0 0 10px #00ffff;
 }
+
 #pwa-install-dismiss,
 #pwa-update-dismiss {
   background: transparent;
@@ -144,10 +153,12 @@ body {
   line-height: 1;
   transition: color 0.15s;
 }
+
 #pwa-install-dismiss:hover,
 #pwa-update-dismiss:hover {
   color: #e0e0ff;
 }
+
 /* ── Network indicator ─────────────────────────────────────────────────── */
 #pwa-network-indicator {
   position: fixed;
@@ -162,29 +173,35 @@ body {
   pointer-events: none;
   transition: opacity 1s ease;
 }
+
 #pwa-network-indicator.pwa-online {
   color: #00ff88;
   background: rgba(0, 255, 136, 0.1);
   border: 1px solid rgba(0, 255, 136, 0.3);
 }
+
 #pwa-network-indicator.pwa-offline {
   color: #ff4444;
   background: rgba(255, 68, 68, 0.15);
   border: 1px solid rgba(255, 68, 68, 0.4);
   animation: offlinePulse 2s infinite;
 }
+
 #pwa-network-indicator.pwa-fade {
   opacity: 0;
 }
+
 @keyframes offlinePulse {
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
 }
+
 /* ── Standalone / installed app tweaks ────────────────────────────────────
     When running as an installed PWA (no browser chrome), give the game
     container a bit more breathing room and hide the GitHub footer link
@@ -196,32 +213,40 @@ body {
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }
+
   .overlay-footer {
     display: none;
   }
+
   #pwa-network-indicator {
     top: calc(8px + env(safe-area-inset-top));
     right: calc(12px + env(safe-area-inset-right));
   }
 }
+
 /* ── Touch / mobile layout ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
   #speed-hint {
-    display: none; /* too long for small screens */
+    display: none;
+    /* too long for small screens */
   }
+
   #speed-control {
     gap: 6px;
     padding: 6px 8px;
     font-size: 12px;
   }
+
   #draw-tools {
     gap: 10px;
     padding: 6px 8px;
   }
+
   .mode-btn {
     padding: 5px 8px;
     font-size: 11px;
   }
+
   /* Larger tap targets for touch */
   #clear-defenses-button,
   #help-button,
@@ -232,17 +257,21 @@ body {
     min-height: 36px;
   }
 }
+
 @media (max-width: 480px) {
   #overlay-content {
     padding: 24px 16px;
     max-width: 95vw;
   }
+
   #overlay-title {
     font-size: 32px;
   }
+
   #overlay-message {
     font-size: 13px;
   }
+
   #start-button {
     padding: 12px 28px;
     font-size: 17px;
@@ -379,6 +408,7 @@ body {
   color: #ff8888;
   box-shadow: none;
 }
+
 /* ---------- Pattern Capture Button ---------- */
 #pattern-capture-button {
   background: transparent;
@@ -392,15 +422,18 @@ body {
   transition: all 0.2s;
   font-weight: bold;
 }
+
 #pattern-capture-button:hover {
   background: rgba(255, 204, 68, 0.15);
   box-shadow: 0 0 8px rgba(255, 204, 68, 0.4);
 }
+
 #pattern-capture-button.active {
   background: #ffcc44;
   color: #000010;
   box-shadow: 0 0 12px #ffcc44;
 }
+
 /* ---------- Exit to Menu Button ---------- */
 #exit-to-menu-button {
   background: transparent;
@@ -415,6 +448,7 @@ body {
   transition: all 0.2s;
   margin-left: auto;
 }
+
 #exit-to-menu-button:hover {
   background: #ff6666;
   color: #000010;
@@ -505,12 +539,14 @@ body {
   flex-direction: column;
   gap: 4px;
 }
+
 /* ---------- Pattern preset row + collapsible editor ---------- */
 .pattern-preset-row {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+
 #pattern-editor-toggle {
   background: transparent;
   color: #00ffff;
@@ -524,23 +560,28 @@ body {
   white-space: nowrap;
   font-weight: bold;
 }
+
 #pattern-editor-toggle:hover {
   background: rgba(0, 255, 255, 0.15);
   box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
 }
+
 #pattern-editor-toggle.active {
   background: #00ffff;
   color: #000010;
   box-shadow: 0 0 10px #00ffff;
 }
+
 #pattern-editor-toggle-group {
   display: flex;
   align-items: center;
 }
+
 /* ---------- Pattern Editor Overlay ---------- */
 #pattern-editor-overlay {
   z-index: 13;
 }
+
 #pattern-editor-content {
   text-align: center;
   padding: 28px 36px;
@@ -555,6 +596,7 @@ body {
   box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
   animation: editorOverlayIn 0.18s ease-out;
 }
+
 #pattern-editor-title {
   font-size: 28px;
   color: #00ffff;
@@ -562,18 +604,21 @@ body {
   text-shadow: 0 0 10px #00ffff;
   letter-spacing: 1px;
 }
+
 #pattern-editor-subtitle {
   color: #a0a0c0;
   font-size: 13px;
   margin-bottom: 18px;
   font-style: italic;
 }
+
 #pattern-editor-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 16px;
 }
+
 .pattern-editor-controls {
   display: flex;
   flex-direction: column;
@@ -581,6 +626,7 @@ body {
   gap: 14px;
   width: 100%;
 }
+
 .pattern-editor-hints {
   display: grid;
   grid-template-columns: repeat(2, auto);
@@ -589,6 +635,7 @@ body {
   color: #c0c0d0;
   justify-content: center;
 }
+
 .pattern-editor-hints kbd {
   display: inline-block;
   background: #1a1a3a;
@@ -604,6 +651,7 @@ body {
   text-align: center;
   margin-right: 6px;
 }
+
 .pattern-editor-hint-clickable {
   cursor: pointer;
   padding: 4px 8px;
@@ -614,24 +662,29 @@ body {
     transform 0.1s;
   user-select: none;
 }
+
 .pattern-editor-hint-clickable:hover {
   background: rgba(0, 255, 255, 0.12);
   color: #ffffff;
   transform: translateY(-1px);
 }
+
 .pattern-editor-hint-clickable:active {
   transform: translateY(0);
   background: rgba(0, 255, 255, 0.22);
 }
+
 .pattern-editor-hint-clickable:focus-visible {
   outline: 1px solid #00ffff;
   outline-offset: 2px;
 }
+
 .pattern-editor-buttons {
   display: flex;
   gap: 12px;
   justify-content: center;
 }
+
 .pattern-editor-buttons button {
   padding: 8px 20px;
   font-size: 14px;
@@ -641,16 +694,19 @@ body {
   font-weight: bold;
   transition: all 0.15s;
 }
+
 #pattern-editor-close {
   background: transparent;
   color: #00ffff;
   border: 2px solid #00ffff;
 }
+
 #pattern-editor-close:hover {
   background: #00ffff;
   color: #000010;
   box-shadow: 0 0 12px #00ffff;
 }
+
 .pattern-editor-buttons #pattern-clear {
   background: transparent;
   color: #ff8888;
@@ -658,21 +714,25 @@ body {
   padding: 8px 20px;
   font-size: 14px;
 }
+
 .pattern-editor-buttons #pattern-clear:hover {
   background: #ff8888;
   color: #000010;
   box-shadow: 0 0 12px #ff8888;
 }
+
 @keyframes editorOverlayIn {
   from {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
   }
 }
+
 /* ---------- Editor Save/Metadata Section ---------- */
 .editor-save-section {
   margin-top: 14px;
@@ -684,6 +744,7 @@ body {
   max-width: 520px;
   box-sizing: border-box;
 }
+
 .editor-save-header {
   font-size: 13px;
   font-weight: bold;
@@ -691,12 +752,14 @@ body {
   margin-bottom: 10px;
   letter-spacing: 1px;
 }
+
 .editor-meta-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px 12px;
   margin-bottom: 12px;
 }
+
 .editor-meta-row {
   display: flex;
   align-items: center;
@@ -704,15 +767,18 @@ body {
   font-size: 12px;
   color: #c0c0d0;
 }
+
 .editor-meta-row-wide {
   grid-column: 1 / -1;
 }
+
 .editor-meta-row span {
   min-width: 70px;
   color: #a0a0c0;
   font-size: 11px;
   text-align: right;
 }
+
 .editor-meta-row input[type='text'],
 .editor-meta-row input[type='number'],
 .editor-meta-row select {
@@ -726,18 +792,21 @@ body {
   border-radius: 3px;
   min-width: 0;
 }
+
 .editor-meta-row input:focus,
 .editor-meta-row select:focus {
   outline: none;
   border-color: #ffcc44;
   box-shadow: 0 0 4px rgba(255, 204, 68, 0.4);
 }
+
 .editor-save-buttons {
   display: flex;
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
 }
+
 .editor-action-btn {
   background: transparent;
   color: #00ffcc;
@@ -750,20 +819,24 @@ body {
   font-weight: bold;
   transition: all 0.15s;
 }
+
 .editor-action-btn:hover {
   background: rgba(0, 255, 204, 0.15);
   box-shadow: 0 0 6px rgba(0, 255, 204, 0.4);
 }
+
 .editor-action-primary {
   background: rgba(255, 204, 68, 0.15);
   color: #ffcc44;
   border-color: #ffcc44;
 }
+
 .editor-action-primary:hover {
   background: #ffcc44;
   color: #000010;
   box-shadow: 0 0 10px #ffcc44;
 }
+
 .editor-save-status {
   font-size: 11px;
   font-weight: bold;
@@ -771,6 +844,7 @@ body {
   margin-left: auto;
   text-align: right;
 }
+
 /* ---------- Editor JSON I/O Section ---------- */
 .editor-json-section {
   margin-top: 10px;
@@ -782,6 +856,7 @@ body {
   max-width: 520px;
   box-sizing: border-box;
 }
+
 .editor-json-header {
   font-size: 13px;
   font-weight: bold;
@@ -792,6 +867,7 @@ body {
   align-items: center;
   letter-spacing: 1px;
 }
+
 .editor-json-toggle {
   background: transparent;
   color: #88ddff;
@@ -803,12 +879,15 @@ body {
   border-radius: 3px;
   transition: all 0.15s;
 }
+
 .editor-json-toggle:hover {
   background: rgba(136, 221, 255, 0.15);
 }
+
 .editor-json-body {
   padding: 0 14px 14px;
 }
+
 .editor-json-buttons {
   display: flex;
   gap: 6px;
@@ -816,6 +895,7 @@ body {
   flex-wrap: wrap;
   margin-bottom: 8px;
 }
+
 .editor-json-textarea {
   width: 100%;
   background: #050514;
@@ -830,17 +910,20 @@ body {
   box-sizing: border-box;
   line-height: 1.4;
 }
+
 .editor-json-textarea:focus {
   outline: none;
   border-color: #88ddff;
   box-shadow: 0 0 6px rgba(136, 221, 255, 0.3);
 }
+
 .editor-json-hint {
   font-size: 10px;
   color: #8080a0;
   margin: 6px 0 0;
   font-style: italic;
 }
+
 .editor-json-hint code {
   background: #050514;
   color: #ffcc44;
@@ -871,16 +954,19 @@ body {
   margin-left: auto;
   align-self: center;
 }
+
 /* ---------- Draw tool action group (Clear / Capture) ---------- */
 .tool-group-actions {
   border-left: 1px dashed #2a2a5a;
   padding-left: 14px;
   margin-left: 4px;
 }
+
 .tool-group-actions button {
   font-size: 11px;
   padding: 4px 10px;
 }
+
 /* ---------- Abilities group ---------- */
 .tool-group-abilities {
   border-left: 2px solid #ffcc44;
@@ -890,6 +976,7 @@ body {
   border-radius: 0 4px 4px 0;
   padding-right: 8px;
 }
+
 .tool-group-abilities label {
   color: #ffcc44 !important;
   font-weight: bold;
@@ -897,6 +984,7 @@ body {
   text-transform: uppercase;
   font-size: 10px !important;
 }
+
 .tool-group-abilities .freeplay-ability-btn {
   font-size: 11px !important;
   padding: 4px 10px !important;
@@ -974,7 +1062,8 @@ body {
   box-shadow: 0 0 30px rgba(255, 128, 255, 0.3);
 }
 
-#guide-title {
+#guide-title,
+#guide-overlay-title {
   font-size: 32px;
   color: #ff80ff;
   margin-bottom: 16px;
@@ -1092,10 +1181,12 @@ body {
   text-align: center;
   flex-shrink: 0;
 }
+
 /* ---------- How-to-Play / README Guide Overlay ---------- */
 #help-overlay {
   z-index: 11;
 }
+
 #help-content {
   text-align: left;
   padding: 30px 40px;
@@ -1109,7 +1200,9 @@ body {
   flex-direction: column;
   box-shadow: 0 0 30px rgba(0, 255, 204, 0.25);
 }
-#help-title {
+
+#help-title,
+#help-overlay-title {
   font-size: 32px;
   color: #00ffcc;
   margin-bottom: 16px;
@@ -1117,6 +1210,7 @@ body {
   text-align: center;
   flex-shrink: 0;
 }
+
 #help-body {
   overflow-y: auto;
   flex: 1;
@@ -1126,6 +1220,7 @@ body {
   font-size: 13px;
   line-height: 1.55;
 }
+
 /* Reuse the same markdown typography rules for #help-body */
 #help-body h1,
 #help-body h2,
@@ -1135,29 +1230,36 @@ body {
   margin: 18px 0 10px;
   text-shadow: 0 0 4px rgba(0, 255, 204, 0.4);
 }
+
 #help-body h1 {
   font-size: 22px;
   border-bottom: 1px solid #2a2a5a;
   padding-bottom: 6px;
 }
+
 #help-body h2 {
   font-size: 18px;
   border-bottom: 1px solid #2a2a5a;
   padding-bottom: 4px;
 }
+
 #help-body h3 {
   font-size: 15px;
 }
+
 #help-body p {
   margin: 8px 0;
 }
+
 #help-body ul,
 #help-body ol {
   margin: 8px 0 8px 24px;
 }
+
 #help-body li {
   margin: 3px 0;
 }
+
 #help-body code {
   background: #050514;
   color: #00ffcc;
@@ -1165,6 +1267,7 @@ body {
   border-radius: 3px;
   font-size: 12px;
 }
+
 #help-body pre {
   background: #050514;
   border: 1px solid #2a2a5a;
@@ -1173,6 +1276,7 @@ body {
   margin: 10px 0;
   overflow-x: auto;
 }
+
 #help-body pre code {
   background: transparent;
   color: #00ffcc;
@@ -1180,30 +1284,38 @@ body {
   font-size: 12px;
   line-height: 1.5;
 }
+
 #help-body strong {
   color: #ffff80;
 }
+
 #help-body em {
   color: #00ffcc;
 }
+
 #help-body hr {
   border: none;
   border-top: 1px dashed #2a2a5a;
   margin: 16px 0;
 }
+
 #help-body a {
   color: #00ffcc;
 }
+
 #help-body::-webkit-scrollbar {
   width: 8px;
 }
+
 #help-body::-webkit-scrollbar-track {
   background: #0a0a20;
 }
+
 #help-body::-webkit-scrollbar-thumb {
   background: #00ffcc;
   border-radius: 4px;
 }
+
 #howtoplay-button {
   background: transparent;
   color: #00ffcc;
@@ -1217,11 +1329,13 @@ body {
   transition: all 0.2s;
   margin: 8px 6px 0 6px;
 }
+
 #howtoplay-button:hover {
   background: #00ffcc;
   color: #000010;
   box-shadow: 0 0 20px #00ffcc;
 }
+
 #howtoplay-ingame-button {
   background: transparent;
   color: #00ffcc;
@@ -1233,15 +1347,18 @@ body {
   border-radius: 3px;
   transition: all 0.2s;
 }
+
 #howtoplay-ingame-button:hover {
   background: #00ffcc;
   color: #000010;
   box-shadow: 0 0 10px #00ffcc;
 }
+
 /* ---------- Pattern Zoo Overlay ---------- */
 #pattern-zoo-overlay {
   z-index: 12;
 }
+
 #pattern-zoo-content {
   position: relative;
   background: rgba(5, 5, 20, 0.97);
@@ -1257,6 +1374,7 @@ body {
   color: #e0e0ff;
   font-family: 'Courier New', monospace;
 }
+
 #pattern-zoo-header {
   flex-shrink: 0;
   text-align: center;
@@ -1264,6 +1382,7 @@ body {
   padding-bottom: 10px;
   margin-bottom: 12px;
 }
+
 #pattern-zoo-title {
   font-size: 28px;
   color: #ff80ff;
@@ -1271,12 +1390,14 @@ body {
   letter-spacing: 2px;
   margin: 0 0 4px;
 }
+
 #pattern-zoo-subtitle {
   font-size: 12px;
   color: #a0a0c0;
   font-style: italic;
   margin: 0;
 }
+
 #pattern-zoo-toolbar {
   flex-shrink: 0;
   background: rgba(20, 20, 50, 0.6);
@@ -1288,6 +1409,7 @@ body {
   flex-direction: column;
   gap: 8px;
 }
+
 .pz-filter-row,
 .pz-global-row {
   display: flex;
@@ -1296,6 +1418,7 @@ body {
   align-items: center;
   font-size: 12px;
 }
+
 .pz-filter-row label,
 .pz-global-row label {
   color: #a0a0c0;
@@ -1303,6 +1426,7 @@ body {
   align-items: center;
   gap: 6px;
 }
+
 .pz-select {
   background: #0a0a20;
   color: #e0e0ff;
@@ -1313,9 +1437,11 @@ body {
   border-radius: 3px;
   cursor: pointer;
 }
+
 .pz-select:hover {
   border-color: #6060c0;
 }
+
 .pz-tool-btn {
   background: transparent;
   color: #00ffcc;
@@ -1328,10 +1454,12 @@ body {
   font-weight: bold;
   transition: all 0.15s;
 }
+
 .pz-tool-btn:hover {
   background: rgba(0, 255, 204, 0.15);
   box-shadow: 0 0 6px rgba(0, 255, 204, 0.4);
 }
+
 #pattern-zoo-grid {
   flex: 1;
   overflow-y: auto;
@@ -1342,16 +1470,20 @@ body {
   gap: 14px;
   align-content: start;
 }
+
 #pattern-zoo-grid::-webkit-scrollbar {
   width: 10px;
 }
+
 #pattern-zoo-grid::-webkit-scrollbar-track {
   background: #0a0a20;
 }
+
 #pattern-zoo-grid::-webkit-scrollbar-thumb {
   background: #ff80ff;
   border-radius: 5px;
 }
+
 .pz-card {
   background: rgba(15, 15, 35, 0.9);
   border: 1px solid #4040a0;
@@ -1364,11 +1496,13 @@ body {
   transition: all 0.15s;
   position: relative;
 }
+
 .pz-card:hover {
   border-color: #ff80ff;
   box-shadow: 0 0 14px rgba(255, 128, 255, 0.4);
   transform: translateY(-2px);
 }
+
 .pz-card-canvas-wrap {
   background: #000010;
   border: 1px solid #2a2a5a;
@@ -1378,6 +1512,7 @@ body {
   justify-content: center;
   align-items: center;
 }
+
 .pz-card-canvas {
   width: 100%;
   height: auto;
@@ -1385,23 +1520,27 @@ body {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+
 .pz-card-meta {
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 11px;
 }
+
 .pz-card-name {
   font-size: 13px;
   font-weight: bold;
   color: #ff80ff;
   text-shadow: 0 0 4px rgba(255, 128, 255, 0.4);
 }
+
 .pz-card-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
+
 .pz-tag {
   display: inline-block;
   font-size: 9px;
@@ -1413,84 +1552,104 @@ body {
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
+
 .pz-tag-cat {
   color: #00ffff;
   border-color: #00ffff;
 }
+
 .pz-cat-spaceship {
   color: #ffff66;
   border-color: #ffff66;
 }
+
 .pz-cat-oscillator {
   color: #00ff88;
   border-color: #00ff88;
 }
+
 .pz-cat-still_life {
   color: #88aaff;
   border-color: #88aaff;
 }
+
 .pz-cat-gun {
   color: #ff6666;
   border-color: #ff6666;
 }
+
 .pz-cat-methuselah {
   color: #ffaa44;
   border-color: #ffaa44;
 }
+
 .pz-cat-puffer {
   color: #ff80ff;
   border-color: #ff80ff;
 }
+
 .pz-cat-misc {
   color: #c0c0d0;
   border-color: #6060c0;
 }
+
 .pz-tag-period {
   color: #ffcc44;
   border-color: #ffcc44;
 }
+
 .pz-tag-dir {
   color: #00ffcc;
   border-color: #00ffcc;
 }
+
 .pz-tag-custom {
   color: #ffcc44 !important;
   border-color: #ffcc44 !important;
   background: rgba(255, 204, 68, 0.15) !important;
   font-weight: bold;
 }
+
 .pz-card-custom {
   border-color: #ffcc44;
   box-shadow: 0 0 6px rgba(255, 204, 68, 0.15);
 }
+
 .pz-card-custom:hover {
   border-color: #ffcc44;
   box-shadow: 0 0 16px rgba(255, 204, 68, 0.5);
 }
+
 .pz-card-edit {
   color: #ffcc44 !important;
   border-color: #ffcc44 !important;
 }
+
 .pz-card-edit:hover {
   background: rgba(255, 204, 68, 0.2) !important;
 }
+
 .pz-card-delete {
   color: #ff6666 !important;
   border-color: #ff6666 !important;
   max-width: 36px;
 }
+
 .pz-card-delete:hover {
   background: rgba(255, 102, 102, 0.2) !important;
 }
+
 .pz-card-size {
   color: #8080a0;
   font-size: 10px;
 }
+
 .pz-card-actions {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
 }
+
 .pz-card-btn {
   flex: 1;
   min-width: 28px;
@@ -1504,16 +1663,20 @@ body {
   border-radius: 3px;
   transition: all 0.15s;
 }
+
 .pz-card-btn:hover {
   background: rgba(0, 255, 204, 0.2);
 }
+
 .pz-card-place {
   color: #ffcc44 !important;
   border-color: #ffcc44 !important;
 }
+
 .pz-card-place:hover {
   background: rgba(255, 204, 68, 0.2) !important;
 }
+
 #pattern-zoo-footer {
   flex-shrink: 0;
   text-align: center;
@@ -1521,6 +1684,7 @@ body {
   padding-top: 10px;
   border-top: 1px solid #2a2a5a;
 }
+
 #pattern-zoo-close-button {
   background: transparent;
   color: #ff80ff;
@@ -1533,11 +1697,13 @@ body {
   font-weight: bold;
   transition: all 0.2s;
 }
+
 #pattern-zoo-close-button:hover {
   background: #ff80ff;
   color: #000010;
   box-shadow: 0 0 14px #ff80ff;
 }
+
 .pz-empty {
   grid-column: 1 / -1;
   text-align: center;
@@ -1546,6 +1712,7 @@ body {
   padding: 40px;
   font-size: 14px;
 }
+
 /* ---------- Pattern Zoo Detail View ---------- */
 #pattern-zoo-detail {
   position: absolute;
@@ -1560,9 +1727,11 @@ body {
   z-index: 5;
   padding: 20px;
 }
+
 #pattern-zoo-detail.hidden {
   display: none;
 }
+
 #pz-detail-content {
   background: rgba(5, 5, 20, 0.97);
   border: 2px solid #00ffcc;
@@ -1575,13 +1744,16 @@ body {
   box-shadow: 0 0 30px rgba(0, 255, 204, 0.4);
   color: #e0e0ff;
 }
+
 #pz-detail-content::-webkit-scrollbar {
   width: 8px;
 }
+
 #pz-detail-content::-webkit-scrollbar-thumb {
   background: #00ffcc;
   border-radius: 4px;
 }
+
 #pz-detail-back {
   background: transparent;
   color: #00ffcc;
@@ -1595,42 +1767,50 @@ body {
   font-weight: bold;
   transition: all 0.15s;
 }
+
 #pz-detail-back:hover {
   background: rgba(0, 255, 204, 0.15);
   box-shadow: 0 0 8px rgba(0, 255, 204, 0.4);
 }
+
 .pz-detail-title {
   color: #00ffcc;
   font-size: 28px;
   text-shadow: 0 0 10px #00ffcc;
   margin: 0 0 4px;
 }
+
 .pz-detail-id {
   color: #8080a0;
   font-size: 11px;
   margin-bottom: 18px;
 }
+
 .pz-detail-id code {
   background: #050514;
   color: #ffcc44;
   padding: 1px 6px;
   border-radius: 2px;
 }
+
 .pz-detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 24px;
 }
+
 @media (max-width: 720px) {
   .pz-detail-layout {
     grid-template-columns: 1fr;
   }
 }
+
 .pz-detail-canvas-wrap {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+
 #pz-detail-canvas {
   width: 100%;
   height: auto;
@@ -1642,6 +1822,7 @@ body {
   image-rendering: crisp-edges;
   box-shadow: 0 0 14px rgba(0, 255, 204, 0.2);
 }
+
 .pz-detail-controls {
   display: flex;
   flex-wrap: wrap;
@@ -1649,41 +1830,49 @@ body {
   align-items: center;
   font-size: 12px;
 }
+
 .pz-detail-controls label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   color: #a0a0c0;
 }
+
 .pz-detail-controls input[type='range'] {
   width: 100px;
   accent-color: #00ffcc;
   vertical-align: middle;
 }
+
 .pz-detail-controls span {
   color: #00ffcc;
   font-weight: bold;
   min-width: 36px;
   display: inline-block;
 }
+
 .pz-detail-place-btn {
   color: #ffcc44 !important;
   border-color: #ffcc44 !important;
   margin-left: auto;
 }
+
 .pz-detail-place-btn:hover {
   background: rgba(255, 204, 68, 0.2) !important;
   box-shadow: 0 0 8px rgba(255, 204, 68, 0.5) !important;
 }
+
 .pz-detail-stats {
   display: flex;
   gap: 18px;
   font-size: 12px;
   color: #a0a0c0;
 }
+
 .pz-detail-stats strong {
   color: #00ffcc;
 }
+
 .pz-detail-info {
   display: flex;
   flex-direction: column;
@@ -1691,17 +1880,21 @@ body {
   font-size: 13px;
   line-height: 1.5;
 }
+
 .pz-detail-row {
   padding: 4px 0;
   border-bottom: 1px dotted #2a2a5a;
 }
+
 .pz-detail-row strong {
   color: #00ffcc;
   margin-right: 6px;
 }
+
 .pz-detail-row em {
   color: #8080a0;
 }
+
 .pz-detail-desc {
   margin-top: 12px;
   padding: 10px 14px;
@@ -1713,6 +1906,7 @@ body {
   font-size: 12px;
   line-height: 1.6;
 }
+
 /* ---------- Pattern Zoo button in main menu / toolbar ---------- */
 #pattern-zoo-button {
   background: transparent;
@@ -1727,11 +1921,13 @@ body {
   transition: all 0.2s;
   margin: 8px 6px 0 6px;
 }
+
 #pattern-zoo-button:hover {
   background: #ff80ff;
   color: #000010;
   box-shadow: 0 0 20px #ff80ff;
 }
+
 #pattern-zoo-ingame-button {
   background: transparent;
   color: #ff80ff;
@@ -1743,6 +1939,7 @@ body {
   border-radius: 3px;
   transition: all 0.2s;
 }
+
 #pattern-zoo-ingame-button:hover {
   background: #ff80ff;
   color: #000010;
@@ -1819,6 +2016,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1830,6 +2028,7 @@ body {
   100% {
     opacity: 0.4;
   }
+
   50% {
     opacity: 1;
   }
@@ -1863,11 +2062,13 @@ body {
     opacity: 0;
     transform: translateX(-50%) translateY(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
 }
+
 /* ---------- Story Progress Badge ---------- */
 .story-progress {
   position: absolute;
@@ -1884,24 +2085,29 @@ body {
   max-width: 240px;
   pointer-events: none;
 }
+
 .story-progress.hidden {
   display: none;
 }
+
 .story-progress .sp-chap {
   font-weight: bold;
   color: inherit;
   font-size: 12px;
   margin-bottom: 4px;
 }
+
 .story-progress .sp-perks {
   font-size: 16px;
   letter-spacing: 4px;
   color: #ffcc44;
 }
+
 /* ---------- Perk Selection Overlay ---------- */
 #perk-overlay {
   z-index: 14;
 }
+
 #perk-content {
   text-align: center;
   padding: 36px 40px;
@@ -1912,6 +2118,7 @@ body {
   width: 95%;
   box-shadow: 0 0 40px rgba(255, 204, 68, 0.3);
 }
+
 #perk-title {
   font-size: 32px;
   color: #ffcc44;
@@ -1919,17 +2126,20 @@ body {
   text-shadow: 0 0 12px #ffcc44;
   letter-spacing: 2px;
 }
+
 #perk-subtitle {
   color: #c0c0d0;
   font-size: 14px;
   margin-bottom: 24px;
 }
+
 #perk-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 18px;
   margin: 0 0 16px 0;
 }
+
 .perk-card {
   background: rgba(5, 5, 20, 0.9);
   border: 2px solid #4040a0;
@@ -1942,46 +2152,56 @@ body {
   flex-direction: column;
   align-items: center;
 }
+
 .perk-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 0 20px currentColor;
   background: rgba(20, 20, 50, 0.95);
 }
+
 .perk-card.perk-stat {
   color: #88ddff;
 }
+
 .perk-card.perk-pattern {
   color: #ff80ff;
 }
+
 .perk-card.perk-ability {
   color: #ffcc44;
 }
+
 .perk-icon {
   font-size: 42px;
   margin-bottom: 8px;
   line-height: 1;
   text-shadow: 0 0 12px currentColor;
 }
+
 .perk-type {
   font-size: 10px;
   color: #8080a0;
   letter-spacing: 2px;
   margin-bottom: 4px;
 }
+
 .perk-name {
   font-size: 16px;
   font-weight: bold;
   color: currentColor;
   margin-bottom: 8px;
 }
+
 .perk-desc {
   font-size: 12px;
   color: #c0c0d0;
   line-height: 1.4;
 }
+
 .perk-skip {
   margin-top: 8px;
 }
+
 #perk-skip-button {
   background: transparent;
   color: #8080a0;
@@ -1993,15 +2213,18 @@ body {
   border-radius: 3px;
   transition: all 0.15s;
 }
+
 #perk-skip-button:hover {
   color: #c0c0d0;
   border-color: #6060c0;
 }
+
 @media (max-width: 720px) {
   #perk-cards {
     grid-template-columns: 1fr;
   }
 }
+
 /* ---------- In-Play Settings Button ---------- */
 #ingame-settings-button {
   background: transparent;
@@ -2014,6 +2237,7 @@ body {
   border-radius: 3px;
   transition: all 0.2s;
 }
+
 #ingame-settings-button:hover {
   background: #ffcc88;
   color: #000010;
@@ -2040,6 +2264,7 @@ body {
   overflow: hidden;
   pointer-events: none;
 }
+
 /* ── Fullscreen safety: ensure overlays render above the fullscreen
     element and fill it correctly. The Fullscreen API only shows the
     fullscreened element and its descendants, so overlays MUST live
@@ -2053,6 +2278,7 @@ body {
   display: flex;
   flex-direction: column;
 }
+
 #game-container:fullscreen .overlay,
 #game-container:-webkit-full-screen .overlay {
   position: fixed;
@@ -2063,7 +2289,8 @@ body {
   z-index: 100;
 }
 
-#overlay-content {
+#overlay-content,
+.overlay-content {
   text-align: center;
   padding: 40px;
   border: 2px solid #4040a0;
@@ -2191,6 +2418,7 @@ body {
   text-align: right;
   font-weight: bold;
 }
+
 /* Slider + unlimited checkbox side-by-side */
 .setting-slider-row {
   display: flex;
@@ -2198,10 +2426,12 @@ body {
   gap: 8px;
   width: 100%;
 }
+
 .setting-slider-row input[type='range'] {
   flex: 1;
   min-width: 0;
 }
+
 .unlimited-label {
   display: inline-flex;
   align-items: center;
@@ -2214,12 +2444,14 @@ body {
   flex-shrink: 0;
   user-select: none;
 }
+
 .unlimited-label input[type='checkbox'] {
   accent-color: #ffcc44;
   cursor: pointer;
   width: 14px;
   height: 14px;
 }
+
 .unlimited-label:hover {
   color: #ffe080;
   text-shadow: 0 0 6px rgba(255, 204, 68, 0.6);
@@ -2228,6 +2460,7 @@ body {
 .settings-buttons {
   margin-top: 20px;
 }
+
 /* ---------- Settings Tabs ---------- */
 #settings-tabs {
   display: flex;
@@ -2237,6 +2470,7 @@ body {
   border-bottom: 2px solid #2a2a5a;
   padding-bottom: 8px;
 }
+
 .settings-tab {
   background: transparent;
   color: #8080c0;
@@ -2250,11 +2484,13 @@ body {
   font-weight: bold;
   letter-spacing: 0.5px;
 }
+
 .settings-tab:hover {
   color: #c0c0e0;
   border-color: #4040a0;
   background: rgba(64, 64, 160, 0.15);
 }
+
 .settings-tab.active {
   background: rgba(0, 255, 255, 0.12);
   color: #00ffff;
@@ -2262,12 +2498,15 @@ body {
   border-bottom-color: transparent;
   box-shadow: 0 0 8px rgba(0, 255, 255, 0.25);
 }
+
 .settings-tab-panel {
   display: none;
 }
+
 .settings-tab-panel.active {
   display: block;
 }
+
 .settings-tab-desc {
   font-size: 12px;
   color: #8080a0;
@@ -2275,6 +2514,7 @@ body {
   line-height: 1.5;
   font-style: italic;
 }
+
 .setting-section-header {
   font-size: 11px;
   font-weight: bold;
@@ -2285,6 +2525,7 @@ body {
   padding-bottom: 4px;
   border-bottom: 1px solid #2a2a5a;
 }
+
 .setting-section-note {
   font-size: 10px;
   color: #8080a0;
@@ -2292,6 +2533,7 @@ body {
   letter-spacing: 0;
   text-transform: none;
 }
+
 /* ---------- Aging Matrix Layout ---------- */
 .aging-matrix {
   display: flex;
@@ -2303,17 +2545,20 @@ body {
   padding: 2px;
   margin: 12px 0;
 }
+
 .aging-matrix-row {
   display: grid;
   grid-template-columns: 180px 1fr 1fr;
   gap: 2px;
 }
+
 .aging-matrix-header {
   font-weight: bold;
   font-size: 12px;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
+
 .aging-matrix-cell {
   background: #0a0a20;
   padding: 10px 12px;
@@ -2323,44 +2568,54 @@ body {
   gap: 6px;
   min-height: 56px;
 }
+
 .aging-matrix-label {
   font-weight: bold;
   color: #c0c0d0;
   font-size: 13px;
 }
+
 .aging-matrix-region-friendly {
   color: #00ff88;
   text-shadow: 0 0 6px rgba(0, 255, 136, 0.4);
   text-align: center;
 }
+
 .aging-matrix-region-enemy {
   color: #ff5050;
   text-shadow: 0 0 6px rgba(255, 80, 80, 0.4);
   text-align: center;
 }
+
 .aging-matrix-type-defense {
   color: #00ff88;
 }
+
 .aging-matrix-type-missile {
   color: #ff5050;
 }
+
 .aging-matrix-cell .setting-value {
   font-size: 12px;
   text-align: right;
   align-self: flex-end;
 }
+
 @media (max-width: 720px) {
   .aging-matrix-row {
     grid-template-columns: 1fr;
   }
+
   .aging-matrix-header {
     display: none;
   }
+
   .aging-matrix-cell.aging-matrix-label {
     border-top: 2px solid #4040a0;
     margin-top: 4px;
   }
 }
+
 /* ---------- Profiles & JSON I/O ---------- */
 .profile-controls {
   display: flex;
@@ -2368,17 +2623,20 @@ body {
   gap: 10px;
   margin-bottom: 16px;
 }
+
 .profile-row {
   display: flex;
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
 }
+
 .profile-row label {
   min-width: 140px;
   color: #a0a0c0;
   font-size: 13px;
 }
+
 .profile-row .setting-select,
 .profile-input {
   flex: 1;
@@ -2391,6 +2649,7 @@ body {
   font-size: 13px;
   border-radius: 3px;
 }
+
 .profile-btn {
   background: transparent;
   color: #00ffff;
@@ -2404,27 +2663,33 @@ body {
   transition: all 0.15s;
   white-space: nowrap;
 }
+
 .profile-btn:hover {
   background: rgba(0, 255, 255, 0.15);
   box-shadow: 0 0 6px rgba(0, 255, 255, 0.4);
 }
+
 .profile-btn-primary {
   background: rgba(0, 255, 255, 0.2);
 }
+
 .profile-btn-primary:hover {
   background: #00ffff;
   color: #000010;
   box-shadow: 0 0 12px #00ffff;
 }
+
 .profile-btn-danger {
   color: #ff8888;
   border-color: #ff8888;
 }
+
 .profile-btn-danger:hover {
   background: #ff8888;
   color: #000010;
   box-shadow: 0 0 10px #ff8888;
 }
+
 .json-io-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -2432,12 +2697,14 @@ body {
   align-items: center;
   margin-bottom: 8px;
 }
+
 .json-status {
   font-size: 12px;
   font-weight: bold;
   margin-left: auto;
   transition: color 0.2s;
 }
+
 .json-textarea {
   width: 100%;
   background: #050514;
@@ -2451,11 +2718,13 @@ body {
   min-height: 160px;
   box-sizing: border-box;
 }
+
 .json-textarea:focus {
   outline: none;
   border-color: #00ffff;
   box-shadow: 0 0 8px rgba(0, 255, 255, 0.3);
 }
+
 /* ---------- Settings About / GitHub ---------- */
 .settings-about {
   font-size: 13px;
@@ -2463,9 +2732,11 @@ body {
   line-height: 1.7;
   margin-top: 8px;
 }
+
 .settings-about p {
   margin: 6px 0;
 }
+
 .github-link-inline {
   display: inline-flex;
   align-items: center;
@@ -2477,22 +2748,26 @@ body {
     color 0.15s,
     text-shadow 0.15s;
 }
+
 .github-link-inline:hover {
   color: #ffffff;
   text-shadow: 0 0 8px #00ffff;
 }
+
 .github-icon {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
   vertical-align: middle;
 }
+
 /* ---------- Main Menu GitHub Footer ---------- */
 .overlay-footer {
   margin-top: 20px;
   padding-top: 14px;
   border-top: 1px solid #2a2a5a;
 }
+
 .github-link {
   display: inline-flex;
   align-items: center;
@@ -2508,12 +2783,14 @@ body {
   border: 1px solid #2a2a5a;
   border-radius: 4px;
 }
+
 .github-link:hover {
   color: #00ffff;
   border-color: #00ffff;
   text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
   box-shadow: 0 0 12px rgba(0, 255, 255, 0.15);
 }
+
 .github-link .github-icon {
   width: 18px;
   height: 18px;
@@ -2530,4 +2807,9 @@ body {
 #settings-list::-webkit-scrollbar-thumb {
   background: #4040a0;
   border-radius: 4px;
+}
+
+.pz-tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

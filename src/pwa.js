@@ -4,6 +4,17 @@
  */
 
 import { Logger } from './logger.js';
+// Compute base path so the app works whether served from the domain root
+// or from a subdirectory (e.g. http://host/Arcade_of_Life/).
+// Strips the trailing filename (if any) from the current pathname.
+function getBasePath() {
+  const path = window.location.pathname;
+  // If the path ends with a slash, use it directly.
+  if (path.endsWith('/')) return path;
+  // Otherwise drop the last segment (typically index.html).
+  const idx = path.lastIndexOf('/');
+  return idx >= 0 ? path.slice(0, idx + 1) : '/';
+}
 
 // ── Service Worker registration ────────────────────────────────────────────
 export function registerServiceWorker() {
@@ -13,8 +24,9 @@ export function registerServiceWorker() {
   }
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/',
+      const basePath = getBasePath();
+      const reg = await navigator.serviceWorker.register(basePath + 'sw.js', {
+        scope: basePath,
       });
       Logger.info('[PWA] Service worker registered:', reg.scope);
 

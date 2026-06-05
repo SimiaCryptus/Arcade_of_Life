@@ -87,7 +87,7 @@ class Game {
       overlayId: 'guide-overlay',
       bodyId: 'guide-body',
       closeId: 'guide-close-button',
-      markdownUrl: '/console_guide.md',
+      markdownUrl: './console_guide.md',
       onOpen: () => {
         // Hide other overlays so the guide is unambiguous.
         this._guidePrevOverlayHidden = this.overlay.classList.contains('hidden');
@@ -120,7 +120,7 @@ class Game {
       overlayId: 'help-overlay',
       bodyId: 'help-body',
       closeId: 'help-close-button',
-      markdownUrl: '/README.md',
+      markdownUrl: './README.md',
       onOpen: () => {
         this._helpPrevOverlayHidden = this.overlay.classList.contains('hidden');
         this.overlay.classList.add('hidden');
