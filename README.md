@@ -20,7 +20,7 @@ and **glider guns** straight out of Conway's cellular automaton, evolving and
 descending inexorably toward the cities you've sworn to protect.
 
 Your only tool is **ink**. Drag your cursor across the bottom half of the
-grid to paint living cells. When you release the mouse, your ink *dries*
+grid to paint living cells. When you release the mouse, your ink _dries_
 into active structures that obey the same Life rules as the incoming threats.
 A lone cell dies of loneliness. A square of four cells will sit forever like
 a stone wall. A glider you stamp upward will fly into the enemy's spawn line
@@ -61,16 +61,16 @@ ones kill.
    narrative campaign).
 2. **Click and drag** in the bottom half of the screen to paint defensive
    ink. The dotted boundary line shows where you're allowed to draw.
-3. **Release the mouse** to commit your ink. It will briefly *dry*
+3. **Release the mouse** to commit your ink. It will briefly _dry_
    (deepening green) before becoming an active defense cell.
 4. **Watch the simulation evolve.** Your defenses will reproduce, decay,
    or stabilize based on Conway's rules.
 5. **Engineer collisions.** When red enemy cells touch your green cells,
-    both die in an explosion.
+   both die in an explosion.
 6. **Protect your cities.** If even one missile cell touches a city, you
    lose part of that city. Lose all your cities and the game ends.
 7. **Survive waves.** Each wave brings more hostile patterns, faster spawns,
-    and (eventually) deadlier formations like glider guns.
+   and (eventually) deadlier formations like glider guns.
 
 ---
 
@@ -83,7 +83,7 @@ The screen is divided into four major regions:
 A single dark strip across the top displays your vital stats:
 
 | Element       | Meaning                                              |
-|---------------|------------------------------------------------------|
+| ------------- | ---------------------------------------------------- |
 | **SCORE**     | Total points earned this run.                        |
 | **WAVE**      | Current wave number.                                 |
 | **CITIES**    | How many of your cities are still alive.             |
@@ -157,7 +157,7 @@ edge. Vertically, the top and bottom are hard boundaries.
 Each row of the grid has a specific role:
 
 | Zone                  | Default Rows     | Behavior                                           |
-|-----------------------|------------------|----------------------------------------------------|
+| --------------------- | ---------------- | -------------------------------------------------- |
 | **Top Dead Zone**     | 0–4              | Nothing spawns here. Used to detect "return fire". |
 | **Base Zone**         | 5–12             | Enemy bases & horizontal cruisers spawn here.      |
 | **Missile Spawn Row** | 13               | Where new gliders are launched downward.           |
@@ -195,8 +195,8 @@ When you click-drag in the draw zone:
    **defense cells** and immediately join the next simulation tick.
 
 Drying matters strategically. You can plan a complex pattern at full
-leisure (even while paused), then release and watch it commit *all at
-once* into a single coordinated structure. Pending cells take up no
+leisure (even while paused), then release and watch it commit _all at
+once_ into a single coordinated structure. Pending cells take up no
 Conway-neighbor space, so a half-drawn glider won't get killed by Life
 rules before it's complete.
 
@@ -230,13 +230,13 @@ cell** at the start of a tick:
   ticks before fading).
 - A particle burst and small shockwave fire visually.
 - The player **scores +10** for the kill.
-- If the hostile cell was *also* adjacent to a city, the **city cell** is
-   destroyed too.
+- If the hostile cell was _also_ adjacent to a city, the **city cell** is
+  destroyed too.
 
 City cells follow special rules:
 
 - They are **immune to Life rules** (no death by loneliness/overcrowding).
-- They are destroyed *only* by missile contact (or, in Hardcore mode, by
+- They are destroyed _only_ by missile contact (or, in Hardcore mode, by
   defense contact).
 - When a city loses all its cells, it's marked dead. Lose all cities →
   game over.
@@ -249,7 +249,7 @@ cell ages:
 - **Defense cells** die after **200 ticks** (~20 seconds at default speed).
 - **Enemy cells** die after **150 ticks** (~15 seconds).
 - **Cascade despawn**: when an enemy cell expires, any neighboring enemy
-  cell within **20 ticks** of its own expiry *also* despawns. This
+  cell within **20 ticks** of its own expiry _also_ despawns. This
   creates dramatic chain reactions when you bait enemy formations into
   tangling with each other.
 
@@ -282,10 +282,10 @@ destroy stationary enemy bases.
 The enemy pattern roster, in roughly increasing difficulty:
 
 | Pattern                           | Behavior                                                                                        |
-|-----------------------------------|-------------------------------------------------------------------------------------------------|
+| --------------------------------- | ----------------------------------------------------------------------------------------------- |
 | **R-Glider (SE)**                 | Classic Conway glider, descends southeast.                                                      |
 | **L-Glider (SW)**                 | Mirrored, descends southwest.                                                                   |
-| **Target Emplacement**            | Stationary 4×4 block that periodically *emits* gliders. Must be destroyed by counter-attack!    |
+| **Target Emplacement**            | Stationary 4×4 block that periodically _emits_ gliders. Must be destroyed by counter-attack!    |
 | **Lightweight Spaceship (LWSS)**  | Fast, large, durable.                                                                           |
 | **Middleweight Spaceship (MWSS)** | Bigger, more menacing.                                                                          |
 | **Twin Glider**                   | Two gliders in formation — collide together for chaos.                                          |
@@ -357,11 +357,11 @@ Click anywhere in the draw zone to **stamp** a pre-designed pattern.
 - The 12×12 **pattern editor** lets you click cells to toggle and
   design your own custom pattern.
 - **Preset dropdown** offers Game-of-Life classics:
-    - **Still lifes**: Block, Beacon.
-    - **Oscillators**: Blinker, Toad, Pulsar, Penta-Decathlon.
-    - **Spaceships**: Glider (4 directions), LWSS, MWSS, HWSS, Copperhead.
-    - **Methuselahs**: R-Pentomino, Acorn, Diehard.
-    - **Glider guns**: ★ Gosper Glider Gun (the legendary infinite weapon).
+  - **Still lifes**: Block, Beacon.
+  - **Oscillators**: Blinker, Toad, Pulsar, Penta-Decathlon.
+  - **Spaceships**: Glider (4 directions), LWSS, MWSS, HWSS, Copperhead.
+  - **Methuselahs**: R-Pentomino, Acorn, Diehard.
+  - **Glider guns**: ★ Gosper Glider Gun (the legendary infinite weapon).
 
 Press **R** to rotate the pattern 90°, **X** to mirror it. Stamping
 aims pieces at the cursor (centered on bounding box).
@@ -395,9 +395,9 @@ campaign with:
 - **Dialogue** from Cmdr. Vance, Dr. Hale, and other characters between
   chapters, telling a story of escalating threat.
 - **Perk selection** between chapters — choose 1 of 3 cards:
-    - **STAT** perks (permanent buffs: +ink, +regen, +cell longevity).
-    - **PATTERN** perks (unlock new stamps: Pulsar, Acorn, Gosper Gun…).
-    - **ABILITY** perks (passive or active powers — see below).
+  - **STAT** perks (permanent buffs: +ink, +regen, +cell longevity).
+  - **PATTERN** perks (unlock new stamps: Pulsar, Acorn, Gosper Gun…).
+  - **ABILITY** perks (passive or active powers — see below).
 - **Adaptive difficulty** — if you're struggling, the game eases the
   pressure; if you're dominating, it ramps up.
 - **Tool unlocks** — Story Mode starts with only Freehand. Line mode
@@ -418,9 +418,9 @@ Some abilities are **passive** (always-on once acquired), others are
 ### Passive Abilities
 
 | Icon | Name               | Effect                                 |
-|------|--------------------|----------------------------------------|
-| ⭐    | Combat Bonuses     | +50% score from all kills.             |
-| ⚡    | Instant Set        | Ink commits instantly (no drying).     |
+| ---- | ------------------ | -------------------------------------- |
+| ⭐   | Combat Bonuses     | +50% score from all kills.             |
+| ⚡   | Instant Set        | Ink commits instantly (no drying).     |
 | 💰   | Veteran Pay        | +30 ink at start of each wave.         |
 | 🛡   | Demilitarized Zone | Disables friendly fire (Hardcore off). |
 | 🐢   | Atmospheric Drag   | Missiles spawn 20% slower.             |
@@ -432,7 +432,7 @@ timers. Click or press the corresponding hotkey (**Q**, **W**, **E** in
 free-play; **A** in story mode) to trigger.
 
 | Icon | Name      | Cooldown | Effect                                                          |
-|------|-----------|----------|-----------------------------------------------------------------|
+| ---- | --------- | -------- | --------------------------------------------------------------- |
 | 💥   | EMP Burst | 30s      | Vaporize all enemy missile cells + active targets.              |
 | 🎁   | Ink Surge | 20s      | Instantly refill +200 ink.                                      |
 | ⏱    | Time Stop | 45s      | Freeze enemy missiles for 5 seconds. Your defenses keep moving! |
@@ -454,7 +454,7 @@ Press **?** or **H** in-game to bring up the full hotkey overlay.
 ### Simulation
 
 | Key     | Action                         |
-|---------|--------------------------------|
+| ------- | ------------------------------ |
 | `Space` | Pause / resume                 |
 | `[` `,` | Slower (previous speed preset) |
 | `]` `.` | Faster (next speed preset)     |
@@ -463,7 +463,7 @@ Press **?** or **H** in-game to bring up the full hotkey overlay.
 ### Drawing
 
 | Key                 | Action                        |
-|---------------------|-------------------------------|
+| ------------------- | ----------------------------- |
 | `F`                 | Freehand mode                 |
 | `L`                 | Line mode                     |
 | `P`                 | Pattern mode                  |
@@ -477,7 +477,7 @@ Press **?** or **H** in-game to bring up the full hotkey overlay.
 ### Actions
 
 | Key             | Action                                        |
-|-----------------|-----------------------------------------------|
+| --------------- | --------------------------------------------- |
 | `Z`             | Undo last stroke (refunds ink)                |
 | `C`             | Clear all defenses (50% refund)               |
 | `Esc`           | Cancel current draw / close menu              |
@@ -487,7 +487,7 @@ Press **?** or **H** in-game to bring up the full hotkey overlay.
 ### Menus
 
 | Key        | Action                           |
-|------------|----------------------------------|
+| ---------- | -------------------------------- |
 | `Enter`    | Start game from menu / game over |
 | `S`        | Open settings (during play)      |
 | `M`        | Mute / unmute audio              |
@@ -502,23 +502,27 @@ Open your browser's DevTools console (F12) and you'll find a full
 **Console API** exposed:
 
 ```js
-window.game       // live Game instance
-window.CONFIG     // live config (mutate to tune)
-window.CELL_TYPE  // {EMPTY, DEFENSE, MISSILE, CITY, EXPLOSION}
-window.cheats     // cheat shortcuts (try cheats.help())
-window.MD         // namespaced bundle
+window.game; // live Game instance
+window.CONFIG; // live config (mutate to tune)
+window.CELL_TYPE; // {EMPTY, DEFENSE, MISSILE, CITY, EXPLOSION}
+window.cheats; // cheat shortcuts (try cheats.help())
+window.MD; // namespaced bundle
 ```
 
 Quick cheats include:
 
 ```js
-cheats.infiniteInk()         // max ink + max regen
-cheats.killAllMissiles()     // clear all missile cells
-cheats.skipWave(5)           // jump forward 5 waves
-cheats.godMode(true)         // immortality + ink refill
-cheats.gosperGun(20, 30)     // stamp a Gosper gun on the field
-cheats.spawnPattern(x, y, [[0,0],[1,0],[2,0]])
-cheats.dump()                // print live game stats
+cheats.infiniteInk(); // max ink + max regen
+cheats.killAllMissiles(); // clear all missile cells
+cheats.skipWave(5); // jump forward 5 waves
+cheats.godMode(true); // immortality + ink refill
+cheats.gosperGun(20, 30); // stamp a Gosper gun on the field
+cheats.spawnPattern(x, y, [
+  [0, 0],
+  [1, 0],
+  [2, 0],
+]);
+cheats.dump(); // print live game stats
 ```
 
 See the in-game **Console Hacking Guide** (press G or F1) for the
@@ -563,7 +567,7 @@ All settings persist in `localStorage` and apply immediately. The
 - **Always draw in clusters.** Single cells die instantly.
 - **A 2×3 horizontal block** is the cheapest stable wall — 6 ink for a
   permanent obstacle.
-- **Watch where missiles spawn.** Walls placed *under* spawn columns
+- **Watch where missiles spawn.** Walls placed _under_ spawn columns
   are vastly more effective than walls everywhere.
 - **Use the speed slider.** Slow down (0.5×) to study enemy patterns,
   then speed up (2×, 4×) to grind ink and score.
@@ -582,13 +586,13 @@ All settings persist in `localStorage` and apply immediately. The
 
 ### Advanced
 
-- **Counter-attack with gliders.** Stamp a glider pointed *upward*
+- **Counter-attack with gliders.** Stamp a glider pointed _upward_
   (rotate with R until it heads north) and watch it sail into the
   enemy spawn line for a Ricochet bonus + base destruction.
 - **Plant a Gosper Gun in your draw zone.** Once unlocked, it's a
   permanent glider factory firing toward the enemy. Massive risk
   (eats huge ink, can be destroyed) but enormous reward.
-- **Use Time Stop strategically.** Freeze the enemy, then *carefully*
+- **Use Time Stop strategically.** Freeze the enemy, then _carefully_
   reshape your defenses to plug gaps. Your cells keep evolving — but
   no missiles will arrive while you work.
 - **Tune the M:N ratio.** Set defenders to 2× attacker speed in

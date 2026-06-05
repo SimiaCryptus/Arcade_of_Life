@@ -1,4 +1,4 @@
-import {CONFIG, CELL_TYPE} from '../config.js';
+import { CONFIG, CELL_TYPE } from '../config.js';
 
 /**
  * Defense management - mostly handled in grid/simulation,

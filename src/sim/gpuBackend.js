@@ -1,6 +1,3 @@
-import {CELL_TYPE} from '../config.js';
-import {Logger} from '../logger.js';
-
 /**
  * GPU simulation backend using WebGL2.
  *
@@ -118,10 +115,11 @@ export class GpuSimBackend {
     gl.bindVertexArray(vao);
     const vbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1, -1, 1, -1, -1, 1,
-      -1, 1, 1, -1, 1, 1,
-    ]), gl.STATIC_DRAW);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+      gl.STATIC_DRAW
+    );
     const aPos = gl.getAttribLocation(this.program, 'a_pos');
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
@@ -153,8 +151,7 @@ export class GpuSimBackend {
     // FBO for rendering into output texture.
     this.fbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
-      gl.TEXTURE_2D, this.texOutput, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texOutput, 0);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
       throw new Error('FBO incomplete');
     }
@@ -165,8 +162,7 @@ export class GpuSimBackend {
     const gl = this.gl;
     // Upload grid as R8UI texture.
     gl.bindTexture(gl.TEXTURE_2D, this.texInput);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h,
-      gl.RED_INTEGER, gl.UNSIGNED_BYTE, cells);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RED_INTEGER, gl.UNSIGNED_BYTE, cells);
 
     // Render neighbor counts into output FBO.
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);

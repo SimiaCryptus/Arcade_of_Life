@@ -1,4 +1,4 @@
-import {Logger} from './logger.js';
+import { Logger } from './logger.js';
 
 /**
  * Synth-based sound effects using the Web Audio API.
@@ -34,17 +34,16 @@ class SfxEngine {
     const unlock = () => {
       this._ensureCtx();
       if (this.ctx && this.ctx.state === 'suspended') {
-        this.ctx.resume().catch(() => {
-        });
+        this.ctx.resume().catch(() => {});
       }
       this._unlocked = true;
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
       window.removeEventListener('touchstart', unlock);
     };
-    window.addEventListener('pointerdown', unlock, {once: false});
-    window.addEventListener('keydown', unlock, {once: false});
-    window.addEventListener('touchstart', unlock, {once: false});
+    window.addEventListener('pointerdown', unlock, { once: false });
+    window.addEventListener('keydown', unlock, { once: false });
+    window.addEventListener('touchstart', unlock, { once: false });
   }
 
   _ensureCtx() {
@@ -107,7 +106,7 @@ class SfxEngine {
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = buf.getChannelData(0);
     for (let i = 0; i < len; i++) {
-      data[i] = (Math.random() * 2 - 1);
+      data[i] = Math.random() * 2 - 1;
     }
     return buf;
   }

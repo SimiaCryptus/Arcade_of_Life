@@ -1,4 +1,4 @@
-import {loadInt, saveString} from './storage.js';
+import { loadInt, saveString } from './storage.js';
 
 /**
  * HUD data container.
@@ -22,7 +22,7 @@ export class HUD {
     if (this.score > this.highScore) {
       this.highScore = this.score;
       // Throttle disk writes to avoid spamming localStorage during fast play.
-      const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
       if (now - this._lastHighScoreSave > 1000) {
         saveString('missileDefenseHighScore', this.highScore);
         this._lastHighScoreSave = now;

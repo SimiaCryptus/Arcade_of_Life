@@ -66,11 +66,11 @@ export class HashlifeCache {
         }
         const alive = bits[cy * 6 + cx];
         let nextAlive;
-        if (alive) nextAlive = (n === 2 || n === 3) ? 1 : 0;
-        else nextAlive = (n === 3) ? 1 : 0;
+        if (alive) nextAlive = n === 2 || n === 3 ? 1 : 0;
+        else nextAlive = n === 3 ? 1 : 0;
         if (nextAlive) {
           const bit = (cy - 2) * 2 + (cx - 2);
-          result |= (1 << bit);
+          result |= 1 << bit;
         }
       }
     }

@@ -1,7 +1,28 @@
 {
+  "type": "module",
+  "scripts": {
+    "test": "node test/run-all.js",
+    "test:patterns": "node test/patterns/library.test.js",
+    "test:rules": "node test/rules/ruleset.test.js",
+    "test:simulation": "node test/patterns/simulation.test.js",
+    "test:sim-engine": "node test/sim/simulation.test.js",
+    "test:grid": "node test/grid.test.js",
+    "test:all": "node test/run-all.js",
+    "lint": "eslint 'src/**/*.js' 'test/**/*.js'",
+    "lint:fix": "eslint --fix 'src/**/*.js' 'test/**/*.js'",
+    "format": "prettier --write 'src/**/*.js' 'test/**/*.js' '*.html' '*.css' '*.md'",
+    "format:check": "prettier --check 'src/**/*.js' 'test/**/*.js' '*.html' '*.css' '*.md'",
+    "validate": "npm run lint && npm run format:check && npm run test"
+  },
   "dependencies": {
     "canvas": "^3.2.3",
     "fs": "^0.0.1-security",
     "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "@eslint/js": "^9.0.0",
+    "globals": "^15.0.0"
   }
 }

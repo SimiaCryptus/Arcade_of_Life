@@ -5,7 +5,7 @@
  * or by calling Logger.setLevel().
  */
 
-const LEVELS = {debug: 10, info: 20, warn: 30, error: 40, silent: 100};
+const LEVELS = { debug: 10, info: 20, warn: 30, error: 40, silent: 100 };
 const PREFIX = '[ArcadeOfLife]';
 
 let currentLevel = LEVELS.debug;
@@ -13,9 +13,8 @@ let currentLevel = LEVELS.debug;
 // Attempt to read level override from localStorage. Guarded because
 // localStorage may be unavailable (private mode, SSR contexts).
 try {
-  const stored = (typeof localStorage !== 'undefined')
-    ? localStorage.getItem('missileDefenseLogLevel')
-    : null;
+  const stored =
+    typeof localStorage !== 'undefined' ? localStorage.getItem('missileDefenseLogLevel') : null;
   if (stored && LEVELS[stored] != null) {
     currentLevel = LEVELS[stored];
   }
@@ -37,7 +36,8 @@ export const Logger = {
       currentLevel = LEVELS[level];
       try {
         localStorage.setItem('missileDefenseLogLevel', level);
-      } catch (_e) { /* ignore */
+      } catch (_e) {
+        /* ignore */
       }
     }
   },

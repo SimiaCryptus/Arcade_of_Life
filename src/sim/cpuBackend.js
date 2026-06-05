@@ -1,4 +1,4 @@
-import {CELL_TYPE} from '../config.js';
+import { CELL_TYPE } from '../config.js';
 
 /**
  * CPU simulation backend.
@@ -48,7 +48,9 @@ export class CpuSimBackend {
       // Build per-column sums for this row.
       // Each column contributes the value at (x, y-1), (x, y), (x, y+1).
       for (let x = 0; x < w; x++) {
-        let sumL = 0, sumM = 0, sumD = 0;
+        let sumL = 0,
+          sumM = 0,
+          sumD = 0;
         if (y > 0) {
           const t = cells[(y - 1) * w + x];
           if (t === CELL_TYPE.MISSILE) {

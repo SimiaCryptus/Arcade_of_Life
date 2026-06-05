@@ -1,5 +1,5 @@
-import {CONFIG, CELL_TYPE} from './config.js';
-import {Logger} from './logger.js';
+import { CONFIG, CELL_TYPE } from './config.js';
+import { Logger } from './logger.js';
 
 /**
  * Free-play active ability manager.
@@ -10,41 +10,45 @@ import {Logger} from './logger.js';
  * each with its own button and hotkey (Q, W, E for slots 1, 2, 3).
  */
 
-  // Hotkeys for the active ability slots (in order).
+// Hotkeys for the active ability slots (in order).
 const ACTIVE_HOTKEYS = ['q', 'w', 'e'];
 
 // Build the registry of available actives + passives.
 function buildPassives() {
   return {
     ABILITY_DOUBLE_SCORE: {
-      icon: '⭐', name: 'Combat Bonuses',
+      icon: '⭐',
+      name: 'Combat Bonuses',
       apply: (mgr) => {
         mgr.scoreMult *= 1.5;
       },
     },
     ABILITY_NO_DRY: {
-      icon: '⚡', name: 'Instant Set',
+      icon: '⚡',
+      name: 'Instant Set',
       apply: () => {
         CONFIG.INK_DRY_TICKS = 0;
       },
     },
     ABILITY_WAVE_BONUS: {
-      icon: '💰', name: 'Veteran Pay',
+      icon: '💰',
+      name: 'Veteran Pay',
       apply: (mgr) => {
         mgr.waveInkBonus += 30;
       },
     },
     ABILITY_SAFE_ZONE: {
-      icon: '🛡', name: 'Demilitarized Zone',
+      icon: '🛡',
+      name: 'Demilitarized Zone',
       apply: () => {
         CONFIG.HARDCORE_MODE = false;
       },
     },
     ABILITY_SLOW_MISSILES: {
-      icon: '🐢', name: 'Atmospheric Drag',
+      icon: '🐢',
+      name: 'Atmospheric Drag',
       apply: () => {
-        CONFIG.MISSILE_SPAWN_INTERVAL = Math.round(
-          CONFIG.MISSILE_SPAWN_INTERVAL * 1.2);
+        CONFIG.MISSILE_SPAWN_INTERVAL = Math.round(CONFIG.MISSILE_SPAWN_INTERVAL * 1.2);
       },
     },
   };
@@ -53,7 +57,10 @@ function buildPassives() {
 function buildActives(game) {
   return {
     ABILITY_EMP_BURST: {
-      id: 'ab_emp_burst', name: 'EMP Burst', icon: '💥', cooldown: 30,
+      id: 'ab_emp_burst',
+      name: 'EMP Burst',
+      icon: '💥',
+      cooldown: 30,
       trigger: () => {
         const g = game.grid;
         let n = 0;
@@ -71,14 +78,20 @@ function buildActives(game) {
       },
     },
     ABILITY_INK_SURGE: {
-      id: 'ab_ink_surge', name: 'Ink Surge', icon: '🎁', cooldown: 20,
+      id: 'ab_ink_surge',
+      name: 'Ink Surge',
+      icon: '🎁',
+      cooldown: 20,
       trigger: () => {
         game.defenses.refill(200);
         return true;
       },
     },
     ABILITY_FREEZE: {
-      id: 'ab_freeze', name: 'Time Stop', icon: '⏱', cooldown: 45,
+      id: 'ab_freeze',
+      name: 'Time Stop',
+      icon: '⏱',
+      cooldown: 45,
       trigger: () => {
         // Freeze only the enemy: missiles stop moving/aging/spawning.
         // Defenses continue to evolve under normal Life rules.
@@ -95,7 +108,10 @@ function buildActives(game) {
             game.renderer.addBigFloater(
               Math.floor(game.grid.width / 2),
               Math.floor(game.grid.height / 3),
-              '⏱ TIME RESUMES', '#88ccff', 1.4);
+              '⏱ TIME RESUMES',
+              '#88ccff',
+              1.4
+            );
           }
         }, dur);
         return true;
@@ -136,7 +152,7 @@ export class FreeplayAbilityManager {
     this.activeAbilities = [];
     for (const [cfgKey, def] of Object.entries(actives)) {
       if (CONFIG[cfgKey]) {
-        this.activeAbilities.push({...def, _cdRemaining: 0});
+        this.activeAbilities.push({ ...def, _cdRemaining: 0 });
       }
     }
     // Apply wave bonus immediately if any.
@@ -173,7 +189,7 @@ export class FreeplayAbilityManager {
     };
     const origRet = sim.onMissileReturn;
     sim.onMissileReturn = (x, y, kind) => {
-      const base = (kind === 'ricochet') ? 50 : 20;
+      const base = kind === 'ricochet' ? 50 : 20;
       const bonus = Math.round(base * (mgr.scoreMult - 1));
       if (bonus > 0) mgr.game.hud.addScore(bonus);
       if (origRet) origRet(x, y, kind);
@@ -204,7 +220,8 @@ export class FreeplayAbilityManager {
     this.activeAbilities.forEach((ab, idx) => {
       const btn = document.createElement('button');
       btn.className = 'freeplay-ability-btn';
-      btn.style.cssText = 'background:transparent;color:#ffcc44;border:1px solid #ffcc44;padding:4px 10px;font-size:12px;font-family:inherit;cursor:pointer;border-radius:3px;font-weight:bold;';
+      btn.style.cssText =
+        'background:transparent;color:#ffcc44;border:1px solid #ffcc44;padding:4px 10px;font-size:12px;font-family:inherit;cursor:pointer;border-radius:3px;font-weight:bold;';
       const key = ACTIVE_HOTKEYS[idx];
       btn.title = `Trigger ${ab.name}${key ? ` [${key.toUpperCase()}]` : ''}`;
       btn.addEventListener('click', () => this.trigger(idx));
@@ -247,7 +264,9 @@ export class FreeplayAbilityManager {
           Math.floor(this.game.grid.width / 2),
           Math.floor(this.game.grid.height / 3),
           `COOLDOWN ${Math.ceil(ab._cdRemaining)}s`,
-          '#ff8888', 1.2);
+          '#ff8888',
+          1.2
+        );
       }
       return false;
     }
@@ -259,7 +278,9 @@ export class FreeplayAbilityManager {
           Math.floor(this.game.grid.width / 2),
           Math.floor(this.game.grid.height / 3),
           `${ab.icon} ${ab.name}`,
-          '#ffcc44', 1.6);
+          '#ffcc44',
+          1.6
+        );
       }
       this._updateButtons();
     }

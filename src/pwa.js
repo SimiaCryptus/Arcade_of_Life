@@ -22,10 +22,7 @@ export function registerServiceWorker() {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
-          if (
-            newWorker.state === 'installed' &&
-            navigator.serviceWorker.controller
-          ) {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             showUpdateBanner(reg);
           }
         });
@@ -161,9 +158,7 @@ export function checkAutoStart(startGameFn) {
 export function toggleFullscreen() {
   const el = document.getElementById('game-container') || document.documentElement;
   if (!document.fullscreenElement) {
-    el.requestFullscreen?.() ??
-      el.webkitRequestFullscreen?.() ??
-      el.mozRequestFullScreen?.();
+    el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.() ?? el.mozRequestFullScreen?.();
   } else {
     document.exitFullscreen?.() ??
       document.webkitExitFullscreen?.() ??

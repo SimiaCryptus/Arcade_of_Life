@@ -1,0 +1,7 @@
+node_modules/
+dist/
+icons/
+screenshots/
+src/marked.min.js
+sw.js
+package-lock.json

@@ -12,23 +12,23 @@ Open DevTools (F12 or Ctrl+Shift+I / Cmd+Opt+I), switch to the **Console** tab, 
 The game exposes itself on `window` automatically. No setup required:
 
 ```js
-game        // the live Game instance
-CONFIG      // live config object — mutate freely
-CELL_TYPE   // {EMPTY:0, DEFENSE:1, MISSILE:2, CITY:3, EXPLOSION:4}
-cheats      // cheat shortcuts (call cheats.help())
-MD          // namespaced bundle: {game, CONFIG, CELL_TYPE, classes, ...}
+game; // the live Game instance
+CONFIG; // live config object — mutate freely
+CELL_TYPE; // {EMPTY:0, DEFENSE:1, MISSILE:2, CITY:3, EXPLOSION:4}
+cheats; // cheat shortcuts (call cheats.help())
+MD; // namespaced bundle: {game, CONFIG, CELL_TYPE, classes, ...}
 ```
 
 A startup banner in the console reminds you of these. The `cheats` object is the fast path:
 
 ```js
-cheats.help();             // list all shortcuts
-cheats.infiniteInk();      // max ink + regen
-cheats.godMode();          // toggle immortal cities + ink refill every frame
-cheats.killAllMissiles();  // panic button
-cheats.skipWave(5);        // jump ahead
-cheats.gosperGun(10, 50);  // drop a glider gun
-cheats.dump();             // print a snapshot of game state
+cheats.help(); // list all shortcuts
+cheats.infiniteInk(); // max ink + regen
+cheats.godMode(); // toggle immortal cities + ink refill every frame
+cheats.killAllMissiles(); // panic button
+cheats.skipWave(5); // jump ahead
+cheats.gosperGun(10, 50); // drop a glider gun
+cheats.dump(); // print a snapshot of game state
 ```
 
 ### The Logger (always available)
@@ -36,7 +36,7 @@ cheats.dump();             // print a snapshot of game state
 ```js
 // Set log level — try 'debug' for verbose internal events
 MissileDefenseLogger.setLevel('debug');
-MissileDefenseLogger.setLevel('silent');  // shut it up
+MissileDefenseLogger.setLevel('silent'); // shut it up
 ```
 
 ---
@@ -50,7 +50,7 @@ MissileDefenseLogger.setLevel('silent');  // shut it up
 ```js
 CONFIG.INITIAL_INK = 9999;
 CONFIG.MAX_INK = 9999;
-CONFIG.INK_REGEN_RATE = 100;  // refills instantly every tick
+CONFIG.INK_REGEN_RATE = 100; // refills instantly every tick
 ```
 
 Or just: `cheats.infiniteInk()`.
@@ -58,13 +58,13 @@ Or just: `cheats.infiniteInk()`.
 ### Skip the Drying Wait
 
 ```js
-CONFIG.INK_DRY_TICKS = 0;  // defenses commit immediately on release
+CONFIG.INK_DRY_TICKS = 0; // defenses commit immediately on release
 ```
 
 ### Free Defense Clears
 
 ```js
-CONFIG.CLEAR_REFUND_FRACTION = 1.0;  // 100% refund on Clear Defenses
+CONFIG.CLEAR_REFUND_FRACTION = 1.0; // 100% refund on Clear Defenses
 ```
 
 ### Slow Missile Waves
@@ -88,8 +88,8 @@ CONFIG.CELL_MAX_AGE_TICKS = 100000;
 ### Make Missiles Fragile
 
 ```js
-CONFIG.MISSILE_MAX_AGE_TICKS = 30;     // missiles die of old age fast
-CONFIG.MISSILE_CASCADE_TICKS = 100;    // entire formations evaporate together
+CONFIG.MISSILE_MAX_AGE_TICKS = 30; // missiles die of old age fast
+CONFIG.MISSILE_CASCADE_TICKS = 100; // entire formations evaporate together
 ```
 
 ### Disable Hardcore Mode Mid-Game
@@ -101,9 +101,9 @@ CONFIG.HARDCORE_MODE = false;
 ### Change Speed Beyond the Slider
 
 ```js
-CONFIG.SPEED_MULTIPLIER = 32;   // ludicrous speed
+CONFIG.SPEED_MULTIPLIER = 32; // ludicrous speed
 CONFIG.SPEED_MULTIPLIER = 0.05; // bullet-time
-CONFIG.SPEED_MULTIPLIER = 0;    // freeze frame
+CONFIG.SPEED_MULTIPLIER = 0; // freeze frame
 ```
 
 Or: `cheats.setSpeed(32)`.
@@ -113,7 +113,7 @@ Or: `cheats.setSpeed(32)`.
 ```js
 CONFIG.GRID_WIDTH = 240;
 CONFIG.GRID_HEIGHT = 160;
-game.rebuildWorld();   // applies the new size cleanly
+game.rebuildWorld(); // applies the new size cleanly
 ```
 
 ---
@@ -201,13 +201,23 @@ Defenses follow Conway's rules, so any classic pattern works. Use `cheats.spawnP
 ### Blinker (oscillator)
 
 ```js
-cheats.spawnPattern(10, 60, [[0, 0], [1, 0], [2, 0]]);  // horizontal blinker
+cheats.spawnPattern(10, 60, [
+  [0, 0],
+  [1, 0],
+  [2, 0],
+]); // horizontal blinker
 ```
 
 ### Upward-moving missile glider (triggers RETURN FIRE!)
 
 ```js
-const NW_GLIDER = [[1, 2], [2, 1], [0, 0], [1, 0], [2, 0]];
+const NW_GLIDER = [
+  [1, 2],
+  [2, 1],
+  [0, 0],
+  [1, 0],
+  [2, 0],
+];
 cheats.spawnPattern(30, 10, NW_GLIDER, CELL_TYPE.MISSILE);
 ```
 
@@ -226,7 +236,7 @@ Watch your defenses replicate indefinitely.
 Easiest:
 
 ```js
-cheats.godMode();   // toggles; revives cities + refills ink every frame
+cheats.godMode(); // toggles; revives cities + refills ink every frame
 ```
 
 Or patch directly:
@@ -269,8 +279,8 @@ game.simulation.onMissileReturn = (x, y, kind) => {
 // Print your name across the sky
 setInterval(() => {
   game.renderer.addFloater(
-    Math.random() * game.grid.width | 0,
-    Math.random() * game.grid.height | 0,
+    (Math.random() * game.grid.width) | 0,
+    (Math.random() * game.grid.height) | 0,
     'PWNED',
     `hsl(${Math.random() * 360},100%,60%)`
   );
@@ -293,15 +303,17 @@ const cheats = {
   CLEAR_REFUND_FRACTION: 1,
   MISSILES_PER_WAVE_BASE: 1,
   MISSILES_PER_WAVE_INC: 0,
-  RESOLUTION_INDEX: 4,  // XXL
-  GLIDER_SE: true, GLIDER_SW: false, GLIDER_HEAVY: false,
+  RESOLUTION_INDEX: 4, // XXL
+  GLIDER_SE: true,
+  GLIDER_SW: false,
+  GLIDER_HEAVY: false,
   HARDCORE_MODE: false,
 };
 localStorage.setItem('missileDefenseSettings', JSON.stringify(cheats));
 location.reload();
 ```
 
-The values are clamped at game-start to the slider's `min`/`max` *only when you open the settings panel*, but
+The values are clamped at game-start to the slider's `min`/`max` _only when you open the settings panel_, but
 `Settings.load()` accepts them as-is, so out-of-range cheats survive until you visit the settings menu.
 
 ---
@@ -312,7 +324,7 @@ The values are clamped at game-start to the slider's `min`/`max` *only when you 
 cheats.godMode(true);
 cheats.freezeMissiles(true);
 cheats.infiniteInk();
-setInterval(() => game.hud.addScore(1), 16);   // brrr
+setInterval(() => game.hud.addScore(1), 16); // brrr
 ```
 
 Sit back and watch the score number go brrr.

@@ -37,3 +37,4 @@ node_modules/
 *.tfstate
 .terraform
 terraform.tfstate
+.doc-processor-cache/

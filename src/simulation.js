@@ -1,8 +1,9 @@
-import {CONFIG, CELL_TYPE} from './config.js';
-  import {Logger} from './logger.js';
-  import {CpuSimBackend} from './sim/cpuBackend.js';
-  import {GpuSimBackend} from './sim/gpuBackend.js';
-  import {HashlifeCache} from './sim/hashlife.js';
+import { CONFIG, CELL_TYPE } from './config.js';
+import { Logger } from './logger.js';
+import { CpuSimBackend } from './sim/cpuBackend.js';
+import { GpuSimBackend } from './sim/gpuBackend.js';
+import { HashlifeCache } from './sim/hashlife.js';
+import { getRuleset, CompiledRuleset, CONWAY } from './rules/index.js';
 
 /**
  * Simulation runs the Game of Life tick with extensions:
@@ -28,9 +29,9 @@ export class Simulation {
     this.onMissileReturn = null; // (x, y, kind) - kind: 'return' | 'bounce'
     this.onAnnihilation = null;
     this.onCityHit = null;
-     this.onBreach = null; // (x, y) - missile reached the rear dead zone
+    this.onBreach = null; // (x, y) - missile reached the rear dead zone
     this.returnFireFired = new Uint8Array(grid.cells.length);
-     this.breachFired = new Uint8Array(grid.cells.length);
+    this.breachFired = new Uint8Array(grid.cells.length);
     // When true, missile cells are frozen (no aging, no Life evolution,
     // no return-fire detection). Defense cells continue to evolve normally.
     // Used by Time Stop ability and the M:N timestep ratio.
@@ -48,10 +49,19 @@ export class Simulation {
     this._defenseNbr = new Uint8Array(grid.cells.length);
 
     this._initBackend();
-   this.hashlife = new HashlifeCache();
-   // Note: hashlife is only used when CONFIG.SIM_HASHLIFE_ENABLED is true.
-   // The cache is kept allocated so it can be re-enabled at runtime without
-   // a full rebuild; it just won't be consulted when the flag is false.
+    this.hashlife = new HashlifeCache();
+    // Compile the currently-configured ruleset.
+    this._compileActiveRuleset();
+    // Note: hashlife is only used when CONFIG.SIM_HASHLIFE_ENABLED is true.
+    // The cache is kept allocated so it can be re-enabled at runtime without
+    // a full rebuild; it just won't be consulted when the flag is false.
+  }
+  _compileActiveRuleset() {
+    const id = CONFIG.ACTIVE_RULESET || 'conway';
+    const def = getRuleset(id) || CONWAY;
+    this._rule = new CompiledRuleset(def);
+    this._ruleId = id;
+    Logger.info(`Sim ruleset: ${def.name} (${def.notation})`);
   }
 
   _initBackend() {
@@ -63,7 +73,7 @@ export class Simulation {
     //   auto: GPU if grid >= 200x200 AND WebGL2 available; else CPU.
     let mode = (CONFIG.SIM_BACKEND || 'auto').toLowerCase();
     if (mode === 'auto') {
-      mode = (cells >= 40000) ? 'gpu' : 'cpu';
+      mode = cells >= 40000 ? 'gpu' : 'cpu';
     }
     if (mode === 'gpu') {
       try {
@@ -87,7 +97,7 @@ export class Simulation {
       this.nextColor = new Uint8Array(n);
       this.nextDir = new Uint8Array(n);
       this.returnFireFired = new Uint8Array(n);
-       this.breachFired = new Uint8Array(n);
+      this.breachFired = new Uint8Array(n);
       this._annihilated = new Uint8Array(n);
       this._ageDespawn = new Uint8Array(n);
       this._lifeNbr = new Uint8Array(n);
@@ -101,6 +111,10 @@ export class Simulation {
 
   tick() {
     this._ensureBuffers();
+    // Re-compile ruleset if it changed at runtime.
+    if (this._ruleId !== (CONFIG.ACTIVE_RULESET || 'conway')) {
+      this._compileActiveRuleset();
+    }
     const g = this.grid;
     const w = g.width;
     const h = g.height;
@@ -116,12 +130,12 @@ export class Simulation {
     nextColor.fill(0);
     nextDir.fill(0);
 
-         const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
-         const defenseMaxAge = CONFIG.CELL_MAX_AGE_TICKS;
-         const missileMaxAge = CONFIG.MISSILE_MAX_AGE_TICKS;
-         // When set to the sentinel, treat as effectively infinite (skip age expiry).
-         const defenseAgeUnlimited = defenseMaxAge >= UNLIMITED;
-         const missileAgeUnlimited = missileMaxAge >= UNLIMITED;
+    const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
+    const defenseMaxAge = CONFIG.CELL_MAX_AGE_TICKS;
+    const missileMaxAge = CONFIG.MISSILE_MAX_AGE_TICKS;
+    // When set to the sentinel, treat as effectively infinite (skip age expiry).
+    const defenseAgeUnlimited = defenseMaxAge >= UNLIMITED;
+    const missileAgeUnlimited = missileMaxAge >= UNLIMITED;
     const cascadeTicks = CONFIG.MISSILE_CASCADE_TICKS;
     const defenseVariants = CONFIG.COLORS.DEFENSE_VARIANTS.length;
     const missileVariants = CONFIG.COLORS.MISSILE_VARIANTS.length;
@@ -130,15 +144,18 @@ export class Simulation {
     const freezeEnemies = !!this.freezeEnemies;
     const freezeDefenses = !!this.freezeDefenses;
 
-
     // --- Step 1: Pre-compute neighbor counts ONCE per tick. ---
     // This replaces the old per-cell countTypeNeighbors calls which did
     // up to 24 grid lookups per cell. The new path makes 3 passes over
     // the grid producing three neighbor-count arrays. For a 200x200 grid
     // this is ~5-8x faster than the old approach.
     this.backend.computeNeighborCounts(
-      cells, w, h,
-      this._lifeNbr, this._missileNbr, this._defenseNbr
+      cells,
+      w,
+      h,
+      this._lifeNbr,
+      this._missileNbr,
+      this._defenseNbr
     );
     const lifeNbr = this._lifeNbr;
     const missileNbr = this._missileNbr;
@@ -181,7 +198,7 @@ export class Simulation {
     const ageDespawn = this._ageDespawn;
     ageDespawn.fill(0);
     // When enemies are frozen, skip aging entirely.
-     if (!freezeEnemies && !missileAgeUnlimited) {
+    if (!freezeEnemies && !missileAgeUnlimited) {
       for (let i = 0; i < cells.length; i++) {
         if (cells[i] === CELL_TYPE.MISSILE && age[i] >= missileMaxAge) {
           ageDespawn[i] = 1;
@@ -204,7 +221,7 @@ export class Simulation {
           if (ny < 0 || ny >= h) continue;
           for (let dx = -1; dx <= 1; dx++) {
             if (dx === 0 && dy === 0) continue;
-            const nx = ((x + dx) % w + w) % w;
+            const nx = (((x + dx) % w) + w) % w;
             const ni = ny * w + nx;
             if (ageDespawn[ni]) continue;
             if (cells[ni] === CELL_TYPE.MISSILE && age[ni] >= cascadeThreshold) {
@@ -274,13 +291,12 @@ export class Simulation {
           continue;
         }
 
-
         const ln = lifeNbr[i];
         if (t === CELL_TYPE.DEFENSE || t === CELL_TYPE.MISSILE) {
           const currentAge = age[i];
           const maxForType = t === CELL_TYPE.MISSILE ? missileMaxAge : defenseMaxAge;
-               const ageUnlimited = t === CELL_TYPE.MISSILE ? missileAgeUnlimited : defenseAgeUnlimited;
-               if ((ln === 2 || ln === 3) && (ageUnlimited || currentAge < maxForType)) {
+          const ageUnlimited = t === CELL_TYPE.MISSILE ? missileAgeUnlimited : defenseAgeUnlimited;
+          if (this._rule.shouldSurvive(ln) && (ageUnlimited || currentAge < maxForType)) {
             next[i] = t;
             nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;
             nextColor[i] = color[i];
@@ -290,7 +306,7 @@ export class Simulation {
             nextAge[i] = 0;
           }
         } else if (t === CELL_TYPE.EMPTY) {
-          if (ln === 3) {
+          if (this._rule.shouldBirth(ln)) {
             const isMissile = missileNbr[i] > defenseNbr[i];
             // If enemies are frozen, suppress missile-cell birth.
             // If defenses are frozen, suppress defense-cell birth.
@@ -336,7 +352,7 @@ export class Simulation {
     // cells aren't moving, so anything in the dead zone is stale state.
     if (!freezeEnemies) {
       this._detectReturnFire(dzMinY, dzMaxY);
-       this._detectBreach();
+      this._detectBreach();
     }
   }
 
@@ -351,7 +367,7 @@ export class Simulation {
       if (ny < 0 || ny >= h) continue;
       for (let dx = -1; dx <= 1; dx++) {
         if (dx === 0 && dy === 0) continue;
-        const nx = ((x + dx) % w + w) % w;
+        const nx = (((x + dx) % w) + w) % w;
         if (cells[ny * w + nx] === CELL_TYPE.CITY) count++;
       }
     }
@@ -369,7 +385,7 @@ export class Simulation {
       if (ny < 0 || ny >= h) continue;
       for (let dx = -1; dx <= 1; dx++) {
         if (dx === 0 && dy === 0) continue;
-        const nx = ((x + dx) % w + w) % w;
+        const nx = (((x + dx) % w) + w) % w;
         const ni = ny * w + nx;
         if (cells[ni] === type) {
           annihilated[ni] = marker;
@@ -381,8 +397,8 @@ export class Simulation {
     }
   }
 
-    _detectReturnFire(minY, maxY) {
-      if (!this.onMissileReturn) return;
+  _detectReturnFire(minY, maxY) {
+    if (!this.onMissileReturn) return;
     const g = this.grid;
     const w = g.width;
     const h = g.height;
@@ -405,7 +421,7 @@ export class Simulation {
             if (dx === 0 && dy === 0) continue;
             const ny = y + dy;
             if (ny < 0 || ny >= h) continue;
-            const nx = ((x + dx) % w + w) % w;
+            const nx = (((x + dx) % w) + w) % w;
             const nt = cells[ny * w + nx];
             if (nt === cellType) neighbors++;
           }
@@ -423,7 +439,7 @@ export class Simulation {
             for (let dx = -1; dx <= 1; dx++) {
               const ny = y + dy;
               if (ny < 0 || ny >= h) continue;
-              const nx = ((x + dx) % w + w) % w;
+              const nx = (((x + dx) % w) + w) % w;
               const ni = ny * w + nx;
               if (cells[ni] === CELL_TYPE.MISSILE || cells[ni] === CELL_TYPE.DEFENSE) {
                 cells[ni] = CELL_TYPE.EXPLOSION;
@@ -439,34 +455,34 @@ export class Simulation {
       }
     }
   }
-   // Detect MISSILE cells that have arrived in the rear dead zone, meaning
-   // they slipped past the player's defenses without hitting a city.
-   _detectBreach() {
-     if (!this.onBreach) return;
-     const g = this.grid;
-     const w = g.width;
-     const h = g.height;
-     const cells = g.cells;
-     const fired = this.breachFired;
-     // Reset stale flags.
-     for (let i = 0; i < fired.length; i++) {
-       if (fired[i] && cells[i] !== CELL_TYPE.MISSILE) {
-         fired[i] = 0;
-       }
-     }
-     const minY = g.rearDeadZoneMinY();
-     if (minY >= h) return;
-     for (let y = minY; y < h; y++) {
-       for (let x = 0; x < w; x++) {
-         const i = y * w + x;
-         if (cells[i] !== CELL_TYPE.MISSILE) continue;
-         if (fired[i]) continue;
-         this.onBreach(x, y);
-         fired[i] = 1;
-         // Explode it immediately so it doesn't keep marching past.
-         cells[i] = CELL_TYPE.EXPLOSION;
-         g.explosionTimers[i] = 6;
-       }
-     }
-   }
+  // Detect MISSILE cells that have arrived in the rear dead zone, meaning
+  // they slipped past the player's defenses without hitting a city.
+  _detectBreach() {
+    if (!this.onBreach) return;
+    const g = this.grid;
+    const w = g.width;
+    const h = g.height;
+    const cells = g.cells;
+    const fired = this.breachFired;
+    // Reset stale flags.
+    for (let i = 0; i < fired.length; i++) {
+      if (fired[i] && cells[i] !== CELL_TYPE.MISSILE) {
+        fired[i] = 0;
+      }
+    }
+    const minY = g.rearDeadZoneMinY();
+    if (minY >= h) return;
+    for (let y = minY; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        if (cells[i] !== CELL_TYPE.MISSILE) continue;
+        if (fired[i]) continue;
+        this.onBreach(x, y);
+        fired[i] = 1;
+        // Explode it immediately so it doesn't keep marching past.
+        cells[i] = CELL_TYPE.EXPLOSION;
+        g.explosionTimers[i] = 6;
+      }
+    }
+  }
 }

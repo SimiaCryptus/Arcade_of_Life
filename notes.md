@@ -1,0 +1,5 @@
+- when capturing a pattern, the draw tool is still active, so when I click and draw to define the capture area, it also draws cells in the simulation. need to disable draw tool while capturing.
+- add tests for simulation code
+- add npm tasks to validate and format code
+- integrate alternate rulesets into UI (configurable in settings; make sure it changes the available patterns, bases, and missiles accordingly)
+- fix unit tests

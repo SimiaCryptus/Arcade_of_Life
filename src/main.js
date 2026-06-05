@@ -1,29 +1,33 @@
-import {CONFIG, SPEED_PRESETS, RESOLUTION_PRESETS, GAME_MODE_PRESETS} from './config.js';
-import {Grid} from './grid.js';
-import {Simulation} from './simulation.js';
-import {Cities} from './entities/cities.js';
-import {Missiles} from './entities/missiles.js';
-import {Defenses} from './entities/defenses.js';
-import {InputManager} from './input.js';
-import {Renderer} from './renderer.js';
-import {HUD} from './hud.js';
-import {GameState, STATE} from './gameState.js';
-import {Settings, SettingsPanel, computeAutoGrid} from './settings.js';
-import {GuidePanel} from './guide.js';
-  import {DrawToolsPanel} from './drawTools.js';
-import {StoryEngine} from './story.js';
-import {Logger} from './logger.js';
-import {CELL_TYPE} from './config.js';
-import {Sfx} from './audio.js';
-import {FreeplayAbilityManager} from './abilities.js';
+import { CONFIG, SPEED_PRESETS, RESOLUTION_PRESETS, GAME_MODE_PRESETS } from './config.js';
+import { Grid } from './grid.js';
+import { Simulation } from './simulation.js';
+import { Cities } from './entities/cities.js';
+import { Missiles } from './entities/missiles.js';
+import { Defenses } from './entities/defenses.js';
+import { InputManager } from './input.js';
+import { Renderer } from './renderer.js';
+import { HUD } from './hud.js';
+import { GameState, STATE } from './gameState.js';
+import { Settings, SettingsPanel, computeAutoGrid } from './settings.js';
+import { GuidePanel } from './guide.js';
+import { DrawToolsPanel } from './drawTools.js';
+import { StoryEngine } from './story.js';
+import { Logger } from './logger.js';
+import { CELL_TYPE } from './config.js';
+import { Sfx } from './audio.js';
+// Import rules index so all built-in + extra rulesets are registered.
+import './rules/index.js';
+import { FreeplayAbilityManager } from './abilities.js';
+import { PatternCapture } from './patternCapture.js';
+import { PatternZoo } from './patternZoo.js';
 import {
-   registerServiceWorker,
-   initInstallPrompt,
-   initNetworkIndicator,
-   checkAutoStart,
-   requestWakeLock,
-   releaseWakeLock,
-   toggleFullscreen,
+  registerServiceWorker,
+  initInstallPrompt,
+  initNetworkIndicator,
+  checkAutoStart,
+  requestWakeLock,
+  releaseWakeLock,
+  toggleFullscreen,
 } from './pwa.js';
 
 class Game {
@@ -47,9 +51,11 @@ class Game {
     this.helpButton = document.getElementById('help-button');
     this.guideButton = document.getElementById('guide-button');
     this.ingameSettingsButton = document.getElementById('ingame-settings-button');
-     this.howToPlayButton = document.getElementById('howtoplay-button');
-     this.howToPlayIngameButton = document.getElementById('howtoplay-ingame-button');
-     this.fullscreenButton = document.getElementById('fullscreen-button');
+    this.howToPlayButton = document.getElementById('howtoplay-button');
+    this.howToPlayIngameButton = document.getElementById('howtoplay-ingame-button');
+    this.fullscreenButton = document.getElementById('fullscreen-button');
+    this.patternZooButton = document.getElementById('pattern-zoo-button');
+    this.patternZooIngameButton = document.getElementById('pattern-zoo-ingame-button');
 
     this._buildWorld();
 
@@ -73,15 +79,15 @@ class Game {
           this.cities.place();
           this.missiles.startWave(Math.max(0, this.hud.wave - 1));
         }
-      }
+      },
     });
     // Console hacking guide overlay. Pauses the game while open.
     this._guidePauseSpeed = null;
     this.guidePanel = new GuidePanel({
-         overlayId: 'guide-overlay',
-         bodyId: 'guide-body',
-         closeId: 'guide-close-button',
-         markdownUrl: '/console_guide.md',
+      overlayId: 'guide-overlay',
+      bodyId: 'guide-body',
+      closeId: 'guide-close-button',
+      markdownUrl: '/console_guide.md',
       onOpen: () => {
         // Hide other overlays so the guide is unambiguous.
         this._guidePrevOverlayHidden = this.overlay.classList.contains('hidden');
@@ -100,40 +106,52 @@ class Game {
         // Re-sync the speed slider label.
         if (this.speedSlider) this._applySpeedFromSlider();
         // Re-show the main menu overlay if we were on the menu/game-over.
-        if (!this._guidePrevOverlayHidden &&
-          (this.gameState.is(STATE.MENU) || this.gameState.is(STATE.GAME_OVER))) {
+        if (
+          !this._guidePrevOverlayHidden &&
+          (this.gameState.is(STATE.MENU) || this.gameState.is(STATE.GAME_OVER))
+        ) {
           this.overlay.classList.remove('hidden');
         }
       },
     });
-     // How-to-play guide overlay (README.md). Same pause behaviour.
-     this._helpPanelPauseSpeed = null;
-     this.helpGuidePanel = new GuidePanel({
-         overlayId: 'help-overlay',
-         bodyId: 'help-body',
-         closeId: 'help-close-button',
-         markdownUrl: '/README.md',
-         onOpen: () => {
-             this._helpPrevOverlayHidden = this.overlay.classList.contains('hidden');
-             this.overlay.classList.add('hidden');
-             this._helpPanelPauseSpeed = CONFIG.SPEED_MULTIPLIER;
-             CONFIG.SPEED_MULTIPLIER = 0;
-             if (this.speedLabel) this.speedLabel.textContent = 'PAUSED (help)';
-         },
-         onClose: () => {
-             if (this._helpPanelPauseSpeed != null) {
-                 CONFIG.SPEED_MULTIPLIER = this._helpPanelPauseSpeed;
-                 this._helpPanelPauseSpeed = null;
-             }
-             if (this.speedSlider) this._applySpeedFromSlider();
-             if (!this._helpPrevOverlayHidden &&
-                 (this.gameState.is(STATE.MENU) || this.gameState.is(STATE.GAME_OVER))) {
-                 this.overlay.classList.remove('hidden');
-             }
-         },
-     });
+    // How-to-play guide overlay (README.md). Same pause behaviour.
+    this._helpPanelPauseSpeed = null;
+    this.helpGuidePanel = new GuidePanel({
+      overlayId: 'help-overlay',
+      bodyId: 'help-body',
+      closeId: 'help-close-button',
+      markdownUrl: '/README.md',
+      onOpen: () => {
+        this._helpPrevOverlayHidden = this.overlay.classList.contains('hidden');
+        this.overlay.classList.add('hidden');
+        this._helpPanelPauseSpeed = CONFIG.SPEED_MULTIPLIER;
+        CONFIG.SPEED_MULTIPLIER = 0;
+        if (this.speedLabel) this.speedLabel.textContent = 'PAUSED (help)';
+      },
+      onClose: () => {
+        if (this._helpPanelPauseSpeed != null) {
+          CONFIG.SPEED_MULTIPLIER = this._helpPanelPauseSpeed;
+          this._helpPanelPauseSpeed = null;
+        }
+        if (this.speedSlider) this._applySpeedFromSlider();
+        if (
+          !this._helpPrevOverlayHidden &&
+          (this.gameState.is(STATE.MENU) || this.gameState.is(STATE.GAME_OVER))
+        ) {
+          this.overlay.classList.remove('hidden');
+        }
+      },
+    });
     // Drawing tools panel (mode switcher, line width/dash, pattern editor).
     this.drawTools = new DrawToolsPanel(this.input);
+    // Pattern capture tool — drag-select regions of the grid and save them.
+    this.patternCapture = new PatternCapture({
+      game: this,
+      canvas: this.canvas,
+      drawTools: this.drawTools,
+    });
+    // Pattern Zoo — browse the pattern library with live previews.
+    this.patternZoo = new PatternZoo({ game: this });
     // Auto-pause when pattern editor overlay opens; restore on close.
     this._editorPauseSpeed = null;
     this.drawTools.onEditorOpen = () => {
@@ -184,64 +202,76 @@ class Game {
     if (this.guideButton) {
       this.guideButton.addEventListener('click', () => this.openGuide());
     }
-     if (this.howToPlayButton) {
-       this.howToPlayButton.addEventListener('click', () => this.openHelpGuide());
-     }
-     if (this.howToPlayIngameButton) {
-       this.howToPlayIngameButton.addEventListener('click', () => this.openHelpGuide());
-     }
+    if (this.howToPlayButton) {
+      this.howToPlayButton.addEventListener('click', () => this.openHelpGuide());
+    }
+    if (this.howToPlayIngameButton) {
+      this.howToPlayIngameButton.addEventListener('click', () => this.openHelpGuide());
+    }
+    if (this.patternZooButton) {
+      this.patternZooButton.addEventListener('click', () => this.openPatternZoo());
+    }
+    if (this.patternZooIngameButton) {
+      this.patternZooIngameButton.addEventListener('click', () => this.openPatternZoo());
+    }
     if (this.ingameSettingsButton) {
       this.ingameSettingsButton.addEventListener('click', () => this.openIngameSettings());
       this._updateIngameSettingsButton();
     }
-        // Wire the exit-to-menu button here as the primary handler.
-        // (DrawToolsPanel previously bound this; centralizing in main.js
-        // ensures it works even if DrawToolsPanel construction fails.)
-        const exitBtn = document.getElementById('exit-to-menu-button');
-        if (exitBtn) {
-          exitBtn.addEventListener('click', (e) => {
-            Logger.info('[Game] Exit button clicked.');
-            e.preventDefault();
-            e.stopPropagation();
-            this.exitToMenu();
-          });
-        } else {
-          Logger.error('[Game] exit-to-menu-button not found in DOM!');
-        }
-     // Fullscreen toggle button.
-     if (this.fullscreenButton) {
-       this.fullscreenButton.addEventListener('click', () => toggleFullscreen());
-       document.addEventListener('fullscreenchange', () => {
-         this.fullscreenButton.textContent = document.fullscreenElement ? '⛶' : '⛶';
-         this.fullscreenButton.title = document.fullscreenElement
-           ? 'Exit fullscreen [F11]'
-           : 'Enter fullscreen [F11]';
-       });
-     }
+    // Wire the pattern-capture button.
+    this._wirePatternCaptureButton();
+    // Wire the exit-to-menu button here as the primary handler.
+    // (DrawToolsPanel previously bound this; centralizing in main.js
+    // ensures it works even if DrawToolsPanel construction fails.)
+    const exitBtn = document.getElementById('exit-to-menu-button');
+    if (exitBtn) {
+      exitBtn.addEventListener('click', (e) => {
+        Logger.info('[Game] Exit button clicked.');
+        e.preventDefault();
+        e.stopPropagation();
+        this.exitToMenu();
+      });
+    } else {
+      Logger.error('[Game] exit-to-menu-button not found in DOM!');
+    }
+    // Fullscreen toggle button.
+    if (this.fullscreenButton) {
+      this.fullscreenButton.addEventListener('click', () => toggleFullscreen());
+      document.addEventListener('fullscreenchange', () => {
+        this.fullscreenButton.textContent = document.fullscreenElement ? '⛶' : '⛶';
+        this.fullscreenButton.title = document.fullscreenElement
+          ? 'Exit fullscreen [F11]'
+          : 'Enter fullscreen [F11]';
+      });
+    }
 
     this._initSpeedControls();
     this._initKeyboardShortcuts();
     this._initHotkeyHelp();
     window.addEventListener('resize', () => this._onWindowResize());
     // Diagnostic: log any click that hits the exit/edit buttons or their parents.
-    document.addEventListener('click', (e) => {
-      const target = e.target;
-      if (!target || !target.id) return;
-      if (target.id === 'exit-to-menu-button' ||
-          target.id === 'pattern-editor-toggle') {
-        Logger.info(`[Diag] Global click captured on #${target.id}`, {
-          defaultPrevented: e.defaultPrevented,
-          eventPhase: e.eventPhase,
-          bubbles: e.bubbles,
-          target: target.tagName,
-          disabled: target.disabled,
-          offsetParent: !!target.offsetParent,
-          rect: target.getBoundingClientRect(),
-        });
-      }
-    }, true); // capture phase
+    document.addEventListener(
+      'click',
+      (e) => {
+        const target = e.target;
+        if (!target || !target.id) return;
+        if (target.id === 'exit-to-menu-button' || target.id === 'pattern-editor-toggle') {
+          Logger.info(`[Diag] Global click captured on #${target.id}`, {
+            defaultPrevented: e.defaultPrevented,
+            eventPhase: e.eventPhase,
+            bubbles: e.bubbles,
+            target: target.tagName,
+            disabled: target.disabled,
+            offsetParent: !!target.offsetParent,
+            rect: target.getBoundingClientRect(),
+          });
+        }
+      },
+      true
+    ); // capture phase
 
-    this.showOverlay('The Arcade of Life',
+    this.showOverlay(
+      'The Arcade of Life',
       `Defend your cities from incoming missiles!<br>
                  Draw defensive patterns on the bottom half of the screen.<br>
                  Released cells evolve via Conway's Game of Life.<br><br>
@@ -249,12 +279,14 @@ class Game {
                  Release to commit them to the simulation.<br><br>
                  <strong>Hotkeys:</strong> Space = pause/resume, [ / ] = slower/faster, 0-8 = speed preset<br><br>
                  High Score: ${this.hud.highScore}`,
-      'Start Game');
-    Logger.info(`Game initialized. Grid ${CONFIG.GRID_WIDTH}x${CONFIG.GRID_HEIGHT}, cell ${CONFIG.CELL_SIZE}px.`);
+      'Start Game'
+    );
+    Logger.info(
+      `Game initialized. Grid ${CONFIG.GRID_WIDTH}x${CONFIG.GRID_HEIGHT}, cell ${CONFIG.CELL_SIZE}px.`
+    );
     // Expose hackable handles on window for DevTools console access.
     this._exposeGlobals();
     this._printHackBanner();
-
 
     requestAnimationFrame(this._loop.bind(this));
   }
@@ -271,10 +303,10 @@ class Game {
       CELL_TYPE,
       SPEED_PRESETS,
       RESOLUTION_PRESETS,
-     GAME_MODE_PRESETS,
+      GAME_MODE_PRESETS,
       Logger,
       // Class references for advanced poking / subclassing.
-      classes: {Grid, Simulation, Cities, Missiles, Defenses, Renderer, HUD},
+      classes: { Grid, Simulation, Cities, Missiles, Defenses, Renderer, HUD },
     };
     // Also drop the most common ones at top level for zero-friction hacking.
     window.CONFIG = CONFIG;
@@ -300,21 +332,38 @@ class Game {
       const exitBtn = document.getElementById('exit-to-menu-button');
       const editBtn = document.getElementById('pattern-editor-toggle');
       console.log('%c[ArcadeOfLife] Button diagnostics:', css);
-      console.log('  exit-to-menu-button:', exitBtn ? {
-        exists: true,
-        visible: !!exitBtn.offsetParent,
-        disabled: exitBtn.disabled,
-        rect: exitBtn.getBoundingClientRect(),
-        computed: exitBtn.offsetParent ? window.getComputedStyle(exitBtn).pointerEvents : 'N/A',
-      } : 'MISSING');
-      console.log('  pattern-editor-toggle:', editBtn ? {
-        exists: true,
-        visible: !!editBtn.offsetParent,
-        disabled: editBtn.disabled,
-        rect: editBtn.getBoundingClientRect(),
-        computed: editBtn.offsetParent ? window.getComputedStyle(editBtn).pointerEvents : 'N/A',
-      } : 'MISSING');
-      console.log('  drawTools instance:', window.game && window.game.drawTools ? 'CONSTRUCTED' : 'MISSING');
+      console.log(
+        '  exit-to-menu-button:',
+        exitBtn
+          ? {
+              exists: true,
+              visible: !!exitBtn.offsetParent,
+              disabled: exitBtn.disabled,
+              rect: exitBtn.getBoundingClientRect(),
+              computed: exitBtn.offsetParent
+                ? window.getComputedStyle(exitBtn).pointerEvents
+                : 'N/A',
+            }
+          : 'MISSING'
+      );
+      console.log(
+        '  pattern-editor-toggle:',
+        editBtn
+          ? {
+              exists: true,
+              visible: !!editBtn.offsetParent,
+              disabled: editBtn.disabled,
+              rect: editBtn.getBoundingClientRect(),
+              computed: editBtn.offsetParent
+                ? window.getComputedStyle(editBtn).pointerEvents
+                : 'N/A',
+            }
+          : 'MISSING'
+      );
+      console.log(
+        '  drawTools instance:',
+        window.game && window.game.drawTools ? 'CONSTRUCTED' : 'MISSING'
+      );
     }, 100);
   }
 
@@ -322,26 +371,32 @@ class Game {
     const self = this;
     return {
       help() {
-        console.log([
-          'cheats.infiniteInk()         - max ink, max regen',
-          'cheats.refillInk()           - top up ink now',
-          'cheats.killAllMissiles()     - clear missile cells',
-          'cheats.clearDefenses()       - clear defense cells (full refund)',
-          'cheats.reviveCities()        - resurrect all cities',
-          'cheats.skipWave(n=1)         - jump forward n waves',
-          'cheats.setWave(n)            - jump to wave n',
-          'cheats.addScore(n)           - add n to score',
-          'cheats.setSpeed(mult)        - set speed multiplier directly',
-          'cheats.freezeMissiles(bool?) - toggle/set missile spawning off',
-          'cheats.godMode(bool?)        - toggle/set immortality + ink refill',
-          'cheats.spawnPattern(x,y,pat,type?) - place [[dx,dy],...] pattern',
-          'cheats.gosperGun(x=5,y=45)   - drop a Gosper glider gun',
-          'cheats.dump()                - print live game stats',
-          'cheats.resetHighScore()      - clear saved high score',
-             'cheats.setMode(id)           - apply a game mode preset by id',
-             'cheats.listModes()           - list available game mode preset ids',
-             'cheats.setVfx(bool)          - enable/disable all visual effects at once',
-        ].join('\n'));
+        console.log(
+          [
+            'cheats.infiniteInk()         - max ink, max regen',
+            'cheats.refillInk()           - top up ink now',
+            'cheats.killAllMissiles()     - clear missile cells',
+            'cheats.clearDefenses()       - clear defense cells (full refund)',
+            'cheats.reviveCities()        - resurrect all cities',
+            'cheats.skipWave(n=1)         - jump forward n waves',
+            'cheats.setWave(n)            - jump to wave n',
+            'cheats.addScore(n)           - add n to score',
+            'cheats.setSpeed(mult)        - set speed multiplier directly',
+            'cheats.freezeMissiles(bool?) - toggle/set missile spawning off',
+            'cheats.godMode(bool?)        - toggle/set immortality + ink refill',
+            'cheats.spawnPattern(x,y,pat,type?) - place [[dx,dy],...] pattern',
+            'cheats.gosperGun(x=5,y=45)   - drop a Gosper glider gun',
+            'cheats.dump()                - print live game stats',
+            'cheats.resetHighScore()      - clear saved high score',
+            'cheats.setMode(id)           - apply a game mode preset by id',
+            'cheats.listModes()           - list available game mode preset ids',
+            'cheats.setVfx(bool)          - enable/disable all visual effects at once',
+            'cheats.listPatterns()        - list saved custom patterns',
+            'cheats.deletePattern(name)   - delete a saved custom pattern',
+            'cheats.clearPatterns()       - delete ALL saved custom patterns',
+            'cheats.captureMode()         - toggle pattern capture mode',
+          ].join('\n')
+        );
       },
       infiniteInk() {
         CONFIG.INITIAL_INK = 9999;
@@ -372,7 +427,7 @@ class Game {
       },
       reviveCities() {
         const g = self.grid;
-        self.cities.cities.forEach(c => {
+        self.cities.cities.forEach((c) => {
           c.alive = true;
           for (let dy = 0; dy < c.height; dy++) {
             for (let dx = 0; dx < c.width; dx++) {
@@ -400,13 +455,12 @@ class Game {
         if (self.speedLabel) self.speedLabel.textContent = `${mult}x`;
       },
       freezeMissiles(force) {
-        const v = (force === undefined) ? !self._missilesFrozen : !!force;
+        const v = force === undefined ? !self._missilesFrozen : !!force;
         self._missilesFrozen = v;
         // Patch missiles.update to no-op while frozen.
         if (v && !self._origMissilesUpdate) {
           self._origMissilesUpdate = self.missiles.update.bind(self.missiles);
-          self.missiles.update = () => {
-          };
+          self.missiles.update = () => {};
         } else if (!v && self._origMissilesUpdate) {
           self.missiles.update = self._origMissilesUpdate;
           self._origMissilesUpdate = null;
@@ -414,7 +468,7 @@ class Game {
         Logger.info(`Cheat: missiles frozen = ${v}.`);
       },
       godMode(force) {
-        const v = (force === undefined) ? !self._godMode : !!force;
+        const v = force === undefined ? !self._godMode : !!force;
         self._godMode = v;
         Logger.info(`Cheat: god mode = ${v}.`);
       },
@@ -422,7 +476,8 @@ class Game {
         const g = self.grid;
         let n = 0;
         for (const [dx, dy] of pattern) {
-          const px = x + dx, py = y + dy;
+          const px = x + dx,
+            py = y + dy;
           if (g.inBounds(px, py)) {
             g.set(px, py, type);
             const i = py * g.width + g.wrapX(px);
@@ -435,16 +490,50 @@ class Game {
       },
       gosperGun(x = 5, y = 45) {
         const GUN = [
-          [24, 0], [22, 1], [24, 1], [12, 2], [13, 2], [20, 2], [21, 2], [34, 2], [35, 2],
-          [11, 3], [15, 3], [20, 3], [21, 3], [34, 3], [35, 3], [0, 4], [1, 4], [10, 4], [16, 4],
-          [20, 4], [21, 4], [0, 5], [1, 5], [10, 5], [14, 5], [16, 5], [17, 5], [22, 5], [24, 5],
-          [10, 6], [16, 6], [24, 6], [11, 7], [15, 7], [12, 8], [13, 8],
+          [24, 0],
+          [22, 1],
+          [24, 1],
+          [12, 2],
+          [13, 2],
+          [20, 2],
+          [21, 2],
+          [34, 2],
+          [35, 2],
+          [11, 3],
+          [15, 3],
+          [20, 3],
+          [21, 3],
+          [34, 3],
+          [35, 3],
+          [0, 4],
+          [1, 4],
+          [10, 4],
+          [16, 4],
+          [20, 4],
+          [21, 4],
+          [0, 5],
+          [1, 5],
+          [10, 5],
+          [14, 5],
+          [16, 5],
+          [17, 5],
+          [22, 5],
+          [24, 5],
+          [10, 6],
+          [16, 6],
+          [24, 6],
+          [11, 7],
+          [15, 7],
+          [12, 8],
+          [13, 8],
         ];
         return this.spawnPattern(x, y, GUN, CELL_TYPE.DEFENSE);
       },
       dump() {
         const g = self.grid;
-        let defs = 0, miss = 0, cities = 0;
+        let defs = 0,
+          miss = 0,
+          cities = 0;
         for (let i = 0; i < g.cells.length; i++) {
           if (g.cells[i] === CELL_TYPE.DEFENSE) defs++;
           else if (g.cells[i] === CELL_TYPE.MISSILE) miss++;
@@ -459,7 +548,7 @@ class Game {
           maxInk: self.defenses.maxInk,
           speed: CONFIG.SPEED_MULTIPLIER,
           grid: `${g.width}x${g.height}`,
-          cells: {defense: defs, missile: miss, city: cities},
+          cells: { defense: defs, missile: miss, city: cities },
           citiesAlive: self.cities.aliveCount(),
           tickCount: self.simulation.tickCount,
         };
@@ -475,25 +564,47 @@ class Game {
           Logger.warn('Cheat: could not reset high score.', e);
         }
       },
-       setMode(id) {
-         if (self.settings) {
-           self.settings.applyGameMode(id);
-           Logger.info(`Cheat: game mode set to "${id}".`);
-         }
-       },
-       listModes() {
-         console.table(GAME_MODE_PRESETS.map(m => ({id: m.id, name: m.name, desc: m.desc})));
-       },
-       setVfx(enabled) {
-         const v = !!enabled;
-         CONFIG.VFX_PARTICLES = v;
-         CONFIG.VFX_SHOCKWAVES = v;
-         CONFIG.VFX_FLOATERS = v;
-         CONFIG.VFX_SCREEN_SHAKE = v;
-         CONFIG.VFX_CELL_GLOW = v;
-         CONFIG.VFX_DRAW_ZONE_TINT = v;
-         Logger.info(`Cheat: all VFX ${v ? 'enabled' : 'disabled'}.`);
-       },
+      setMode(id) {
+        if (self.settings) {
+          self.settings.applyGameMode(id);
+          Logger.info(`Cheat: game mode set to "${id}".`);
+        }
+      },
+      listModes() {
+        console.table(GAME_MODE_PRESETS.map((m) => ({ id: m.id, name: m.name, desc: m.desc })));
+      },
+      setVfx(enabled) {
+        const v = !!enabled;
+        CONFIG.VFX_PARTICLES = v;
+        CONFIG.VFX_SHOCKWAVES = v;
+        CONFIG.VFX_FLOATERS = v;
+        CONFIG.VFX_SCREEN_SHAKE = v;
+        CONFIG.VFX_CELL_GLOW = v;
+        CONFIG.VFX_DRAW_ZONE_TINT = v;
+        Logger.info(`Cheat: all VFX ${v ? 'enabled' : 'disabled'}.`);
+      },
+      listPatterns() {
+        if (!self.patternCapture) return [];
+        const list = self.patternCapture.listSaved();
+        console.table(list);
+        return list;
+      },
+      deletePattern(name) {
+        if (!self.patternCapture) return false;
+        const ok = self.patternCapture.deleteSaved(name);
+        Logger.info(`Cheat: deletePattern("${name}") -> ${ok}`);
+        return ok;
+      },
+      clearPatterns() {
+        if (!self.patternCapture) return 0;
+        const n = self.patternCapture.clearAllSaved();
+        Logger.info(`Cheat: cleared ${n} saved pattern(s).`);
+        return n;
+      },
+      captureMode() {
+        if (!self.patternCapture) return;
+        self.patternCapture.toggle();
+      },
     };
   }
 
@@ -516,7 +627,31 @@ class Game {
     if (this.input) this.input.cancelDrawing();
     this.defenses.clearAll(this.grid);
   }
-
+  _wirePatternCaptureButton() {
+    const btn = document.getElementById('pattern-capture-button');
+    if (!btn) {
+      Logger.warn('[Game] pattern-capture-button not found in DOM.');
+      return;
+    }
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!this.patternCapture) return;
+      this.patternCapture.toggle();
+    });
+    // Also bind a hotkey: Shift+C toggles capture mode.
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      // If a pattern-capture name dialog is open, let it handle keys.
+      if (this.patternCapture && this.patternCapture._nameDialog) return;
+      if (e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+        e.preventDefault();
+        this.patternCapture.toggle();
+      }
+    });
+  }
 
   // (Re)construct grid + entities for current CONFIG resolution.
   _buildWorld() {
@@ -566,8 +701,7 @@ class Game {
           ttl: 30,
           width: 3,
         });
-        this.renderer.addBigFloater(cx, cy - 2,
-          '⚠ TARGET DEPLOYED', '#ff3333', 1.4);
+        this.renderer.addBigFloater(cx, cy - 2, '⚠ TARGET DEPLOYED', '#ff3333', 1.4);
         this.renderer.addParticleBurst(cx, cy, {
           count: 20,
           colors: ['#ff0033', '#ff3300', '#ffaa00'],
@@ -584,8 +718,7 @@ class Game {
       try {
         this.hud.addScore(500);
         if (!this.renderer) return;
-        this.renderer.addBigFloater(cx, cy, 'TARGET DOWN! +500',
-          '#ffff44', 1.8);
+        this.renderer.addBigFloater(cx, cy, 'TARGET DOWN! +500', '#ffff44', 1.8);
         this.renderer.addShockwave(cx, cy, {
           maxRadius: 60,
           color: '#ffff44',
@@ -609,7 +742,8 @@ class Game {
     this.simulation.onCityDestroyed = (x, y) => {
       try {
         Logger.debug(`City cell destroyed at (${x},${y}).`);
-      } catch (_e) { /* swallow */
+      } catch (_e) {
+        /* swallow */
       }
     };
     this.simulation.onAnnihilation = (x, y) => {
@@ -662,7 +796,8 @@ class Game {
         // Upward smoke plume — somber, lingers.
         this.renderer.addParticleBurst(x, y, {
           count: 14,
-          colors: isFriendly ? ['#446644', '#88aa88', '#225522']
+          colors: isFriendly
+            ? ['#446644', '#88aa88', '#225522']
             : ['#444444', '#886655', '#552222'],
           speed: 0.6,
           spread: Math.PI / 2,
@@ -695,7 +830,7 @@ class Game {
         Logger.error('onCityHit handler failed.', e);
       }
     };
-this.simulation.onMissileReturn = (x, y, kind) => {
+    this.simulation.onMissileReturn = (x, y, kind) => {
       try {
         if (kind === 'ricochet') {
           Sfx.ricochet();
@@ -738,7 +873,7 @@ this.simulation.onMissileReturn = (x, y, kind) => {
     };
     // Missile spawn plumes: bright downward streak when a glider appears
     // at the top of the screen. Coords are grid-space center of the spawn.
-    this.missiles.onMissileSpawn = (cx, cy, pw, ph) => {
+    this.missiles.onMissileSpawn = (cx, cy, _pw, _ph) => {
       try {
         Sfx.missileSpawn();
         if (!this.renderer) return;
@@ -778,94 +913,103 @@ this.simulation.onMissileReturn = (x, y, kind) => {
         Logger.error('onMissileSpawn handler failed.', e);
       }
     };
-     // Breach: missile entered the rear dead zone (slipped past defenses).
-     this.simulation.onBreach = (x, y) => {
-       try {
-         Sfx.cityHit();
-         if (this.renderer) {
-           this.renderer.addBigFloater(x, y - 2, '⚠ BREACH!', '#ff8844', 1.4);
-           this.renderer.addShockwave(x, y, {
-             maxRadius: 30, color: '#ff8844', ttl: 24, width: 2,
-           });
-           this.renderer.addParticleBurst(x, y, {
-             count: 18,
-             colors: ['#ff8844', '#ffaa66', '#ffff88', '#ff4422'],
-             speed: 2.0,
-             ttl: 35,
-             size: 2.6,
-             glow: 10,
-             gravity: 0.05,
-           });
-           this.renderer.addShake(3, 18);
-         }
-         // Slight score penalty — they got past your defenses.
-         this.hud.addScore(-15);
-       } catch (e) {
-         Logger.error('onBreach handler failed.', e);
-       }
-     };
-     // Base destroyed: nice reward.
-     this.missiles.onBaseSpawn = (cx, cy, kind) => {
-       try {
-         if (!this.renderer) return;
-         const colorMap = {
-           fortress: '#ff3333',
-           bunker: '#ff8833',
-           cruiser_e: '#ff5555',
-           cruiser_w: '#ff5555',
-         };
-         const color = colorMap[kind] || '#ff3333';
-         this.renderer.addShockwave(cx, cy, {
-           maxRadius: 40, color, ttl: 30, width: 3,
-         });
-         const labelMap = {
-           fortress: '⚠ FORTRESS DEPLOYED',
-           bunker: '⚠ BUNKER DEPLOYED',
-           cruiser_e: '⚠ CRUISER (E) DEPLOYED',
-           cruiser_w: '⚠ CRUISER (W) DEPLOYED',
-         };
-         this.renderer.addBigFloater(cx, cy - 2,
-           labelMap[kind] || '⚠ BASE DEPLOYED', color, 1.3);
-         this.renderer.addParticleBurst(cx, cy, {
-           count: 18,
-           colors: [color, '#ffaa00', '#ffffff'],
-           speed: 1.8,
-           ttl: 32,
-           size: 2.6,
-           glow: 10,
-         });
-       } catch (e) {
-         Logger.error('onBaseSpawn handler failed.', e);
-       }
-     };
-     this.missiles.onBaseDestroyed = (cx, cy, kind) => {
-       try {
-         const scoreMap = {
-           fortress: 600, bunker: 350,
-           cruiser_e: 450, cruiser_w: 450,
-         };
-         const score = scoreMap[kind] || 400;
-         this.hud.addScore(score);
-         if (!this.renderer) return;
-         this.renderer.addBigFloater(cx, cy,
-           `BASE DOWN! +${score}`, '#ffff44', 1.8);
-         this.renderer.addShockwave(cx, cy, {
-           maxRadius: 70, color: '#ffff44', ttl: 38, width: 3,
-         });
-         this.renderer.addParticleBurst(cx, cy, {
-           count: 55,
-           colors: ['#ffff66', '#ff8800', '#ffffff', '#ff0033'],
-           speed: 3.5,
-           ttl: 60,
-           size: 3.2,
-           glow: 12,
-           gravity: 0.05,
-         });
-         this.renderer.addShake(7, 28);
-       } catch (e) {
-         Logger.error('onBaseDestroyed handler failed.', e);
-       }
-     };
+    // Breach: missile entered the rear dead zone (slipped past defenses).
+    this.simulation.onBreach = (x, y) => {
+      try {
+        Sfx.cityHit();
+        if (this.renderer) {
+          this.renderer.addBigFloater(x, y - 2, '⚠ BREACH!', '#ff8844', 1.4);
+          this.renderer.addShockwave(x, y, {
+            maxRadius: 30,
+            color: '#ff8844',
+            ttl: 24,
+            width: 2,
+          });
+          this.renderer.addParticleBurst(x, y, {
+            count: 18,
+            colors: ['#ff8844', '#ffaa66', '#ffff88', '#ff4422'],
+            speed: 2.0,
+            ttl: 35,
+            size: 2.6,
+            glow: 10,
+            gravity: 0.05,
+          });
+          this.renderer.addShake(3, 18);
+        }
+        // Slight score penalty — they got past your defenses.
+        this.hud.addScore(-15);
+      } catch (e) {
+        Logger.error('onBreach handler failed.', e);
+      }
+    };
+    // Base destroyed: nice reward.
+    this.missiles.onBaseSpawn = (cx, cy, kind) => {
+      try {
+        if (!this.renderer) return;
+        const colorMap = {
+          fortress: '#ff3333',
+          bunker: '#ff8833',
+          cruiser_e: '#ff5555',
+          cruiser_w: '#ff5555',
+        };
+        const color = colorMap[kind] || '#ff3333';
+        this.renderer.addShockwave(cx, cy, {
+          maxRadius: 40,
+          color,
+          ttl: 30,
+          width: 3,
+        });
+        const labelMap = {
+          fortress: '⚠ FORTRESS DEPLOYED',
+          bunker: '⚠ BUNKER DEPLOYED',
+          cruiser_e: '⚠ CRUISER (E) DEPLOYED',
+          cruiser_w: '⚠ CRUISER (W) DEPLOYED',
+        };
+        this.renderer.addBigFloater(cx, cy - 2, labelMap[kind] || '⚠ BASE DEPLOYED', color, 1.3);
+        this.renderer.addParticleBurst(cx, cy, {
+          count: 18,
+          colors: [color, '#ffaa00', '#ffffff'],
+          speed: 1.8,
+          ttl: 32,
+          size: 2.6,
+          glow: 10,
+        });
+      } catch (e) {
+        Logger.error('onBaseSpawn handler failed.', e);
+      }
+    };
+    this.missiles.onBaseDestroyed = (cx, cy, kind) => {
+      try {
+        const scoreMap = {
+          fortress: 600,
+          bunker: 350,
+          cruiser_e: 450,
+          cruiser_w: 450,
+        };
+        const score = scoreMap[kind] || 400;
+        this.hud.addScore(score);
+        if (!this.renderer) return;
+        this.renderer.addBigFloater(cx, cy, `BASE DOWN! +${score}`, '#ffff44', 1.8);
+        this.renderer.addShockwave(cx, cy, {
+          maxRadius: 70,
+          color: '#ffff44',
+          ttl: 38,
+          width: 3,
+        });
+        this.renderer.addParticleBurst(cx, cy, {
+          count: 55,
+          colors: ['#ffff66', '#ff8800', '#ffffff', '#ff0033'],
+          speed: 3.5,
+          ttl: 60,
+          size: 3.2,
+          glow: 12,
+          gravity: 0.05,
+        });
+        this.renderer.addShake(7, 28);
+      } catch (e) {
+        Logger.error('onBaseDestroyed handler failed.', e);
+      }
+    };
   }
 
   _wireInput() {
@@ -927,15 +1071,15 @@ this.simulation.onMissileReturn = (x, y, kind) => {
     let maxIdx = SPEED_PRESETS.length - 1;
     if (cells < 12000) {
       // Small boards: cap at 16x (index of 'Hyper 16x').
-      const idx16 = SPEED_PRESETS.findIndex(p => p.value === 16.0);
+      const idx16 = SPEED_PRESETS.findIndex((p) => p.value === 16.0);
       if (idx16 >= 0) maxIdx = idx16;
     } else if (cells < 30000) {
       // Medium boards: cap at 32x.
-      const idx32 = SPEED_PRESETS.findIndex(p => p.value === 32.0);
+      const idx32 = SPEED_PRESETS.findIndex((p) => p.value === 32.0);
       if (idx32 >= 0) maxIdx = idx32;
     } else if (cells < 60000) {
       // Large boards: cap at 64x.
-      const idx64 = SPEED_PRESETS.findIndex(p => p.value === 64.0);
+      const idx64 = SPEED_PRESETS.findIndex((p) => p.value === 64.0);
       if (idx64 >= 0) maxIdx = idx64;
     }
     // XL+ boards: full range.
@@ -944,16 +1088,15 @@ this.simulation.onMissileReturn = (x, y, kind) => {
     this.speedSlider.max = String(maxIdx);
     this.speedSlider.step = '1';
     // Default to "1x" preset.
-    const defaultIdx = SPEED_PRESETS.findIndex(p => p.value === 1.0);
+    const defaultIdx = SPEED_PRESETS.findIndex((p) => p.value === 1.0);
     this.speedSlider.value = String(defaultIdx >= 0 ? defaultIdx : 3);
     this._applySpeedFromSlider();
     this.speedSlider.addEventListener('input', () => this._applySpeedFromSlider());
   }
 
   _applySpeedFromSlider() {
-    const maxIdx = (this._maxSpeedIdx != null) ? this._maxSpeedIdx : (SPEED_PRESETS.length - 1);
-    const idx = Math.max(0, Math.min(maxIdx,
-      parseInt(this.speedSlider.value, 10) || 0));
+    const maxIdx = this._maxSpeedIdx != null ? this._maxSpeedIdx : SPEED_PRESETS.length - 1;
+    const idx = Math.max(0, Math.min(maxIdx, parseInt(this.speedSlider.value, 10) || 0));
     const preset = SPEED_PRESETS[idx];
     CONFIG.SPEED_MULTIPLIER = preset.value;
     if (this.speedLabel) this.speedLabel.textContent = preset.name;
@@ -961,7 +1104,7 @@ this.simulation.onMissileReturn = (x, y, kind) => {
 
   _setSpeedIndex(idx) {
     if (!this.speedSlider) return;
-    const maxIdx = (this._maxSpeedIdx != null) ? this._maxSpeedIdx : (SPEED_PRESETS.length - 1);
+    const maxIdx = this._maxSpeedIdx != null ? this._maxSpeedIdx : SPEED_PRESETS.length - 1;
     const clamped = Math.max(0, Math.min(maxIdx, idx));
     this.speedSlider.value = String(clamped);
     this._applySpeedFromSlider();
@@ -982,8 +1125,10 @@ this.simulation.onMissileReturn = (x, y, kind) => {
       }
       // If the guide is open, swallow other game hotkeys.
       if (this.guidePanel && this.guidePanel.isVisible()) return;
-       // If the help guide is open, swallow other game hotkeys.
-       if (this.helpGuidePanel && this.helpGuidePanel.isVisible()) return;
+      // If the help guide is open, swallow other game hotkeys.
+      if (this.helpGuidePanel && this.helpGuidePanel.isVisible()) return;
+      // If the pattern zoo is open, swallow other game hotkeys.
+      if (this.patternZoo && this.patternZoo.isVisible()) return;
       // ESC: universal close/cancel — close settings, hide help overlay,
       // cancel an active draw, or close menu overlay if in-game.
       if (e.key === 'Escape') {
@@ -997,19 +1142,19 @@ this.simulation.onMissileReturn = (x, y, kind) => {
           this.settingsPanel.hide();
           return;
         }
-         if (this.helpGuidePanel && this.helpGuidePanel.isVisible()) {
-           e.preventDefault();
-           this.helpGuidePanel.hide();
-           return;
-         }
+        if (this.helpGuidePanel && this.helpGuidePanel.isVisible()) {
+          e.preventDefault();
+          this.helpGuidePanel.hide();
+          return;
+        }
         if (this.input && this.input.drawing) {
           e.preventDefault();
           this.input.cancelDrawing();
           return;
         }
       }
-       // ?: show/hide hotkey help overlay.
-       if (e.key === '?') {
+      // ?: show/hide hotkey help overlay.
+      if (e.key === '?') {
         e.preventDefault();
         this._toggleHotkeyHelp();
         return;
@@ -1017,14 +1162,15 @@ this.simulation.onMissileReturn = (x, y, kind) => {
       // If hotkey help is visible, only ESC/?/H close it (handled above).
       if (this.hotkeyHelpVisible) return;
 
-
       if (e.code === 'Space') {
         e.preventDefault();
         const curIdx = parseInt(this.speedSlider.value, 10) || 0;
         if (SPEED_PRESETS[curIdx].value === 0) {
           // Resume to previous speed or 1x.
-          const restore = this._prePauseIdx != null ? this._prePauseIdx :
-            SPEED_PRESETS.findIndex(p => p.value === 1.0);
+          const restore =
+            this._prePauseIdx != null
+              ? this._prePauseIdx
+              : SPEED_PRESETS.findIndex((p) => p.value === 1.0);
           this._setSpeedIndex(restore);
         } else {
           this._prePauseIdx = curIdx;
@@ -1045,7 +1191,7 @@ this.simulation.onMissileReturn = (x, y, kind) => {
       // Digit hotkeys (no shift): 0..(N-1) map to speed preset index.
       if (!e.shiftKey && /^[0-9]$/.test(e.key)) {
         const digit = parseInt(e.key, 10);
-        const maxIdx = (this._maxSpeedIdx != null) ? this._maxSpeedIdx : (SPEED_PRESETS.length - 1);
+        const maxIdx = this._maxSpeedIdx != null ? this._maxSpeedIdx : SPEED_PRESETS.length - 1;
         if (digit <= maxIdx) this._setSpeedIndex(digit);
         return;
       }
@@ -1057,6 +1203,11 @@ this.simulation.onMissileReturn = (x, y, kind) => {
       }
       // Z or Ctrl+Z: Undo last stroke.
       if ((e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        // Only treat as undo if Ctrl/Meta is held; bare Z opens the zoo.
+        if (!e.ctrlKey && !e.metaKey) {
+          // Already handled above.
+          return;
+        }
         e.preventDefault();
         if (this.input && this.input.undo) {
           const removed = this.input.undo();
@@ -1078,16 +1229,29 @@ this.simulation.onMissileReturn = (x, y, kind) => {
         this.guidePanel.toggle();
         return;
       }
-       // H: Toggle the how-to-play / README guide.
-       if (e.key === 'h' || e.key === 'H') {
-         e.preventDefault();
-         this.helpGuidePanel.toggle();
-         return;
-       }
+      // H: Toggle the how-to-play / README guide.
+      if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        this.helpGuidePanel.toggle();
+        return;
+      }
+      // Z: Toggle the pattern zoo.
+      if (e.key === 'z' || e.key === 'Z') {
+        // Don't conflict with Ctrl+Z undo (handled below).
+        if (e.ctrlKey || e.metaKey) {
+          // Fall through to undo handler.
+        } else if (!e.shiftKey) {
+          e.preventDefault();
+          this.patternZoo.toggle();
+          return;
+        }
+      }
       // S: Open in-play settings (when enabled).
       if (e.key === 's' || e.key === 'S') {
-        if (CONFIG.IN_PLAY_SETTINGS_ENABLED &&
-          (this.gameState.is(STATE.PLAYING) || this.gameState.is(STATE.WAVE_TRANSITION))) {
+        if (
+          CONFIG.IN_PLAY_SETTINGS_ENABLED &&
+          (this.gameState.is(STATE.PLAYING) || this.gameState.is(STATE.WAVE_TRANSITION))
+        ) {
           e.preventDefault();
           this.openIngameSettings();
           return;
@@ -1119,12 +1283,12 @@ this.simulation.onMissileReturn = (x, y, kind) => {
         }
         return;
       }
-     // F11: toggle fullscreen.
-     if (e.key === 'F11') {
-       e.preventDefault();
-       toggleFullscreen();
-       return;
-     }
+      // F11: toggle fullscreen.
+      if (e.key === 'F11') {
+        e.preventDefault();
+        toggleFullscreen();
+        return;
+      }
     });
   }
 
@@ -1184,7 +1348,7 @@ this.simulation.onMissileReturn = (x, y, kind) => {
 
   _toggleHotkeyHelp(force) {
     if (!this.hotkeyHelpEl) return;
-    const show = (force === undefined) ? !this.hotkeyHelpVisible : !!force;
+    const show = force === undefined ? !this.hotkeyHelpVisible : !!force;
     this.hotkeyHelpVisible = show;
     if (show) {
       // Pause game while help is shown.
@@ -1221,10 +1385,30 @@ this.simulation.onMissileReturn = (x, y, kind) => {
   openGuide() {
     this.guidePanel.show();
   }
-   openHelpGuide() {
-     this.helpGuidePanel.show();
-   }
-
+  openHelpGuide() {
+    this.helpGuidePanel.show();
+  }
+  openPatternZoo() {
+    if (!this.patternZoo) return;
+    // Close the menu overlay if it's showing so the zoo is unambiguous.
+    this._zooPrevOverlayHidden = this.overlay.classList.contains('hidden');
+    this.overlay.classList.add('hidden');
+    // Bind a one-shot listener so re-showing the overlay on hide is sane.
+    const origHide = this.patternZoo.hide.bind(this.patternZoo);
+    this.patternZoo.hide = () => {
+      origHide();
+      // Restore the patched method.
+      this.patternZoo.hide = origHide;
+      // Re-show menu overlay if we were on the menu/game-over.
+      if (
+        !this._zooPrevOverlayHidden &&
+        (this.gameState.is(STATE.MENU) || this.gameState.is(STATE.GAME_OVER))
+      ) {
+        this.overlay.classList.remove('hidden');
+      }
+    };
+    this.patternZoo.show();
+  }
 
   // Open settings from within a running game. Pauses the simulation
   // while open; restores prior speed when closed.
@@ -1260,18 +1444,15 @@ this.simulation.onMissileReturn = (x, y, kind) => {
 
   _updateIngameSettingsButton() {
     if (!this.ingameSettingsButton) return;
-    this.ingameSettingsButton.style.display =
-      CONFIG.IN_PLAY_SETTINGS_ENABLED ? '' : 'none';
+    this.ingameSettingsButton.style.display = CONFIG.IN_PLAY_SETTINGS_ENABLED ? '' : 'none';
   }
   // Return to the main menu from an active game (or anywhere else).
   // Prompts for confirmation if a game is in progress.
   exitToMenu() {
     // Only confirm if a game is actually in progress.
-    const inGame = this.gameState.is(STATE.PLAYING) ||
-                   this.gameState.is(STATE.WAVE_TRANSITION);
+    const inGame = this.gameState.is(STATE.PLAYING) || this.gameState.is(STATE.WAVE_TRANSITION);
     if (inGame) {
-      const confirmed = window.confirm(
-        'Exit to main menu? Your current game will be lost.');
+      const confirmed = window.confirm('Exit to main menu? Your current game will be lost.');
       if (!confirmed) return;
     }
     Logger.info('Exiting to main menu.');
@@ -1290,7 +1471,7 @@ this.simulation.onMissileReturn = (x, y, kind) => {
     // Reset speed to 1x so resuming doesn't start paused at weird speed.
     CONFIG.SPEED_MULTIPLIER = 1.0;
     if (this.speedSlider) {
-      const idx = SPEED_PRESETS.findIndex(p => p.value === 1.0);
+      const idx = SPEED_PRESETS.findIndex((p) => p.value === 1.0);
       this.speedSlider.value = String(idx >= 0 ? idx : 3);
       this._applySpeedFromSlider();
     }
@@ -1320,18 +1501,18 @@ this.simulation.onMissileReturn = (x, y, kind) => {
     );
   }
 
-
   startGame() {
     Logger.info('Starting game.');
     Sfx.waveStart();
-     // Acquire wake lock so the screen stays on during gameplay.
-     requestWakeLock();
+    // Acquire wake lock so the screen stays on during gameplay.
+    requestWakeLock();
     // Apply any pending settings (may have changed resolution / gliders).
     this.settings.apply();
     // If resolution changed since last build, rebuild world.
-    if (this.grid.width !== CONFIG.GRID_WIDTH ||
-      this.grid.height !== CONFIG.GRID_HEIGHT) {
-      Logger.info(`Resolution changed to ${CONFIG.GRID_WIDTH}x${CONFIG.GRID_HEIGHT}; rebuilding world.`);
+    if (this.grid.width !== CONFIG.GRID_WIDTH || this.grid.height !== CONFIG.GRID_HEIGHT) {
+      Logger.info(
+        `Resolution changed to ${CONFIG.GRID_WIDTH}x${CONFIG.GRID_HEIGHT}; rebuilding world.`
+      );
       this._fitCellSize();
       this._buildWorld();
       this.renderer.setGrid(this.grid);
@@ -1397,7 +1578,7 @@ this.simulation.onMissileReturn = (x, y, kind) => {
     Logger.info(`Advancing to wave ${this.hud.wave}.`);
     Sfx.waveStart();
     this.hud.addScore(this.cities.aliveCount() * 100);
-    this.hud.addScore(Math.floor(this.defenses.ink) * 0.5 | 0);
+    this.hud.addScore((Math.floor(this.defenses.ink) * 0.5) | 0);
     this.defenses.refill(80);
     this.missiles.startWave(this.hud.wave - 1);
     this.gameState.set(STATE.PLAYING);
@@ -1406,19 +1587,21 @@ this.simulation.onMissileReturn = (x, y, kind) => {
   gameOver() {
     this.gameState.set(STATE.GAME_OVER);
     Sfx.gameOver();
-     releaseWakeLock();
-    Logger.info(`Game over. Score=${this.hud.score}, wave=${this.hud.wave}, high=${this.hud.highScore}.`);
-    this.showOverlay('Game Over',
+    releaseWakeLock();
+    Logger.info(
+      `Game over. Score=${this.hud.score}, wave=${this.hud.wave}, high=${this.hud.highScore}.`
+    );
+    this.showOverlay(
+      'Game Over',
       `All cities destroyed!<br><br>
                  Final Score: <strong>${this.hud.score}</strong><br>
                  Wave Reached: ${this.hud.wave}<br>
                  High Score: ${this.hud.highScore}`,
-      'Play Again');
+      'Play Again'
+    );
   }
 
   _loop(time) {
-
-
     try {
       const dt = time - this.lastTime;
       this.lastTime = time;
@@ -1437,7 +1620,6 @@ this.simulation.onMissileReturn = (x, y, kind) => {
         this.freeplayAbilities.update(dt);
       }
 
-
       this.renderer.render(this.hud);
       // Successful frame: decay error count.
       if (this._frameErrorCount > 0) this._frameErrorCount--;
@@ -1446,10 +1628,12 @@ this.simulation.onMissileReturn = (x, y, kind) => {
       Logger.error(`Frame error (${this._frameErrorCount}/${this._MAX_FRAME_ERRORS}).`, e);
       if (this._frameErrorCount >= this._MAX_FRAME_ERRORS) {
         Logger.error('Too many consecutive frame errors; halting render loop.');
-        this.showOverlay('Error',
+        this.showOverlay(
+          'Error',
           'The game encountered repeated errors and has stopped.<br>' +
-          'Open the browser console for details, then reload to try again.',
-          'Reload');
+            'Open the browser console for details, then reload to try again.',
+          'Reload'
+        );
         this.startButton.onclick = () => location.reload();
         return; // do not reschedule
       }
@@ -1512,8 +1696,7 @@ this.simulation.onMissileReturn = (x, y, kind) => {
       // tracked via the ability's external state; we re-read it here so
       // we don't fight it.
       const timeStopActive =
-        (this.story && this.story._timeStopUntil > 0) ||
-        (this._freezeTimer != null);
+        (this.story && this.story._timeStopUntil > 0) || this._freezeTimer != null;
       this.simulation.freezeEnemies = !tickAtt || timeStopActive;
       this.simulation.freezeDefenses = !tickDef;
 
@@ -1536,11 +1719,10 @@ this.simulation.onMissileReturn = (x, y, kind) => {
       this._attAccum = 0;
     }
 
-
     // God mode: revive any lost cities and refill ink every frame.
     if (this._godMode) {
       const g = this.grid;
-      this.cities.cities.forEach(c => {
+      this.cities.cities.forEach((c) => {
         if (!c.alive) {
           c.alive = true;
           for (let dy = 0; dy < c.height; dy++) {
@@ -1552,7 +1734,6 @@ this.simulation.onMissileReturn = (x, y, kind) => {
       });
       this.defenses.ink = this.defenses.maxInk;
     }
-
 
     if (this.cities.aliveCount() === 0) {
       this.gameOver();
@@ -1566,10 +1747,10 @@ this.simulation.onMissileReturn = (x, y, kind) => {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-   // PWA bootstrap (runs independently of game init).
-   registerServiceWorker();
-   initInstallPrompt();
-   initNetworkIndicator();
+  // PWA bootstrap (runs independently of game init).
+  registerServiceWorker();
+  initInstallPrompt();
+  initNetworkIndicator();
 
   // Global error nets. Browsers will already log these, but routing them
   // through our logger keeps consistent formatting and lets us filter.
@@ -1581,11 +1762,11 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   try {
     new Game();
-     // Auto-start if launched via shortcut (?autostart=1).
-     checkAutoStart(() => {
-       const btn = document.getElementById('start-button');
-       if (btn) btn.click();
-     });
+    // Auto-start if launched via shortcut (?autostart=1).
+    checkAutoStart(() => {
+      const btn = document.getElementById('start-button');
+      if (btn) btn.click();
+    });
   } catch (e) {
     Logger.error('Fatal error during Game construction.', e);
     const overlay = document.getElementById('overlay');
@@ -1593,8 +1774,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const title = document.getElementById('overlay-title');
     if (overlay && msg && title) {
       title.textContent = 'Startup Error';
-      msg.innerHTML = 'The game failed to start. ' +
-        'Open the browser console for details, then reload.';
+      msg.innerHTML =
+        'The game failed to start. ' + 'Open the browser console for details, then reload.';
       overlay.classList.remove('hidden');
     }
   }

@@ -1,4 +1,4 @@
-import {Logger} from './logger.js';
+import { Logger } from './logger.js';
 
 /**
  * Safe localStorage wrappers. All operations are guarded against:
@@ -38,7 +38,8 @@ export function loadJSON(key, defaultValue) {
     // Attempt to clear the corrupted entry so we don't keep failing.
     try {
       localStorage.removeItem(key);
-    } catch (_e) { /* ignore */
+    } catch (_e) {
+      /* ignore */
     }
     return defaultValue;
   }
