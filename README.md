@@ -1,4 +1,4 @@
-# The Arcade of Life
+# [The Arcade of Life](https://aol.cognotik.com/)
 
 A frantic, cerebral arcade game where Conway's **Game of Life** is the
 physics engine, your **ink** is your brush, and every cell you draw is both a
