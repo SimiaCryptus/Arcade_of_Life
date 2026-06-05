@@ -1086,15 +1086,38 @@ class Game {
     if (preset && preset.auto) {
       const dims = computeAutoGrid();
       if (dims.width !== CONFIG.GRID_WIDTH || dims.height !== CONFIG.GRID_HEIGHT) {
+        // Preserve grid state across rebuild so a window resize (or
+        // fullscreen toggle) doesn't wipe the player's painted defenses.
+        const oldGrid = this.grid;
+        const oldW = oldGrid.width;
+        const oldH = oldGrid.height;
         CONFIG.GRID_WIDTH = dims.width;
         CONFIG.GRID_HEIGHT = dims.height;
         this._fitCellSize();
         this._buildWorld();
-        if (this.renderer) this.renderer.setGrid(this.grid);
-        if (this.gameState.is(STATE.PLAYING)) {
-          this.cities.place();
-          this.missiles.startWave(Math.max(0, this.hud.wave - 1));
+        // Copy over as much of the old grid as fits into the new one,
+        // anchored to bottom-left so cities and defenses stay near the
+        // bottom where the player drew them.
+        const newW = this.grid.width;
+        const newH = this.grid.height;
+        const copyW = Math.min(oldW, newW);
+        const copyH = Math.min(oldH, newH);
+        const srcYOff = oldH - copyH;
+        const dstYOff = newH - copyH;
+        for (let y = 0; y < copyH; y++) {
+          for (let x = 0; x < copyW; x++) {
+            const si = (y + srcYOff) * oldW + x;
+            const di = (y + dstYOff) * newW + x;
+            this.grid.cells[di] = oldGrid.cells[si];
+            this.grid.pending[di] = oldGrid.pending[si];
+            this.grid.pendingDry[di] = oldGrid.pendingDry[si];
+            this.grid.cellAge[di] = oldGrid.cellAge[si];
+            this.grid.cellColor[di] = oldGrid.cellColor[si];
+            this.grid.cellDir[di] = oldGrid.cellDir[si];
+            this.grid.explosionTimers[di] = oldGrid.explosionTimers[si];
+          }
         }
+        if (this.renderer) this.renderer.setGrid(this.grid);
         return;
       }
     }

@@ -31,15 +31,6 @@
         <label for="speed-slider" id="speed-control-label">Speed:</label>
         <input id="speed-slider" max="7" min="0" step="1" type="range" value="3" />
         <span id="speed-label">1x</span>
-        <button id="clear-defenses-button" title="Clear all defense cells and refund ink">
-          Clear Defenses
-        </button>
-        <button
-          id="pattern-capture-button"
-          title="Capture a region of the grid as a reusable pattern [Shift+C]"
-        >
-          ◧ Capture Pattern
-        </button>
         <button id="ingame-settings-button" title="Open settings (pauses game) [S]">
           ⚙ Settings
         </button>
@@ -95,6 +86,23 @@
           <button id="pattern-editor-toggle" title="Open pattern editor (switches to pattern mode)">
             ✏ Edit Pattern
           </button>
+        </div>
+        <div class="tool-group tool-group-actions" id="draw-actions-group">
+          <button id="clear-defenses-button" title="Clear all defense cells and refund ink [C]">
+            Clear Defenses
+          </button>
+          <button
+            id="pattern-capture-button"
+            title="Capture a region of the grid as a reusable pattern [Shift+C]"
+          >
+            ◧ Capture Pattern
+          </button>
+        </div>
+        <div class="tool-group tool-group-abilities" id="abilities-group">
+          <label>Abilities:</label>
+          <span id="abilities-empty-hint" style="font-size: 10px; color: #666; font-style: italic"
+            >none equipped</span
+          >
         </div>
         <div class="tool-group" id="fill-tools" style="display: none">
           <label for="fill-pattern">Fill:</label>
@@ -835,52 +843,52 @@
           </div>
         </div>
       </div>
-    </div>
-    <div class="overlay hidden" id="guide-overlay">
-      <div id="guide-content">
-        <h1 id="guide-title">Console Hacking Guide</h1>
-        <div id="guide-body">Loading…</div>
-        <div class="guide-buttons">
-          <button id="guide-close-button">Close</button>
-          <a
-            class="github-link"
-            href="https://github.com/SimiaCryptus/Arcade_of_Life"
-            rel="noopener noreferrer"
-            style="margin-left: 12px"
-            target="_blank"
-          >
-            <svg class="github-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
-                fill="currentColor"
-              />
-            </svg>
-            Source on GitHub
-          </a>
+      <div class="overlay hidden" id="guide-overlay">
+        <div id="guide-content">
+          <h1 id="guide-title">Console Hacking Guide</h1>
+          <div id="guide-body">Loading…</div>
+          <div class="guide-buttons">
+            <button id="guide-close-button">Close</button>
+            <a
+              class="github-link"
+              href="https://github.com/SimiaCryptus/Arcade_of_Life"
+              rel="noopener noreferrer"
+              style="margin-left: 12px"
+              target="_blank"
+            >
+              <svg class="github-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                  fill="currentColor"
+                />
+              </svg>
+              Source on GitHub
+            </a>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="overlay hidden" id="help-overlay">
-      <div id="help-content">
-        <h1 id="help-title">How to Play</h1>
-        <div id="help-body">Loading…</div>
-        <div class="guide-buttons">
-          <button id="help-close-button">Close</button>
-          <a
-            class="github-link"
-            href="https://github.com/SimiaCryptus/Arcade_of_Life"
-            rel="noopener noreferrer"
-            style="margin-left: 12px"
-            target="_blank"
-          >
-            <svg class="github-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
-                fill="currentColor"
-              />
-            </svg>
-            Source on GitHub
-          </a>
+      <div class="overlay hidden" id="help-overlay">
+        <div id="help-content">
+          <h1 id="help-title">How to Play</h1>
+          <div id="help-body">Loading…</div>
+          <div class="guide-buttons">
+            <button id="help-close-button">Close</button>
+            <a
+              class="github-link"
+              href="https://github.com/SimiaCryptus/Arcade_of_Life"
+              rel="noopener noreferrer"
+              style="margin-left: 12px"
+              target="_blank"
+            >
+              <svg class="github-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                  fill="currentColor"
+                />
+              </svg>
+              Source on GitHub
+            </a>
+          </div>
         </div>
       </div>
     </div>

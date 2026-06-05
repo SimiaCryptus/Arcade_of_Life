@@ -209,23 +209,26 @@ export class FreeplayAbilityManager {
   }
 
   _ensureButtons() {
-    const speedCtrl = document.getElementById('speed-control');
-    if (!speedCtrl) return;
+    const abilitiesGroup = document.getElementById('abilities-group');
+    if (!abilitiesGroup) return;
     this._removeButtons();
-    // Find the anchor: insert before the clear-defenses button.
-    const anchor = document.getElementById('clear-defenses-button') || null;
     // Also hide the legacy single-slot button if present (story mode owns it).
     const legacy = document.getElementById('ability-button');
     if (legacy) legacy.style.display = 'none';
+    // Hide the "none equipped" hint when we have abilities.
+    const hint = document.getElementById('abilities-empty-hint');
+    if (hint) {
+      hint.style.display = this.activeAbilities.length > 0 ? 'none' : '';
+    }
     this.activeAbilities.forEach((ab, idx) => {
       const btn = document.createElement('button');
-      btn.className = 'freeplay-ability-btn';
+      btn.className = 'freeplay-ability-btn mode-btn';
       btn.style.cssText =
-        'background:transparent;color:#ffcc44;border:1px solid #ffcc44;padding:4px 10px;font-size:12px;font-family:inherit;cursor:pointer;border-radius:3px;font-weight:bold;';
+        'background:transparent;color:#ffcc44;border:1px solid #ffcc44;padding:4px 10px;font-size:11px;font-family:inherit;cursor:pointer;border-radius:3px;font-weight:bold;';
       const key = ACTIVE_HOTKEYS[idx];
       btn.title = `Trigger ${ab.name}${key ? ` [${key.toUpperCase()}]` : ''}`;
       btn.addEventListener('click', () => this.trigger(idx));
-      speedCtrl.insertBefore(btn, anchor);
+      abilitiesGroup.appendChild(btn);
       this._buttonEls.push(btn);
     });
   }
@@ -235,6 +238,9 @@ export class FreeplayAbilityManager {
       if (btn && btn.parentNode) btn.parentNode.removeChild(btn);
     }
     this._buttonEls = [];
+    // Show the "none equipped" hint again.
+    const hint = document.getElementById('abilities-empty-hint');
+    if (hint) hint.style.display = '';
   }
 
   _bindHotkeys() {

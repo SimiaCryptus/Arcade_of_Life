@@ -169,7 +169,12 @@ export class Settings {
       }
       // Apply unlimited overrides — when the "unlimited" toggle is on,
       // write the sentinel value into CONFIG regardless of the slider.
-      if (this.values.UNLIMITED_MAX_INK) CONFIG.MAX_INK = 999999;
+      if (this.values.UNLIMITED_MAX_INK) {
+        CONFIG.MAX_INK = 999999;
+        // Also bump starting ink so the player begins with a full reservoir
+        // (otherwise INITIAL_INK might still be 200 from the slider).
+        CONFIG.INITIAL_INK = 999999;
+      }
       if (this.values.UNLIMITED_INK_REGEN) CONFIG.INK_REGEN_RATE = 999999;
       if (this.values.UNLIMITED_CELL_AGE) CONFIG.CELL_MAX_AGE_TICKS = 999999;
       if (this.values.UNLIMITED_MISSILE_AGE) CONFIG.MISSILE_MAX_AGE_TICKS = 999999;

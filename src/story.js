@@ -1258,7 +1258,16 @@ export class StoryEngine {
       btn.style.cssText =
         'background:transparent;color:#ffcc44;border:1px solid #ffcc44;padding:4px 12px;font-size:12px;font-family:inherit;cursor:pointer;border-radius:3px;font-weight:bold;display:none;';
       btn.title = 'Trigger active ability [A]';
-      speedCtrl.insertBefore(btn, document.getElementById('clear-defenses-button') || null);
+      // Insert before the exit button if present (so ability button sits
+      // among the other controls), otherwise just append. The
+      // clear-defenses-button used to live here but was moved to the
+      // draw-tools row, so we can't reference it as an anchor anymore.
+      const anchor = document.getElementById('exit-to-menu-button');
+      if (anchor && anchor.parentNode === speedCtrl) {
+        speedCtrl.insertBefore(btn, anchor);
+      } else {
+        speedCtrl.appendChild(btn);
+      }
       btn.addEventListener('click', () => this.triggerActiveAbility());
     }
     // 'A' hotkey to trigger active ability.

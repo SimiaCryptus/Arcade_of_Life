@@ -9,25 +9,52 @@ export class Defenses {
     this.ink = CONFIG.INITIAL_INK;
     this.maxInk = CONFIG.MAX_INK;
   }
+  // True when ink is effectively unlimited (max set to the sentinel
+  // value via the "∞" unlimited toggle). When unlimited, consume() is
+  // a no-op and canDraw() always returns true.
+  _isUnlimited() {
+    const sentinel = CONFIG.UNLIMITED_SENTINEL || 999999;
+    return this.maxInk >= sentinel || CONFIG.MAX_INK >= sentinel;
+  }
 
   canDraw() {
+    if (this._isUnlimited()) return true;
     return this.ink > 0;
   }
 
   consume(amount = 1) {
+    if (this._isUnlimited()) {
+      // Keep ink visually pegged at max so the HUD bar stays full.
+      this.ink = this.maxInk;
+      return;
+    }
     this.ink = Math.max(0, this.ink - amount);
   }
 
   regen(amount) {
+    if (this._isUnlimited()) {
+      this.ink = this.maxInk;
+      return;
+    }
     this.ink = Math.min(this.maxInk, this.ink + amount);
   }
 
   refill(amount) {
+    if (this._isUnlimited()) {
+      this.ink = this.maxInk;
+      return;
+    }
     this.ink = Math.min(this.maxInk, this.ink + amount);
   }
 
   reset() {
-    this.ink = CONFIG.INITIAL_INK;
+    // Sync maxInk in case CONFIG was reconfigured (e.g. unlimited toggle).
+    this.maxInk = CONFIG.MAX_INK;
+    if (this._isUnlimited()) {
+      this.ink = this.maxInk;
+    } else {
+      this.ink = CONFIG.INITIAL_INK;
+    }
   }
 
   // Clear all DEFENSE cells on the grid, refunding a configurable fraction

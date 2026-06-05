@@ -1,5 +1,3 @@
-- At the start of a new wave, clear any friendly paint that is outside the drawable area.
-- The configuration menu should have a way to save and load configurations, so that players don't have to reconfigure every time they start the game.
-- The configurations should also have copy/paste buttons using json format, so that players can easily share their configurations with others.
-- There should be individual controls for maximum age of friendly and enemy paint in both the friendly and enemy regions. these settings should be combined into a single tab with a matrix-like layout, so that players can easily see and adjust the settings for both regions at the same time.
-- add a region-fill drawing tool that supports a variety of fill patterns
+- bug: cannot view help of
+- Re-name and Re-theme everything: This is now "The Game of Annihilation" as a play on the annihilation mechanic. describe friendly paint as "life" and enemy paint as "anti-life".
+-
