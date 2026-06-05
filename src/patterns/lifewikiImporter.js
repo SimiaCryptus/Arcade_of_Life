@@ -284,6 +284,8 @@ export function buildPatternEntry(filename, parsed, inferred, usedIds) {
   const tags = ['imported', 'lifewiki'];
   if (inferred.category === CATEGORY.SPACESHIP) tags.push('spaceship');
   if (inferred.category === CATEGORY.OSCILLATOR) tags.push(`p${inferred.period}`);
+  if (inferred.unbounded) tags.push('unbounded');
+  if (inferred.extinct) tags.push('extinct');
   if (meta.author) tags.push(`author:${meta.author.toLowerCase().replace(/\s+/g, '_')}`);
   // Separate URLs from prose in the comments. LifeWiki RLE files
   // typically include a wiki link as one of the #C lines (often
@@ -326,6 +328,12 @@ export function buildPatternEntry(filename, parsed, inferred, usedIds) {
     tags,
     direction: inferred.direction || null,
     source: `lifewiki:${path.basename(filename)}`,
+    maxBounds: inferred.maxBounds || null,
+    maxPopulation: inferred.maxPopulation,
+    finalPopulation: inferred.finalPopulation,
+    stabilizedAt: inferred.stabilizedAt,
+    extinct: !!inferred.extinct,
+    unbounded: !!inferred.unbounded,
   };
 }
 
@@ -351,6 +359,11 @@ export function printSummaryReport(stats, elapsed) {
   console.log(`    • empty     : ${stats.skippedEmpty}`);
   console.log(`    • parse fail: ${stats.skippedParseFail}`);
   console.log(`    • duplicate : ${stats.skippedDuplicate}`);
+  console.log('');
+  console.log('  Characterization:');
+  console.log(`    • unbounded   : ${stats.unboundedCount || 0}`);
+  console.log(`    • extinct     : ${stats.extinctCount || 0}`);
+  console.log(`    • stabilized  : ${stats.stabilizedCount || 0}`);
   console.log('');
   console.log('  Parse breakdown:');
   if (stats.parsesByExt) {
@@ -533,6 +546,9 @@ export async function runImport(opts) {
     filesWithNoRule: 0,
     filesWithTopology: 0,
     parsesByExt: { '.rle': 0, '.cells': 0, other: 0 },
+    unboundedCount: 0,
+    extinctCount: 0,
+    stabilizedCount: 0,
     undefinedRuleset: {
       count: 0,
       byRawRule: {}, // raw rule string → count
@@ -616,6 +632,9 @@ export async function runImport(opts) {
     stats.byCategory[entry.category] = (stats.byCategory[entry.category] || 0) + 1;
     const rulesetKey = entry.rulesets && entry.rulesets[0] ? entry.rulesets[0] : '<none>';
     stats.byRuleset[rulesetKey] = (stats.byRuleset[rulesetKey] || 0) + 1;
+    if (entry.unbounded) stats.unboundedCount++;
+    if (entry.extinct) stats.extinctCount++;
+    if (entry.stabilizedAt != null) stats.stabilizedCount++;
     if (!stats.sampleByRuleset[rulesetKey]) stats.sampleByRuleset[rulesetKey] = [];
     if (stats.sampleByRuleset[rulesetKey].length < 5) {
       stats.sampleByRuleset[rulesetKey].push({
@@ -638,10 +657,13 @@ export async function runImport(opts) {
       }
     }
     if (opts.verbose) {
+      const bb = entry.maxBounds;
+      const bbStr = bb ? (bb.width === -1 ? ' bbox=∞' : ` bbox=${bb.width}x${bb.height}`) : '';
       console.log(
         `  [${stats.imported}/${limit}] ${entry.id} → ${entry.category}` +
           (entry.period ? ` p${entry.period}` : '') +
           (entry.direction ? ` ${entry.direction}` : '') +
+          bbStr +
           `  [rule="${rawRule || '<none>'}" → ${rulesetKey}]`
       );
     } else if (stats.imported % 50 === 0) {

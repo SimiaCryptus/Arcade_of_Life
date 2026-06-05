@@ -50,6 +50,12 @@ test('block → still_life period 1', () => {
   const r = inferPatternMetadata(p.cells.map((c) => [c[0], c[1]]));
   assert.equal(r.category, 'still_life');
   assert.equal(r.period, 1);
+  assert.ok(r.maxBounds, 'should have maxBounds');
+  assert.equal(r.maxBounds.width, 2);
+  assert.equal(r.maxBounds.height, 2);
+  assert.equal(r.maxPopulation, 4);
+  assert.equal(r.unbounded, false);
+  assert.equal(r.extinct, false);
 });
 
 test('blinker → oscillator period 2', () => {
@@ -57,6 +63,10 @@ test('blinker → oscillator period 2', () => {
   const r = inferPatternMetadata(p.cells.map((c) => [c[0], c[1]]));
   assert.equal(r.category, 'oscillator');
   assert.equal(r.period, 2);
+  assert.ok(r.maxBounds, 'should have maxBounds');
+  // Blinker oscillates between 3x1 and 1x3; bounds should be 3x3.
+  assert.equal(r.maxBounds.width, 3);
+  assert.equal(r.maxBounds.height, 3);
 });
 
 test('toad → oscillator period 2', () => {
@@ -64,6 +74,7 @@ test('toad → oscillator period 2', () => {
   const r = inferPatternMetadata(p.cells.map((c) => [c[0], c[1]]));
   assert.equal(r.category, 'oscillator');
   assert.equal(r.period, 2);
+  assert.ok(r.maxBounds);
 });
 
 test('pulsar → oscillator period 3', () => {
@@ -71,6 +82,7 @@ test('pulsar → oscillator period 3', () => {
   const r = inferPatternMetadata(p.cells.map((c) => [c[0], c[1]]));
   assert.equal(r.category, 'oscillator');
   assert.equal(r.period, 3);
+  assert.ok(r.maxBounds);
 });
 
 test('glider → spaceship SE period 4', () => {
@@ -79,6 +91,10 @@ test('glider → spaceship SE period 4', () => {
   assert.equal(r.category, 'spaceship');
   assert.equal(r.period, 4);
   assert.equal(r.direction, 'SE');
+  // Glider per-period sweep fits in a small bounding box.
+  assert.ok(r.maxBounds);
+  assert.ok(r.maxBounds.width >= 3 && r.maxBounds.width <= 6);
+  assert.ok(r.maxBounds.height >= 3 && r.maxBounds.height <= 6);
 });
 
 test('lwss → spaceship period 4 (some W direction)', () => {
@@ -99,6 +115,13 @@ test('rpentomino → methuselah (with enough generations)', () => {
     }
   );
   assert.equal(r.category, 'methuselah');
+  assert.ok(r.maxBounds, 'methuselah should track maxBounds');
+  assert.ok(r.maxPopulation > 5, 'methuselah should grow');
+  // R-pentomino expands wildly; bounds should be much larger than 3x3.
+  assert.ok(
+    r.maxBounds.width > 10 || r.maxBounds.height > 10,
+    `R-pentomino bounds should expand significantly; got ${r.maxBounds.width}x${r.maxBounds.height}`
+  );
 });
 
 test('diehard → dies (categorized as misc)', () => {
@@ -113,12 +136,15 @@ test('diehard → dies (categorized as misc)', () => {
   // Dies fully; categorized as misc.
   assert.equal(r.category, 'misc');
   assert.ok(r.notes.some((n) => /died/.test(n)));
+  assert.equal(r.extinct, true);
+  assert.equal(r.finalPopulation, 0);
 });
 
 test('empty input handled', () => {
   const r = inferPatternMetadata([]);
   assert.equal(r.category, 'misc');
   assert.equal(r.period, 0);
+  assert.equal(r.extinct, true);
 });
 
 test('explicit rule B3/S23 still gives correct results', () => {
@@ -129,6 +155,22 @@ test('explicit rule B3/S23 still gives correct results', () => {
   );
   assert.equal(r.category, 'oscillator');
   assert.equal(r.period, 2);
+});
+test('gosper gun → unbounded (population grows without bound)', () => {
+  const p = getPattern('gosper_gun');
+  const r = inferPatternMetadata(
+    p.cells.map((c) => [c[0], c[1]]),
+    {
+      maxPeriod: 20,
+      methuselahGens: 500,
+      populationCap: 200,
+    }
+  );
+  // Gun emits gliders → population grows beyond the cap → unbounded.
+  assert.equal(r.unbounded, true);
+  assert.ok(r.maxBounds);
+  assert.equal(r.maxBounds.width, -1);
+  assert.equal(r.maxBounds.height, -1);
 });
 
 console.log(`\n${passed} passed, ${failed} failed.`);

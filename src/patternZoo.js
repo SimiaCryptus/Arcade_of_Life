@@ -284,10 +284,24 @@ const PREVIEW_MAX_SIZE = 64;
 const DETAIL_PADDING = 10;
 const DETAIL_MIN_SIZE = 20;
 const DETAIL_MAX_SIZE = 80;
-// Compute an auto grid size for a pattern: max(width, height) + 2*padding,
-// clamped to the configured min/max.
+// Compute an auto grid size for a pattern. Prefers the observed
+// `maxBounds` (peak bounding box during characterization) over the
+// initial pattern footprint, so methuselahs / guns / puffers get a
+// preview grid big enough to contain their evolution. Unbounded
+// growth (width or height === -1) snaps to the max allowed size.
+// Result = max(width, height) + 2*padding, clamped to [min, max].
 function autoGridSize(pattern, padding, min, max) {
-  const dim = Math.max(pattern.width || 1, pattern.height || 1);
+  let w = pattern.width || 1;
+  let h = pattern.height || 1;
+  if (pattern.maxBounds) {
+    const mbw = pattern.maxBounds.width;
+    const mbh = pattern.maxBounds.height;
+    // -1 means unbounded — force grid to the max.
+    if (mbw === -1 || mbh === -1) return max;
+    if (Number.isFinite(mbw) && mbw > w) w = mbw;
+    if (Number.isFinite(mbh) && mbh > h) h = mbh;
+  }
+  const dim = Math.max(w, h);
   const n = dim + padding * 2;
   return Math.max(min, Math.min(max, n));
 }
@@ -863,6 +877,19 @@ export class PatternZoo {
     const linkBadge = pattern.link
       ? '<span class="pz-tag pz-tag-link" title="Has reference link" style="color:#66ccff;border-color:#66ccff;">🔗</span>'
       : '';
+    // Characterization badges.
+    let charBadges = '';
+    if (pattern.extinct) {
+      charBadges +=
+        '<span class="pz-tag" title="Pattern dies out" style="color:#ff6666;border-color:#ff6666;">💀 extinct</span>';
+    }
+    if (pattern.unbounded) {
+      charBadges +=
+        '<span class="pz-tag" title="Grows without bound" style="color:#ff66ff;border-color:#ff66ff;">∞ unbounded</span>';
+    }
+    if (pattern.stabilizedAt != null && !pattern.extinct && !pattern.unbounded) {
+      charBadges += `<span class="pz-tag" title="Stabilizes at generation ${pattern.stabilizedAt}" style="color:#88ff88;border-color:#88ff88;">⚖ gen ${pattern.stabilizedAt}</span>`;
+    }
     card.innerHTML = `
           <div class="pz-card-canvas-wrap">
             <canvas class="pz-card-canvas" width="160" height="160"></canvas>
@@ -875,6 +902,7 @@ export class PatternZoo {
               <span class="pz-tag pz-tag-period">${periodLabel}</span>
               ${dirLabel ? `<span class="pz-tag pz-tag-dir">${dirLabel}</span>` : ''}
                ${linkBadge}
+               ${charBadges}
             </div>
             <div class="pz-card-size">${pattern.width}×${pattern.height} · ${pattern.cells.length} cells</div>
           </div>
@@ -1029,6 +1057,52 @@ export class PatternZoo {
     const authorHtml = pattern.author
       ? `<div class="pz-detail-row"><strong>Author:</strong> ${this._escape(pattern.author)}</div>`
       : '';
+    // Characterization block — only render if we have at least one field.
+    const hasCharacterization =
+      pattern.maxBounds != null ||
+      pattern.maxPopulation != null ||
+      pattern.finalPopulation != null ||
+      pattern.stabilizedAt != null ||
+      pattern.extinct ||
+      pattern.unbounded;
+    let characterizationHtml = '';
+    if (hasCharacterization) {
+      const rows = [];
+      if (pattern.maxBounds) {
+        const mb = pattern.maxBounds;
+        const w = mb.width === -1 ? '∞' : mb.width;
+        const h = mb.height === -1 ? '∞' : mb.height;
+        rows.push(`<div class="pz-detail-row"><strong>Max bounds:</strong> ${w} × ${h}</div>`);
+      }
+      if (pattern.maxPopulation != null) {
+        rows.push(
+          `<div class="pz-detail-row"><strong>Peak population:</strong> ${pattern.maxPopulation}</div>`
+        );
+      }
+      if (pattern.finalPopulation != null) {
+        rows.push(
+          `<div class="pz-detail-row"><strong>Final population:</strong> ${pattern.finalPopulation}</div>`
+        );
+      }
+      if (pattern.stabilizedAt != null) {
+        rows.push(
+          `<div class="pz-detail-row"><strong>Stabilized at:</strong> generation ${pattern.stabilizedAt}</div>`
+        );
+      }
+      const flags = [];
+      if (pattern.extinct) flags.push('<span style="color:#ff6666;">💀 extinct</span>');
+      if (pattern.unbounded) flags.push('<span style="color:#ff66ff;">∞ unbounded growth</span>');
+      if (flags.length > 0) {
+        rows.push(
+          `<div class="pz-detail-row"><strong>Behavior:</strong> ${flags.join(' · ')}</div>`
+        );
+      }
+      characterizationHtml = `
+           <div class="pz-detail-characterization" style="margin-top:12px;padding:10px;background:rgba(64,128,255,0.06);border:1px solid rgba(102,153,255,0.3);border-radius:4px;">
+             <strong style="color:#88aaff;display:block;margin-bottom:6px;">📊 Characterization</strong>
+             ${rows.join('')}
+           </div>`;
+    }
     // Link(s) — render as clickable anchors opening in a new tab.
     const renderLink = (url) => {
       const safe = this._escape(url);
@@ -1096,6 +1170,7 @@ export class PatternZoo {
               ${sourceHtml}
              ${linkHtml}
               <div class="pz-detail-desc">${this._escape(pattern.description || '')}</div>
+               ${characterizationHtml}
                ${customControls}
             </div>
           </div>

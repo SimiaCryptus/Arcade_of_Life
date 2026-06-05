@@ -22,6 +22,7 @@ import {
   normalizeSet,
   setsEqual,
   findPeriod,
+  characterize,
 } from '../../test/sim/lifeSim.js';
 /**
  * Module-level diagnostic counters. The importer reads these after a run
@@ -212,22 +213,39 @@ export function resolveRule(rule) {
  *          but doesn't repeat ⇒ methuselah (likely chaotic).
  *        - Otherwise ⇒ misc.
  *
+ * Additionally records detailed characterization data:
+ *   - maxBounds:  largest bounding box seen during simulation, or
+ *                 { width: -1, height: -1 } if the pattern appears
+ *                 to grow without bound (population cap exceeded).
+ *   - maxPopulation: peak live cell count.
+ *   - finalPopulation: live cell count at end of observation.
+ *   - stabilizedAt: generation at which the pattern stopped changing,
+ *                   or null if it never stabilized within methuselahGens.
+ *   - extinct: true if the pattern died out.
+ *
  * @param {[number, number][]} cells
  * @param {object} [opts]
  * @param {string} [opts.rule]          - B/S string or known ruleset id
  * @param {number} [opts.maxPeriod]     - upper bound for period search
  * @param {number} [opts.methuselahGens] - generations to observe for methuselah heuristic
+ * @param {number} [opts.populationCap]  - abort and mark unbounded if pop exceeds this
  * @returns {{
  *   category: string,
  *   period: number,
  *   direction: string|null,
  *   displacement: [number, number]|null,
  *   rulesetId: string,
+ *   maxBounds: {width: number, height: number}|null,
+ *   maxPopulation: number,
+ *   finalPopulation: number,
+ *   stabilizedAt: number|null,
+ *   extinct: boolean,
+ *   unbounded: boolean,
  *   notes: string[]
  * }}
  */
 export function inferPatternMetadata(cells, opts = {}) {
-  const { maxPeriod = 60, methuselahGens = 200 } = opts;
+  const { maxPeriod = 60, methuselahGens = 200, populationCap = 100000 } = opts;
   const notes = [];
   const { compiled, rulesetId } = resolveRule(opts.rule);
 
@@ -238,11 +256,18 @@ export function inferPatternMetadata(cells, opts = {}) {
       direction: null,
       displacement: null,
       rulesetId,
+      maxBounds: null,
+      maxPopulation: 0,
+      finalPopulation: 0,
+      stabilizedAt: 0,
+      extinct: true,
+      unbounded: false,
       notes: ['empty pattern'],
     };
   }
 
   const initial = cellsToSet(cells);
+  const initBB = boundingBox(initial);
   const oneStep = step(initial, compiled);
   // Still life?
   if (setsEqual(initial, oneStep)) {
@@ -252,6 +277,12 @@ export function inferPatternMetadata(cells, opts = {}) {
       direction: null,
       displacement: null,
       rulesetId,
+      maxBounds: initBB ? { width: initBB.width, height: initBB.height } : null,
+      maxPopulation: initial.size,
+      finalPopulation: initial.size,
+      stabilizedAt: 0,
+      extinct: false,
+      unbounded: false,
       notes,
     };
   }
@@ -260,6 +291,16 @@ export function inferPatternMetadata(cells, opts = {}) {
   const found = findPeriod(cells, compiled, maxPeriod);
   if (found) {
     const [dx, dy] = found.displacement;
+    // Run a full characterization across one period to capture the
+    // maximal bounds the pattern sweeps through.
+    const char = characterize(cells, compiled, found.period, {
+      populationCap,
+    });
+    const maxBounds = char.bounds
+      ? { width: char.bounds.width, height: char.bounds.height }
+      : initBB
+        ? { width: initBB.width, height: initBB.height }
+        : null;
     if (dx === 0 && dy === 0) {
       return {
         category: CATEGORY.OSCILLATOR,
@@ -267,45 +308,124 @@ export function inferPatternMetadata(cells, opts = {}) {
         direction: null,
         displacement: [0, 0],
         rulesetId,
+        maxBounds,
+        maxPopulation: char.maxSize,
+        finalPopulation: char.finalSize,
+        stabilizedAt: null,
+        extinct: false,
+        unbounded: false,
         notes,
       };
     }
+    // Spaceships travel forever, so their "max bounds" in absolute
+    // terms is infinite. Report the per-period sweep instead, which
+    // is what matters for rendering / collision footprint.
     return {
       category: CATEGORY.SPACESHIP,
       period: found.period,
       direction: directionFromDisplacement(dx, dy),
       displacement: [dx, dy],
       rulesetId,
+      maxBounds,
+      maxPopulation: char.maxSize,
+      finalPopulation: char.finalSize,
+      stabilizedAt: null,
+      extinct: false,
+      unbounded: false,
       notes,
     };
   }
 
-  // No short period — try methuselah heuristic.
-  let state = initial;
-  const initialSize = initial.size;
-  let maxSize = initialSize;
-  let alive = true;
-  for (let g = 0; g < methuselahGens; g++) {
-    state = step(state, compiled);
-    if (state.size === 0) {
-      alive = false;
-      notes.push(`died at generation ${g + 1}`);
-      break;
+  // No short period — run a full characterization to gather bounds,
+  // population history, and stabilization info.
+  const char = characterize(cells, compiled, methuselahGens, {
+    populationCap,
+  });
+  const initialSize = char.initialSize;
+  const maxSize = char.maxSize;
+  const finalSize = char.finalSize;
+  // Detect unbounded growth in two ways:
+  //   1. Population cap exceeded (e.g. replicators / large guns).
+  //   2. The pattern ran the full observation window without stabilizing
+  //      or entering a detected cycle, AND its bounding box has expanded
+  //      substantially beyond the initial extent. This catches emitters
+  //      like the Gosper gun whose population grows slowly (one glider
+  //      per period) but whose spatial footprint expands without bound.
+  let unbounded = char.exceededPopulationCap;
+  if (
+    !unbounded &&
+    !char.extinct &&
+    char.stabilizedAt == null &&
+    char.cyclePeriod == null &&
+    char.generations >= methuselahGens &&
+    char.bounds &&
+    initBB
+  ) {
+    const grewWide = char.bounds.width >= initBB.width * 3 + 10;
+    const grewTall = char.bounds.height >= initBB.height * 3 + 10;
+    // Require both spatial AND population growth to flag as unbounded.
+    // Methuselahs (like R-pentomino) expand spatially during their
+    // chaotic phase but their population stays bounded and eventually
+    // settles. Emitters like the Gosper gun grow in both dimensions.
+    // The key distinguishing feature of a true emitter (gun) vs. a
+    // methuselah is *sustained* growth: an emitter's population keeps
+    // climbing right up to the end of observation, so its maximum is
+    // reached late and its final population is at (or very near) that
+    // maximum. A methuselah's population peaks somewhere in the
+    // middle of its chaotic phase and then declines as the dust
+    // settles into still lifes and oscillators.
+    //
+    // Heuristic: require both (a) the peak population to occur in the
+    // last quarter of the observation window, and (b) the final
+    // population to be ≥ 90% of the peak. This catches guns/puffers
+    // while excluding methuselahs like R-pentomino that have already
+    // started declining by the end of the window.
+    const peakLate = char.maxSizeAt >= char.generations * 0.75;
+    const stillNearPeak = char.finalSize >= maxSize * 0.9;
+    const popGrew = char.finalSize >= initialSize * 3 + 10 && peakLate && stillNearPeak;
+    if ((grewWide || grewTall) && popGrew) {
+      unbounded = true;
     }
-    if (state.size > maxSize) maxSize = state.size;
   }
-  if (!alive) {
+  // If unbounded growth was detected, mark width/height as -1.
+  const maxBounds = unbounded
+    ? { width: -1, height: -1 }
+    : char.bounds
+      ? { width: char.bounds.width, height: char.bounds.height }
+      : initBB
+        ? { width: initBB.width, height: initBB.height }
+        : null;
+  if (char.extinct) {
+    notes.push(`died at generation ${char.generations}`);
     return {
       category: CATEGORY.MISC,
       period: 0,
       direction: null,
       displacement: null,
       rulesetId,
+      maxBounds,
+      maxPopulation: maxSize,
+      finalPopulation: 0,
+      stabilizedAt: char.generations,
+      extinct: true,
+      unbounded: false,
       notes,
     };
   }
+  // Cycle detected after exhaustive period search failed — this is a
+  // long-period oscillator or a translating shape we missed. Still useful
+  // to record as a methuselah-ish pattern but note the cycle.
+  if (char.cyclePeriod != null) {
+    notes.push(`cycle detected: period ${char.cyclePeriod} starting at gen ${char.cycleStart}`);
+  }
+  if (char.stabilizedAt != null) {
+    notes.push(`stabilized at generation ${char.stabilizedAt}`);
+  }
+  if (unbounded) {
+    notes.push(`exceeded population cap (${populationCap}); marked unbounded`);
+  }
   // If population grew substantially, label as methuselah.
-  if (maxSize >= initialSize * 3 || maxSize - initialSize >= 20) {
+  if (unbounded || maxSize >= initialSize * 3 || maxSize - initialSize >= 20) {
     notes.push(`max population ${maxSize} from initial ${initialSize}`);
     return {
       category: CATEGORY.METHUSELAH,
@@ -313,6 +433,12 @@ export function inferPatternMetadata(cells, opts = {}) {
       direction: null,
       displacement: null,
       rulesetId,
+      maxBounds,
+      maxPopulation: maxSize,
+      finalPopulation: finalSize,
+      stabilizedAt: char.stabilizedAt,
+      extinct: false,
+      unbounded,
       notes,
     };
   }
@@ -323,6 +449,12 @@ export function inferPatternMetadata(cells, opts = {}) {
     direction: null,
     displacement: null,
     rulesetId,
+    maxBounds,
+    maxPopulation: maxSize,
+    finalPopulation: finalSize,
+    stabilizedAt: char.stabilizedAt,
+    extinct: false,
+    unbounded,
     notes,
   };
 }

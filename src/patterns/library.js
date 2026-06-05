@@ -38,6 +38,14 @@
  * @property {string|null} [author]
  * @property {number}     width
  * @property {number}     height
+ * @property {{width:number,height:number}|null} [maxBounds]
+ *   Maximal bounding box observed during simulation characterization.
+ *   width/height of -1 indicates unbounded growth.
+ * @property {number}     [maxPopulation]    Peak live-cell count observed.
+ * @property {number}     [finalPopulation]  Live-cell count at end of observation.
+ * @property {number|null} [stabilizedAt]    Generation at which the pattern stopped changing.
+ * @property {boolean}    [extinct]          True if the pattern died out.
+ * @property {boolean}    [unbounded]        True if pattern grows without bound.
  */
 import { CATEGORY } from './categories.js';
 export { CATEGORY } from './categories.js';
@@ -125,6 +133,17 @@ export function registerPattern(def) {
     author: def.author || null,
     width,
     height,
+    maxBounds: def.maxBounds
+      ? Object.freeze({
+          width: def.maxBounds.width,
+          height: def.maxBounds.height,
+        })
+      : null,
+    maxPopulation: def.maxPopulation != null ? def.maxPopulation : null,
+    finalPopulation: def.finalPopulation != null ? def.finalPopulation : null,
+    stabilizedAt: def.stabilizedAt != null ? def.stabilizedAt : null,
+    extinct: !!def.extinct,
+    unbounded: !!def.unbounded,
   });
   REGISTRY.set(pattern.id, pattern);
   return pattern;

@@ -232,3 +232,146 @@ export function findPeriod(cells, rule, maxPeriod) {
   }
   return null;
 }
+/**
+ * Run a pattern for up to `generations` steps, tracking detailed
+ * statistics about its evolution. The simulation lives on a sparse
+ * Set so it is effectively unbounded; we just record the largest
+ * bounding box and population observed at any point.
+ *
+ * Termination conditions (early exit):
+ *   - Population reaches zero (extinct).
+ *   - State exactly repeats an earlier generation (cycle detected;
+ *     this catches oscillators and still lifes returning to a prior
+ *     state without translation).
+ *   - State stabilizes (no change generation-over-generation).
+ *
+ * @param {Array<[number, number]>} cells   initial live cells
+ * @param {CompiledRuleset} rule
+ * @param {number} generations              max generations to simulate
+ * @param {Object} [opts]
+ * @param {number} [opts.cycleDetectLimit]  Max distinct states to track
+ *   for exact-cycle detection. If the state-space grows past this we
+ *   stop hashing prior states (to bound memory) but keep simulating.
+ *   Default: 1024.
+ * @param {number} [opts.populationCap]     Abort if population exceeds
+ *   this many cells (signals unbounded growth). Default: 100000.
+ * @returns {{
+ *   generations: number,
+ *   finalSize: number,
+ *   maxSize: number,
+ *   maxSizeAt: number,
+ *   initialSize: number,
+ *   extinct: boolean,
+ *   stabilizedAt: number|null,
+ *   cycleStart: number|null,
+ *   cyclePeriod: number|null,
+ *   bounds: {minX:number,minY:number,maxX:number,maxY:number,width:number,height:number}|null,
+ *   exceededPopulationCap: boolean,
+ *   finalState: Set<string>,
+ * }}
+ */
+export function characterize(cells, rule, generations, opts = {}) {
+  const { cycleDetectLimit = 1024, populationCap = 100000 } = opts;
+  const initial = cellsToSet(cells);
+  const initialSize = initial.size;
+  let state = initial;
+  let maxSize = initialSize;
+  let maxSizeAt = 0;
+  let extinct = false;
+  let stabilizedAt = null;
+  let cycleStart = null;
+  let cyclePeriod = null;
+  let exceededPopulationCap = false;
+  // Hash each generation's normalized form so we can detect cycles
+  // that don't require exact spatial equality (oscillators that drift
+  // back to their starting shape, etc.).
+  const seen = new Map(); // hash -> generation index
+  const initHash = setHash(initial);
+  seen.set(initHash, 0);
+  // Track the maximal bounding box across all generations.
+  let unionBB = boundingBox(initial);
+  let prevHash = initHash;
+  let g = 0;
+  for (g = 1; g <= generations; g++) {
+    const nextState = step(state, rule);
+    if (nextState.size === 0) {
+      extinct = true;
+      state = nextState;
+      break;
+    }
+    // Update max population tracking.
+    if (nextState.size > maxSize) {
+      maxSize = nextState.size;
+      maxSizeAt = g;
+    }
+    // Update maximal bounding box.
+    const bb = boundingBox(nextState);
+    if (bb) {
+      if (!unionBB) {
+        unionBB = { ...bb };
+      } else {
+        if (bb.minX < unionBB.minX) unionBB.minX = bb.minX;
+        if (bb.minY < unionBB.minY) unionBB.minY = bb.minY;
+        if (bb.maxX > unionBB.maxX) unionBB.maxX = bb.maxX;
+        if (bb.maxY > unionBB.maxY) unionBB.maxY = bb.maxY;
+      }
+    }
+    // Cycle/stable detection.
+    const h = setHash(nextState);
+    if (h === prevHash) {
+      stabilizedAt = g;
+      state = nextState;
+      break;
+    }
+    if (seen.size < cycleDetectLimit) {
+      const prior = seen.get(h);
+      if (prior !== undefined) {
+        cycleStart = prior;
+        cyclePeriod = g - prior;
+        state = nextState;
+        break;
+      }
+      seen.set(h, g);
+    }
+    prevHash = h;
+    state = nextState;
+    // Bound runaway growth so we don't OOM on replicators / guns.
+    if (state.size > populationCap) {
+      exceededPopulationCap = true;
+      break;
+    }
+  }
+  if (unionBB) {
+    unionBB.width = unionBB.maxX - unionBB.minX + 1;
+    unionBB.height = unionBB.maxY - unionBB.minY + 1;
+  }
+  return {
+    generations: g,
+    finalSize: state.size,
+    maxSize,
+    maxSizeAt,
+    initialSize,
+    extinct,
+    stabilizedAt,
+    cycleStart,
+    cyclePeriod,
+    bounds: unionBB,
+    exceededPopulationCap,
+    finalState: state,
+  };
+}
+/**
+ * Compute a stable, order-independent hash of a cell set. Used by
+ * characterize() for cycle detection without storing entire sets.
+ * @param {Set<string>} live
+ * @returns {string}
+ */
+export function setHash(live) {
+  if (live.size === 0) return 'e';
+  // Sort by key to get a canonical representation, then concatenate.
+  // We don't normalize position here because callers may want to
+  // distinguish translated states from identical ones. Use normalizeSet
+  // first if translation-invariant cycle detection is needed.
+  const sorted = Array.from(live).sort();
+  return `${sorted.length}:${sorted.join(';')}`;
+}
