@@ -61,6 +61,7 @@
           </button>
           <button class="mode-btn" data-mode="line" title="Straight line (L)">Line</button>
           <button class="mode-btn" data-mode="pattern" title="Pattern stamp (P)">Pattern</button>
+          <button class="mode-btn" data-mode="fill" title="Region fill (B)">Fill</button>
         </div>
         <div class="tool-group" id="line-tools">
           <label for="line-width">Width:</label>
@@ -95,8 +96,25 @@
             ✏ Edit Pattern
           </button>
         </div>
+        <div class="tool-group" id="fill-tools" style="display: none">
+          <label for="fill-pattern">Fill:</label>
+          <select id="fill-pattern">
+            <option value="solid">Solid</option>
+            <option value="checker">Checker</option>
+            <option value="stripes_h">Stripes (horizontal)</option>
+            <option value="stripes_v">Stripes (vertical)</option>
+            <option value="diagonal">Diagonal</option>
+            <option value="dots_sparse">Dots (sparse)</option>
+            <option value="dots_dense">Dots (dense)</option>
+            <option value="grid">Grid</option>
+            <option value="cross">Cross</option>
+            <option value="random50">Random 50%</option>
+            <option value="random25">Random 25%</option>
+          </select>
+        </div>
         <span class="tool-hint"
-          >[F/L/P mode, Tab cycle, R rotate, X flip H, Y flip V, +/- width, Shift+1-8 preset]</span
+          >[F/L/P/B mode, Tab cycle, R rotate, X flip H, Y flip V, +/- width, Shift+1-8
+          preset]</span
         >
       </div>
       <div class="overlay hidden" id="pattern-editor-overlay">
@@ -162,9 +180,11 @@
             <button class="settings-tab active" data-tab="gameplay">🎮 Gameplay</button>
             <button class="settings-tab" data-tab="enemies">🚀 Enemies</button>
             <button class="settings-tab" data-tab="drawing">✏️ Drawing</button>
+            <button class="settings-tab" data-tab="aging">⏳ Aging Matrix</button>
             <button class="settings-tab" data-tab="abilities">⚡ Abilities</button>
             <button class="settings-tab" data-tab="display">🖥️ Display</button>
             <button class="settings-tab" data-tab="advanced">⚙️ Advanced</button>
+            <button class="settings-tab" data-tab="profiles">💾 Profiles</button>
           </div>
           <div id="settings-list">
             <!-- ===== GAMEPLAY TAB ===== -->
@@ -463,6 +483,99 @@
               </div>
             </div>
             <!-- /drawing -->
+            <!-- ===== AGING MATRIX TAB ===== -->
+            <div class="settings-tab-panel" data-panel="aging">
+              <p class="settings-tab-desc">
+                Configure how long cells live in each region. The grid is split by the draw-zone
+                boundary: the <strong style="color: #00ff88">friendly region</strong> is the bottom
+                (where you draw), and the <strong style="color: #ff5050">enemy region</strong> is
+                the top (where missiles spawn). Each combination of cell type × region has an
+                independent max-age setting.
+              </p>
+              <div class="aging-matrix">
+                <div class="aging-matrix-row aging-matrix-header">
+                  <div class="aging-matrix-cell aging-matrix-label">Cell Type ↓ / Region →</div>
+                  <div class="aging-matrix-cell aging-matrix-region-friendly">Friendly Region</div>
+                  <div class="aging-matrix-cell aging-matrix-region-enemy">Enemy Region</div>
+                </div>
+                <div class="aging-matrix-row">
+                  <div class="aging-matrix-cell aging-matrix-label aging-matrix-type-defense">
+                    Defense Cells
+                  </div>
+                  <div class="aging-matrix-cell">
+                    <div class="setting-slider-row">
+                      <input
+                        id="setting-def-age-friendly"
+                        max="1000"
+                        min="20"
+                        step="10"
+                        type="range"
+                      />
+                      <label class="unlimited-label" title="Never expire">
+                        <input id="setting-unlimited-def-age-friendly" type="checkbox" /> ∞
+                      </label>
+                    </div>
+                    <span class="setting-value" id="setting-def-age-friendly-value"></span>
+                  </div>
+                  <div class="aging-matrix-cell">
+                    <div class="setting-slider-row">
+                      <input
+                        id="setting-def-age-enemy"
+                        max="1000"
+                        min="20"
+                        step="10"
+                        type="range"
+                      />
+                      <label class="unlimited-label" title="Never expire">
+                        <input id="setting-unlimited-def-age-enemy" type="checkbox" /> ∞
+                      </label>
+                    </div>
+                    <span class="setting-value" id="setting-def-age-enemy-value"></span>
+                  </div>
+                </div>
+                <div class="aging-matrix-row">
+                  <div class="aging-matrix-cell aging-matrix-label aging-matrix-type-missile">
+                    Missile Cells
+                  </div>
+                  <div class="aging-matrix-cell">
+                    <div class="setting-slider-row">
+                      <input
+                        id="setting-miss-age-friendly"
+                        max="1000"
+                        min="20"
+                        step="10"
+                        type="range"
+                      />
+                      <label class="unlimited-label" title="Never expire">
+                        <input id="setting-unlimited-miss-age-friendly" type="checkbox" /> ∞
+                      </label>
+                    </div>
+                    <span class="setting-value" id="setting-miss-age-friendly-value"></span>
+                  </div>
+                  <div class="aging-matrix-cell">
+                    <div class="setting-slider-row">
+                      <input
+                        id="setting-miss-age-enemy"
+                        max="1000"
+                        min="20"
+                        step="10"
+                        type="range"
+                      />
+                      <label class="unlimited-label" title="Never expire">
+                        <input id="setting-unlimited-miss-age-enemy" type="checkbox" /> ∞
+                      </label>
+                    </div>
+                    <span class="setting-value" id="setting-miss-age-enemy-value"></span>
+                  </div>
+                </div>
+              </div>
+              <p class="settings-tab-desc" style="margin-top: 16px">
+                <strong>Tip:</strong> When the ∞ checkbox is unchecked, the slider value overrides
+                the global age setting for that region/type combination. When checked, the cell type
+                uses the global limit (which may itself be unlimited).
+              </p>
+            </div>
+            <!-- /aging -->
 
             <!-- ===== ABILITIES TAB ===== -->
             <div class="settings-tab-panel" data-panel="abilities">
@@ -659,6 +772,61 @@
               </p>
             </div>
             <!-- /advanced -->
+            <!-- ===== PROFILES TAB ===== -->
+            <div class="settings-tab-panel" data-panel="profiles">
+              <p class="settings-tab-desc">
+                Save your current configuration as a named profile to recall later, or import/export
+                configurations as JSON to share with others.
+              </p>
+              <div class="setting-section-header">Saved Profiles</div>
+              <div class="profile-controls">
+                <div class="profile-row">
+                  <label for="setting-profile-select">Saved Profiles:</label>
+                  <select id="setting-profile-select" class="setting-select">
+                    <option value="">-- Select Profile --</option>
+                  </select>
+                  <button id="setting-profile-load" class="profile-btn">Load</button>
+                  <button id="setting-profile-delete" class="profile-btn profile-btn-danger">
+                    Delete
+                  </button>
+                </div>
+                <div class="profile-row">
+                  <label for="setting-profile-name">New Profile Name:</label>
+                  <input
+                    id="setting-profile-name"
+                    type="text"
+                    placeholder="e.g. My Hardcore Setup"
+                    maxlength="40"
+                    class="profile-input"
+                  />
+                  <button id="setting-profile-save" class="profile-btn profile-btn-primary">
+                    Save Current
+                  </button>
+                </div>
+              </div>
+              <div class="setting-section-header">Import / Export (JSON)</div>
+              <p class="settings-tab-desc" style="margin: 4px 0 10px">
+                Copy your configuration as JSON to share with others, or paste JSON from someone
+                else to import their setup.
+              </p>
+              <div class="json-io-buttons">
+                <button id="setting-json-export" class="profile-btn">📋 Show Current</button>
+                <button id="setting-json-copy" class="profile-btn profile-btn-primary">
+                  📋 Copy to Clipboard
+                </button>
+                <button id="setting-json-import" class="profile-btn profile-btn-primary">
+                  📥 Import from Box
+                </button>
+                <span id="setting-json-status" class="json-status"></span>
+              </div>
+              <textarea
+                id="setting-json-textarea"
+                class="json-textarea"
+                placeholder='Click "Show Current" to display your settings as JSON, or paste a config here and click "Import from Box".'
+                rows="14"
+              ></textarea>
+            </div>
+            <!-- /profiles -->
           </div>
           <!-- /#settings-list -->
           <div class="settings-buttons">

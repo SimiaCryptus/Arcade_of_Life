@@ -1,5 +1,5 @@
-- when capturing a pattern, the draw tool is still active, so when I click and draw to define the capture area, it also draws cells in the simulation. need to disable draw tool while capturing.
-- add tests for simulation code
-- add npm tasks to validate and format code
-- integrate alternate rulesets into UI (configurable in settings; make sure it changes the available patterns, bases, and missiles accordingly)
-- fix unit tests
+- At the start of a new wave, clear any friendly paint that is outside the drawable area.
+- The configuration menu should have a way to save and load configurations, so that players don't have to reconfigure every time they start the game.
+- The configurations should also have copy/paste buttons using json format, so that players can easily share their configurations with others.
+- There should be individual controls for maximum age of friendly and enemy paint in both the friendly and enemy regions. these settings should be combined into a single tab with a matrix-like layout, so that players can easily see and adjust the settings for both regions at the same time.
+- add a region-fill drawing tool that supports a variety of fill patterns

@@ -5,6 +5,7 @@ export const DRAW_MODE = {
   FREEHAND: 'freehand',
   LINE: 'line',
   PATTERN: 'pattern',
+  FILL: 'fill',
 };
 
 export const DASH_PATTERNS = {
@@ -12,6 +13,23 @@ export const DASH_PATTERNS = {
   dashed: [2, 2], // 2 on, 2 off
   dotted: [1, 2], // 1 on, 2 off
   sparse: [1, 4], // 1 on, 4 off
+};
+/**
+ * Fill patterns for the region-fill tool. Each is a function (x, y) => boolean
+ * that returns true if the cell at (x, y) should be filled.
+ */
+export const FILL_PATTERNS = {
+  solid: (_x, _y) => true,
+  checker: (x, y) => ((x + y) & 1) === 0,
+  stripes_h: (_x, y) => (y & 1) === 0,
+  stripes_v: (x, _y) => (x & 1) === 0,
+  diagonal: (x, y) => (x + y) % 3 === 0,
+  dots_sparse: (x, y) => x % 3 === 0 && y % 3 === 0,
+  dots_dense: (x, y) => x % 2 === 0 && y % 2 === 0,
+  grid: (x, y) => x % 4 === 0 || y % 4 === 0,
+  cross: (x, y) => x % 4 === 0 && y % 4 === 0,
+  random50: (_x, _y) => Math.random() < 0.5,
+  random25: (_x, _y) => Math.random() < 0.25,
 };
 
 /**
@@ -37,6 +55,8 @@ export class InputManager {
     this.lineWidth = 1;
     this.dashPattern = 'solid';
     this._dashCounter = 0; // running counter for dash sequencing
+    // --- Fill mode state ---
+    this.fillPattern = 'solid';
 
     // --- Pattern stamp state ---
     // Set of "x,y" strings representing the active pattern cells (in editor coords).
@@ -76,6 +96,9 @@ export class InputManager {
 
   setDashPattern(name) {
     if (name in DASH_PATTERNS) this.dashPattern = name;
+  }
+  setFillPattern(name) {
+    if (name in FILL_PATTERNS) this.fillPattern = name;
   }
 
   setPattern(cells) {
@@ -236,6 +259,16 @@ export class InputManager {
       this._stampPattern(pos.gx, pos.gy);
       return;
     }
+    if (this.mode === DRAW_MODE.FILL) {
+      // Fill mode: rectangle drag from startCell to currentCell.
+      if (!this._isDrawZone(pos.gy)) return;
+      this.drawing = true;
+      this.startCell = pos;
+      this.currentCell = pos;
+      this.placedThisDrag = [];
+      this.moved = false;
+      return;
+    }
     if (!this._isDrawZone(pos.gy)) return;
 
     this.drawing = true;
@@ -270,7 +303,7 @@ export class InputManager {
       this.moved = true;
     }
     this.currentCell = pos;
-    if (this.mode === DRAW_MODE.LINE) {
+    if (this.mode === DRAW_MODE.LINE || this.mode === DRAW_MODE.FILL) {
       // No placement during drag — preview is rendered separately.
       return;
     }
@@ -294,6 +327,14 @@ export class InputManager {
     if (this.mode === DRAW_MODE.LINE && this.startCell && this.currentCell) {
       // Commit the straight line now.
       this._line(this.startCell.gx, this.startCell.gy, this.currentCell.gx, this.currentCell.gy);
+    } else if (this.mode === DRAW_MODE.FILL && this.startCell && this.currentCell) {
+      // Commit the fill rectangle now.
+      this._fillRect(
+        this.startCell.gx,
+        this.startCell.gy,
+        this.currentCell.gx,
+        this.currentCell.gy
+      );
     } else if (this.mode === DRAW_MODE.FREEHAND && !this.moved && this.startCell) {
       // Single-click toggle behavior (freehand only).
       const { gx, gy } = this.startCell;
@@ -423,6 +464,23 @@ export class InputManager {
     }
     return placed;
   }
+  // Fill a rectangle from (x0,y0) to (x1,y1) using the current fill pattern.
+  _fillRect(x0, y0, x1, y1) {
+    const fn = FILL_PATTERNS[this.fillPattern] || FILL_PATTERNS.solid;
+    const minX = Math.min(x0, x1);
+    const maxX = Math.max(x0, x1);
+    const minY = Math.min(y0, y1);
+    const maxY = Math.max(y0, y1);
+    let placed = 0;
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (fn(x - minX, y - minY)) {
+          if (this._placePending(x, y, false)) placed++;
+        }
+      }
+    }
+    return placed;
+  }
 
   // Compute the cells of a previewed action (used by renderer).
   // Returns an array of {x, y} grid-space cells.
@@ -443,6 +501,25 @@ export class InputManager {
       const baseY = this.hoverCell.gy - halfH;
       for (const [ox, oy] of offsets) {
         cells.push({ x: baseX + ox, y: baseY + oy });
+      }
+    } else if (this.mode === DRAW_MODE.FILL && this.drawing && this.startCell && this.currentCell) {
+      const fn = FILL_PATTERNS[this.fillPattern] || FILL_PATTERNS.solid;
+      const minX = Math.min(this.startCell.gx, this.currentCell.gx);
+      const maxX = Math.max(this.startCell.gx, this.currentCell.gx);
+      const minY = Math.min(this.startCell.gy, this.currentCell.gy);
+      const maxY = Math.max(this.startCell.gy, this.currentCell.gy);
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          // For preview we use deterministic patterns only (skip random ones
+          // visually so the preview doesn't strobe; the actual fill will use
+          // them properly).
+          if (this.fillPattern.startsWith('random')) {
+            // Show a 50% indicator dither for preview.
+            if (((x + y) & 1) === 0) cells.push({ x, y });
+          } else if (fn(x - minX, y - minY)) {
+            cells.push({ x, y });
+          }
+        }
       }
     } else if (this.mode === DRAW_MODE.LINE && this.drawing && this.startCell && this.currentCell) {
       // Walk the line to find affected cells; respect dash + brush.

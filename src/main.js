@@ -395,8 +395,8 @@ class Game {
             'cheats.deletePattern(name)   - delete a saved custom pattern',
             'cheats.clearPatterns()       - delete ALL saved custom patterns',
             'cheats.captureMode()         - toggle pattern capture mode',
-             'cheats.vfxStats()            - show VFX throttling stats (active + dropped)',
-             'cheats.resetVfxStats()       - reset VFX drop counters',
+            'cheats.vfxStats()            - show VFX throttling stats (active + dropped)',
+            'cheats.resetVfxStats()       - reset VFX drop counters',
           ].join('\n')
         );
       },
@@ -607,46 +607,46 @@ class Game {
         if (!self.patternCapture) return;
         self.patternCapture.toggle();
       },
-       vfxStats() {
-         if (!self.renderer) return null;
-         const s = self.renderer._vfxStats;
-         const elapsedSec = (Date.now() - s.sinceMs) / 1000;
-         const info = {
-           active: {
-             particles: self.renderer.particles.length,
-             shockwaves: self.renderer.shockwaves.length,
-             floaters: self.renderer.floaters.length,
-           },
-           droppedSinceReset: {
-             particles: s.particlesDropped,
-             shockwaves: s.shockwavesDropped,
-             floaters: s.floatersDropped,
-             floatersDeduped: s.floatersDeduped,
-           },
-           elapsedSec: elapsedSec.toFixed(1),
-           dropRatePerSec: {
-             particles: (s.particlesDropped / Math.max(0.1, elapsedSec)).toFixed(1),
-             shockwaves: (s.shockwavesDropped / Math.max(0.1, elapsedSec)).toFixed(1),
-             floaters: (s.floatersDropped / Math.max(0.1, elapsedSec)).toFixed(1),
-           },
-         };
-         console.table(info.active);
-         console.table(info.droppedSinceReset);
-         console.log(`Elapsed: ${info.elapsedSec}s — drop rates per second:`);
-         console.table(info.dropRatePerSec);
-         return info;
-       },
-       resetVfxStats() {
-         if (!self.renderer) return;
-         self.renderer._vfxStats = {
-           particlesDropped: 0,
-           shockwavesDropped: 0,
-           floatersDropped: 0,
-           floatersDeduped: 0,
-           sinceMs: Date.now(),
-         };
-         Logger.info('Cheat: VFX stats reset.');
-       },
+      vfxStats() {
+        if (!self.renderer) return null;
+        const s = self.renderer._vfxStats;
+        const elapsedSec = (Date.now() - s.sinceMs) / 1000;
+        const info = {
+          active: {
+            particles: self.renderer.particles.length,
+            shockwaves: self.renderer.shockwaves.length,
+            floaters: self.renderer.floaters.length,
+          },
+          droppedSinceReset: {
+            particles: s.particlesDropped,
+            shockwaves: s.shockwavesDropped,
+            floaters: s.floatersDropped,
+            floatersDeduped: s.floatersDeduped,
+          },
+          elapsedSec: elapsedSec.toFixed(1),
+          dropRatePerSec: {
+            particles: (s.particlesDropped / Math.max(0.1, elapsedSec)).toFixed(1),
+            shockwaves: (s.shockwavesDropped / Math.max(0.1, elapsedSec)).toFixed(1),
+            floaters: (s.floatersDropped / Math.max(0.1, elapsedSec)).toFixed(1),
+          },
+        };
+        console.table(info.active);
+        console.table(info.droppedSinceReset);
+        console.log(`Elapsed: ${info.elapsedSec}s — drop rates per second:`);
+        console.table(info.dropRatePerSec);
+        return info;
+      },
+      resetVfxStats() {
+        if (!self.renderer) return;
+        self.renderer._vfxStats = {
+          particlesDropped: 0,
+          shockwavesDropped: 0,
+          floatersDropped: 0,
+          floatersDeduped: 0,
+          sinceMs: Date.now(),
+        };
+        Logger.info('Cheat: VFX stats reset.');
+      },
     };
   }
 
@@ -1575,6 +1575,8 @@ class Game {
     this.defenses.reset();
     this.hud.reset();
     this.cities.place();
+    // Initial wave: also enforce draw-zone constraint.
+    this._clearFriendlyOutsideDrawZone();
     this.missiles.startWave(0);
     this.gameState.set(STATE.PLAYING);
     this.hideOverlay();
@@ -1622,8 +1624,38 @@ class Game {
     this.hud.addScore(this.cities.aliveCount() * 100);
     this.hud.addScore((Math.floor(this.defenses.ink) * 0.5) | 0);
     this.defenses.refill(80);
+    // Clear any friendly paint outside the drawable area before the next wave starts.
+    this._clearFriendlyOutsideDrawZone();
     this.missiles.startWave(this.hud.wave - 1);
     this.gameState.set(STATE.PLAYING);
+  }
+  // Remove DEFENSE cells (and pending ink) that lie outside the current
+  // drawable area. Called at the start of each new wave so stray paint
+  // from previous waves doesn't accumulate in the enemy region.
+  _clearFriendlyOutsideDrawZone() {
+    const g = this.grid;
+    if (!g) return;
+    const dzMinY = g.drawZoneMinY();
+    const dzMaxY = g.drawZoneMaxY();
+    let cleared = 0;
+    for (let y = 0; y < g.height; y++) {
+      if (y >= dzMinY && y <= dzMaxY) continue;
+      for (let x = 0; x < g.width; x++) {
+        const i = y * g.width + x;
+        if (g.cells[i] === CELL_TYPE.DEFENSE) {
+          g.cells[i] = CELL_TYPE.EMPTY;
+          g.cellAge[i] = 0;
+          cleared++;
+        }
+        if (g.pending[i]) {
+          g.pending[i] = 0;
+          g.pendingDry[i] = 0;
+        }
+      }
+    }
+    if (cleared > 0) {
+      Logger.info(`Cleared ${cleared} friendly cells outside draw zone.`);
+    }
   }
 
   gameOver() {

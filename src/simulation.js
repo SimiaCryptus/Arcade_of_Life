@@ -136,6 +136,12 @@ export class Simulation {
     // When set to the sentinel, treat as effectively infinite (skip age expiry).
     const defenseAgeUnlimited = defenseMaxAge >= UNLIMITED;
     const missileAgeUnlimited = missileMaxAge >= UNLIMITED;
+    // Per-region age limits. A value >= UNLIMITED means "use global".
+    const defAgeF = CONFIG.DEFENSE_AGE_FRIENDLY;
+    const defAgeE = CONFIG.DEFENSE_AGE_ENEMY;
+    const missAgeF = CONFIG.MISSILE_AGE_FRIENDLY;
+    const missAgeE = CONFIG.MISSILE_AGE_ENEMY;
+    const dzMinYBoundary = g.drawZoneMinY();
     const cascadeTicks = CONFIG.MISSILE_CASCADE_TICKS;
     const defenseVariants = CONFIG.COLORS.DEFENSE_VARIANTS.length;
     const missileVariants = CONFIG.COLORS.MISSILE_VARIANTS.length;
@@ -200,8 +206,14 @@ export class Simulation {
     // When enemies are frozen, skip aging entirely.
     if (!freezeEnemies && !missileAgeUnlimited) {
       for (let i = 0; i < cells.length; i++) {
-        if (cells[i] === CELL_TYPE.MISSILE && age[i] >= missileMaxAge) {
-          ageDespawn[i] = 1;
+        if (cells[i] === CELL_TYPE.MISSILE) {
+          const y = (i / w) | 0;
+          const inFriendly = y >= dzMinYBoundary;
+          const regionLimit = inFriendly ? missAgeF : missAgeE;
+          const effectiveLimit = regionLimit < UNLIMITED ? regionLimit : missileMaxAge;
+          if (effectiveLimit < UNLIMITED && age[i] >= effectiveLimit) {
+            ageDespawn[i] = 1;
+          }
         }
       }
       // Cascade: any missile within cascadeTicks of expiry adjacent to an
@@ -294,8 +306,18 @@ export class Simulation {
         const ln = lifeNbr[i];
         if (t === CELL_TYPE.DEFENSE || t === CELL_TYPE.MISSILE) {
           const currentAge = age[i];
-          const maxForType = t === CELL_TYPE.MISSILE ? missileMaxAge : defenseMaxAge;
-          const ageUnlimited = t === CELL_TYPE.MISSILE ? missileAgeUnlimited : defenseAgeUnlimited;
+          const inFriendly = y >= dzMinYBoundary;
+          let maxForType;
+          let ageUnlimited;
+          if (t === CELL_TYPE.MISSILE) {
+            const regionLimit = inFriendly ? missAgeF : missAgeE;
+            maxForType = regionLimit < UNLIMITED ? regionLimit : missileMaxAge;
+            ageUnlimited = maxForType >= UNLIMITED;
+          } else {
+            const regionLimit = inFriendly ? defAgeF : defAgeE;
+            maxForType = regionLimit < UNLIMITED ? regionLimit : defenseMaxAge;
+            ageUnlimited = maxForType >= UNLIMITED;
+          }
           if (this._rule.shouldSurvive(ln) && (ageUnlimited || currentAge < maxForType)) {
             next[i] = t;
             nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;

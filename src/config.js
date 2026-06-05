@@ -32,6 +32,19 @@ export const CONFIG = {
   // with 100% chance, and any neighboring missile cells within
   // MISSILE_CASCADE_TICKS of their own expiry also despawn.
   MISSILE_MAX_AGE_TICKS: 999999,
+  // Region-specific age limits. The grid is divided into two regions by
+  // the draw-zone boundary: "friendly region" (draw zone, bottom) and
+  // "enemy region" (above draw zone, top). Each cell type can have a
+  // different max age in each region. If set to UNLIMITED_SENTINEL,
+  // falls back to the global CELL_MAX_AGE_TICKS / MISSILE_MAX_AGE_TICKS.
+  // Matrix layout (rows=cell type, cols=region):
+  //                  Friendly Region    Enemy Region
+  //   DEFENSE cells: DEFENSE_AGE_F      DEFENSE_AGE_E
+  //   MISSILE cells: MISSILE_AGE_F      MISSILE_AGE_E
+  DEFENSE_AGE_FRIENDLY: 999999,
+  DEFENSE_AGE_ENEMY: 999999,
+  MISSILE_AGE_FRIENDLY: 999999,
+  MISSILE_AGE_ENEMY: 999999,
   MISSILE_CASCADE_TICKS: 20, // ~2 seconds at TICK_RATE=100ms
 
   // Cities

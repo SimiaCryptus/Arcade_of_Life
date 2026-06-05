@@ -49,6 +49,11 @@ export const SETTING_DEFS = [
   { key: 'MISSILE_SPAWN_MIN', id: 'setting-spawn-min', format: (v) => v },
   { key: 'CELL_MAX_AGE_TICKS', id: 'setting-cell-age', format: (v) => v },
   { key: 'MISSILE_MAX_AGE_TICKS', id: 'setting-missile-age', format: (v) => v },
+  // Region-specific age settings (matrix layout).
+  { key: 'DEFENSE_AGE_FRIENDLY', id: 'setting-def-age-friendly', format: (v) => v },
+  { key: 'DEFENSE_AGE_ENEMY', id: 'setting-def-age-enemy', format: (v) => v },
+  { key: 'MISSILE_AGE_FRIENDLY', id: 'setting-miss-age-friendly', format: (v) => v },
+  { key: 'MISSILE_AGE_ENEMY', id: 'setting-miss-age-enemy', format: (v) => v },
   { key: 'MISSILE_CASCADE_TICKS', id: 'setting-cascade-ticks', format: (v) => v },
   { key: 'CITY_COUNT', id: 'setting-city-count', format: (v) => v },
   { key: 'CLEAR_REFUND_FRACTION', id: 'setting-clear-refund', format: (v) => v.toFixed(2) },
@@ -115,6 +120,11 @@ DEFAULTS.UNLIMITED_INK_REGEN = false;
 DEFAULTS.UNLIMITED_CELL_AGE = true;
 DEFAULTS.UNLIMITED_MISSILE_AGE = true;
 DEFAULTS.UNLIMITED_MISSILE_CASCADE = false;
+// Unlimited flags for region-specific age settings.
+DEFAULTS.UNLIMITED_DEF_AGE_FRIENDLY = true;
+DEFAULTS.UNLIMITED_DEF_AGE_ENEMY = true;
+DEFAULTS.UNLIMITED_MISS_AGE_FRIENDLY = true;
+DEFAULTS.UNLIMITED_MISS_AGE_ENEMY = true;
 
 export class Settings {
   constructor() {
@@ -164,6 +174,10 @@ export class Settings {
       if (this.values.UNLIMITED_CELL_AGE) CONFIG.CELL_MAX_AGE_TICKS = 999999;
       if (this.values.UNLIMITED_MISSILE_AGE) CONFIG.MISSILE_MAX_AGE_TICKS = 999999;
       if (this.values.UNLIMITED_MISSILE_CASCADE) CONFIG.MISSILE_CASCADE_TICKS = 999999;
+      if (this.values.UNLIMITED_DEF_AGE_FRIENDLY) CONFIG.DEFENSE_AGE_FRIENDLY = 999999;
+      if (this.values.UNLIMITED_DEF_AGE_ENEMY) CONFIG.DEFENSE_AGE_ENEMY = 999999;
+      if (this.values.UNLIMITED_MISS_AGE_FRIENDLY) CONFIG.MISSILE_AGE_FRIENDLY = 999999;
+      if (this.values.UNLIMITED_MISS_AGE_ENEMY) CONFIG.MISSILE_AGE_ENEMY = 999999;
       // Apply resolution preset.
       const idx = Math.max(
         0,
@@ -218,6 +232,72 @@ export class Settings {
     this.apply();
     this.save();
   }
+  // ---- Profile management ----
+  // Profiles are stored as a map: { profileName: settingsValues }
+  // Persisted under a separate localStorage key.
+  static get PROFILES_KEY() {
+    return 'missileDefenseSettingsProfiles';
+  }
+  listProfiles() {
+    const profiles = loadJSON(Settings.PROFILES_KEY, {});
+    return Object.keys(profiles).sort();
+  }
+  saveProfile(name) {
+    if (!name || typeof name !== 'string') return false;
+    const profiles = loadJSON(Settings.PROFILES_KEY, {});
+    profiles[name] = { ...this.values };
+    saveJSON(Settings.PROFILES_KEY, profiles);
+    Logger.info(`Settings: saved profile "${name}".`);
+    return true;
+  }
+  loadProfile(name) {
+    const profiles = loadJSON(Settings.PROFILES_KEY, {});
+    if (!profiles[name]) return false;
+    // Merge stored values with defaults so any new keys get default values.
+    this.values = { ...DEFAULTS, ...profiles[name] };
+    this.apply();
+    this.save();
+    Logger.info(`Settings: loaded profile "${name}".`);
+    return true;
+  }
+  deleteProfile(name) {
+    const profiles = loadJSON(Settings.PROFILES_KEY, {});
+    if (!profiles[name]) return false;
+    delete profiles[name];
+    saveJSON(Settings.PROFILES_KEY, profiles);
+    Logger.info(`Settings: deleted profile "${name}".`);
+    return true;
+  }
+  exportJSON() {
+    return JSON.stringify(this.values, null, 2);
+  }
+  importJSON(jsonStr) {
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (e) {
+      Logger.warn('Settings: invalid JSON for import.', e);
+      return { ok: false, error: 'Invalid JSON syntax.' };
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      return { ok: false, error: 'JSON must be an object.' };
+    }
+    // Merge with defaults so missing keys get defaults.
+    const merged = { ...DEFAULTS };
+    let applied = 0;
+    for (const key of Object.keys(DEFAULTS)) {
+      if (parsed[key] !== undefined && typeof parsed[key] === typeof DEFAULTS[key]) {
+        merged[key] = parsed[key];
+        applied++;
+      }
+    }
+    this.values = merged;
+    this.apply();
+    this.save();
+    Logger.info(`Settings: imported ${applied} values from JSON.`);
+    return { ok: true, applied };
+  }
+
   applyGameMode(id) {
     const mode = GAME_MODE_PRESETS.find((m) => m.id === id);
     if (!mode) return;
@@ -258,6 +338,8 @@ export class SettingsPanel {
     this._initUnlimitedCheckboxes();
     this._initGameModeSelect();
     this._initRulesetSelect();
+    this._initProfileControls();
+    this._initJSONIO();
     this.backButton.addEventListener('click', () => this.hide());
     this.resetButton.addEventListener('click', () => this._onReset());
   }
@@ -526,6 +608,35 @@ export class SettingsPanel {
         valueId: 'setting-cascade-ticks-value',
         label: '∞',
       },
+      // Region-specific age unlimited toggles.
+      {
+        valueKey: 'UNLIMITED_DEF_AGE_FRIENDLY',
+        checkboxId: 'setting-unlimited-def-age-friendly',
+        sliderId: 'setting-def-age-friendly',
+        valueId: 'setting-def-age-friendly-value',
+        label: '∞',
+      },
+      {
+        valueKey: 'UNLIMITED_DEF_AGE_ENEMY',
+        checkboxId: 'setting-unlimited-def-age-enemy',
+        sliderId: 'setting-def-age-enemy',
+        valueId: 'setting-def-age-enemy-value',
+        label: '∞',
+      },
+      {
+        valueKey: 'UNLIMITED_MISS_AGE_FRIENDLY',
+        checkboxId: 'setting-unlimited-miss-age-friendly',
+        sliderId: 'setting-miss-age-friendly',
+        valueId: 'setting-miss-age-friendly-value',
+        label: '∞',
+      },
+      {
+        valueKey: 'UNLIMITED_MISS_AGE_ENEMY',
+        checkboxId: 'setting-unlimited-miss-age-enemy',
+        sliderId: 'setting-miss-age-enemy',
+        valueId: 'setting-miss-age-enemy-value',
+        label: '∞',
+      },
     ];
   }
   _initUnlimitedCheckboxes() {
@@ -597,6 +708,125 @@ export class SettingsPanel {
     this._syncGameModeSelect();
     this._syncUnlimitedCheckboxes();
     if (this.onResolutionChange) this.onResolutionChange();
+  }
+  // ---- Profile UI ----
+  _initProfileControls() {
+    this.profileSelect = document.getElementById('setting-profile-select');
+    this.profileNameInput = document.getElementById('setting-profile-name');
+    this.profileSaveBtn = document.getElementById('setting-profile-save');
+    this.profileLoadBtn = document.getElementById('setting-profile-load');
+    this.profileDeleteBtn = document.getElementById('setting-profile-delete');
+    if (!this.profileSelect) return;
+    this._refreshProfileList();
+    if (this.profileSaveBtn) {
+      this.profileSaveBtn.addEventListener('click', () => {
+        const name = (this.profileNameInput?.value || '').trim();
+        if (!name) {
+          window.alert('Please enter a profile name.');
+          return;
+        }
+        if (this.settings.saveProfile(name)) {
+          this._refreshProfileList();
+          this.profileSelect.value = name;
+          if (this.profileNameInput) this.profileNameInput.value = '';
+        }
+      });
+    }
+    if (this.profileLoadBtn) {
+      this.profileLoadBtn.addEventListener('click', () => {
+        const name = this.profileSelect.value;
+        if (!name) return;
+        if (this.settings.loadProfile(name)) {
+          this._syncInputs();
+          this._syncGameModeSelect();
+          this._syncUnlimitedCheckboxes();
+          if (this.onResolutionChange) this.onResolutionChange();
+        }
+      });
+    }
+    if (this.profileDeleteBtn) {
+      this.profileDeleteBtn.addEventListener('click', () => {
+        const name = this.profileSelect.value;
+        if (!name) return;
+        if (!window.confirm(`Delete profile "${name}"?`)) return;
+        if (this.settings.deleteProfile(name)) {
+          this._refreshProfileList();
+        }
+      });
+    }
+  }
+  _refreshProfileList() {
+    if (!this.profileSelect) return;
+    const current = this.profileSelect.value;
+    const names = this.settings.listProfiles();
+    this.profileSelect.innerHTML = '<option value="">-- Select Profile --</option>';
+    for (const name of names) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      this.profileSelect.appendChild(opt);
+    }
+    if (current && names.includes(current)) {
+      this.profileSelect.value = current;
+    }
+  }
+  // ---- JSON Import / Export UI ----
+  _initJSONIO() {
+    this.jsonTextarea = document.getElementById('setting-json-textarea');
+    this.jsonExportBtn = document.getElementById('setting-json-export');
+    this.jsonCopyBtn = document.getElementById('setting-json-copy');
+    this.jsonImportBtn = document.getElementById('setting-json-import');
+    this.jsonStatusEl = document.getElementById('setting-json-status');
+    if (!this.jsonTextarea) return;
+    if (this.jsonExportBtn) {
+      this.jsonExportBtn.addEventListener('click', () => {
+        this.jsonTextarea.value = this.settings.exportJSON();
+        this._setJSONStatus('Current config exported below.', 'ok');
+      });
+    }
+    if (this.jsonCopyBtn) {
+      this.jsonCopyBtn.addEventListener('click', async () => {
+        const json = this.settings.exportJSON();
+        this.jsonTextarea.value = json;
+        try {
+          await navigator.clipboard.writeText(json);
+          this._setJSONStatus('✓ Copied to clipboard!', 'ok');
+        } catch (e) {
+          // Fallback: select textarea content.
+          this.jsonTextarea.select();
+          document.execCommand('copy');
+          this._setJSONStatus('✓ Copied (fallback method).', 'ok');
+        }
+      });
+    }
+    if (this.jsonImportBtn) {
+      this.jsonImportBtn.addEventListener('click', () => {
+        const txt = (this.jsonTextarea.value || '').trim();
+        if (!txt) {
+          this._setJSONStatus('Paste JSON into the box first.', 'err');
+          return;
+        }
+        const result = this.settings.importJSON(txt);
+        if (result.ok) {
+          this._setJSONStatus(`✓ Imported ${result.applied} settings.`, 'ok');
+          this._syncInputs();
+          this._syncGameModeSelect();
+          this._syncUnlimitedCheckboxes();
+          if (this.onResolutionChange) this.onResolutionChange();
+        } else {
+          this._setJSONStatus(`✗ ${result.error}`, 'err');
+        }
+      });
+    }
+  }
+  _setJSONStatus(msg, kind) {
+    if (!this.jsonStatusEl) return;
+    this.jsonStatusEl.textContent = msg;
+    this.jsonStatusEl.style.color = kind === 'ok' ? '#00ff88' : '#ff8888';
+    if (this._jsonStatusTimer) clearTimeout(this._jsonStatusTimer);
+    this._jsonStatusTimer = setTimeout(() => {
+      if (this.jsonStatusEl) this.jsonStatusEl.textContent = '';
+    }, 4000);
   }
 
   show() {

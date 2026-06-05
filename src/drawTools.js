@@ -127,12 +127,14 @@ export class DrawToolsPanel {
   _updateVisibility() {
     const lineTools = document.getElementById('line-tools');
     const patternTools = document.getElementById('pattern-tools');
+    const fillTools = document.getElementById('fill-tools');
     if (!lineTools || !patternTools) return;
     const mode = this.input.mode;
     // Line width/dash apply to freehand and line modes.
     lineTools.style.display =
       mode === DRAW_MODE.FREEHAND || mode === DRAW_MODE.LINE ? 'flex' : 'none';
     patternTools.style.display = mode === DRAW_MODE.PATTERN ? 'flex' : 'none';
+    if (fillTools) fillTools.style.display = mode === DRAW_MODE.FILL ? 'flex' : 'none';
   }
 
   _initLineControls() {
@@ -151,6 +153,13 @@ export class DrawToolsPanel {
     if (dashSelect) {
       dashSelect.addEventListener('change', () => {
         this.input.setDashPattern(dashSelect.value);
+      });
+    }
+    // Fill pattern selector.
+    const fillSelect = document.getElementById('fill-pattern');
+    if (fillSelect) {
+      fillSelect.addEventListener('change', () => {
+        this.input.setFillPattern(fillSelect.value);
       });
     }
   }
@@ -589,6 +598,9 @@ export class DrawToolsPanel {
       } else if (e.key === 'p' || e.key === 'P') {
         if (!this._isToolUnlocked(DRAW_MODE.PATTERN)) return;
         this.setMode(DRAW_MODE.PATTERN);
+      } else if (e.key === 'b' || e.key === 'B') {
+        if (!this._isToolUnlocked(DRAW_MODE.FILL)) return;
+        this.setMode(DRAW_MODE.FILL);
       } else if (e.key === 'r' || e.key === 'R') {
         if (this.input.mode === DRAW_MODE.PATTERN) {
           if (this._editorPanelOpen) {
@@ -629,7 +641,7 @@ export class DrawToolsPanel {
       } else if (e.key === 'Tab') {
         e.preventDefault();
         // Cycle through modes.
-        const order = [DRAW_MODE.FREEHAND, DRAW_MODE.LINE, DRAW_MODE.PATTERN];
+        const order = [DRAW_MODE.FREEHAND, DRAW_MODE.LINE, DRAW_MODE.PATTERN, DRAW_MODE.FILL];
         const allowed = order.filter((m) => this._isToolUnlocked(m));
         if (allowed.length === 0) return;
         const idx = allowed.indexOf(this.input.mode);
