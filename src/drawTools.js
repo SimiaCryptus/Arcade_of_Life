@@ -1,6 +1,7 @@
 import { DRAW_MODE } from './input.js';
 import { Logger } from './logger.js';
 import { PATTERN_PRESETS as LIBRARY_PRESETS } from './patterns/index.js';
+import { normalizeCells } from './patterns/library.js';
 
 /**
  * Pattern presets used by the in-game drawing tools.
@@ -31,6 +32,10 @@ export class DrawToolsPanel {
     this._activePresetName = '';
     this._editorDirty = false; // true once user clicks a cell manually
     this._editorPanelOpen = false;
+    // Editor mode: 'view' (just stamping built-in), 'new' (creating a new
+    // custom pattern), 'edit' (editing an existing custom pattern).
+    this._editorMode = 'view';
+    this._editorEditingName = null; // name of custom pattern being edited
     // Stashed speed multiplier while the editor is open (to restore on close).
     this._editorPauseSpeed = null;
     // Callback for external coordination (e.g., main.js syncing speed slider).
@@ -53,10 +58,12 @@ export class DrawToolsPanel {
     this._initModeButtons();
     this._initLineControls();
     this._initPatternEditor();
+    this._initEditorJsonIO();
     this._initPresets();
     this._initKeyboard();
     this._initEditorToggle();
     this._initEditorTransformHints();
+    this._initEditorSaveControls();
     this._updateVisibility();
     Logger.info('[DrawTools] Constructor complete.');
   }
@@ -550,6 +557,8 @@ export class DrawToolsPanel {
       btn.classList.add('active');
       btn.textContent = '✏ Close Editor';
     }
+    // Refresh save/meta UI based on current editor mode.
+    this._updateEditorSaveUI();
     // Redraw the editor so it reflects current pattern at the new size.
     // Defer one frame so the canvas has its layout-driven size applied.
     requestAnimationFrame(() => this._drawEditor());
@@ -574,6 +583,9 @@ export class DrawToolsPanel {
       btn.classList.remove('active');
       btn.textContent = '✏ Edit Pattern';
     }
+    // Reset editor mode to view.
+    this._editorMode = 'view';
+    this._editorEditingName = null;
     // Notify host (main.js) to resume the game.
     if (this.onEditorClose) {
       try {
@@ -583,6 +595,420 @@ export class DrawToolsPanel {
       }
     }
     Logger.info('[DrawTools] Editor overlay closed.');
+  }
+  // Load a list of [x,y] cells into the editor (normalizing & centering).
+  // mode: 'view' | 'edit' | 'new'
+  //   - 'view': just for stamping; saving creates a NEW pattern (prompt name)
+  //   - 'edit': editing an existing custom pattern (saving overwrites it)
+  //   - 'new':  starting from scratch / blank
+  loadPatternIntoEditor(cells, customName = null, mode = 'view') {
+    this.editorCells = new Set();
+    this._editorMode = mode;
+    this._editorEditingName = customName;
+    if (cells && cells.length > 0) {
+      const norm = normalizeCells(cells);
+      const pw = norm.width;
+      const ph = norm.height;
+      const offX = Math.max(0, Math.floor((this.editorSize - pw) / 2));
+      const offY = Math.max(0, Math.floor((this.editorSize - ph) / 2));
+      for (const [x, y] of norm.cells) {
+        const px = x + offX;
+        const py = y + offY;
+        if (px >= 0 && px < this.editorSize && py >= 0 && py < this.editorSize) {
+          this.editorCells.add(`${px},${py}`);
+        }
+      }
+    }
+    this._activePresetName = customName || '';
+    this._editorDirty = false;
+    this._syncPresetCombobox();
+    this._syncPatternToInput();
+    this._drawEditor();
+    // Also sync the metadata fields if a custom pattern is being edited.
+    this._syncMetaFieldsFromCustom(customName);
+    this._updateEditorSaveUI();
+  }
+  _syncMetaFieldsFromCustom(name) {
+    const nameEl = document.getElementById('editor-meta-name');
+    const descEl = document.getElementById('editor-meta-desc');
+    const tagsEl = document.getElementById('editor-meta-tags');
+    const catEl = document.getElementById('editor-meta-category');
+    const periodEl = document.getElementById('editor-meta-period');
+    const dirEl = document.getElementById('editor-meta-direction');
+    if (!nameEl) return;
+    if (name && this.patternCapture) {
+      const saved = this.patternCapture.getSaved(name);
+      const m = (saved && saved.meta) || {};
+      nameEl.value = name;
+      if (descEl) descEl.value = m.description || '';
+      if (tagsEl) tagsEl.value = Array.isArray(m.tags) ? m.tags.join(', ') : '';
+      if (catEl) catEl.value = m.category || 'misc';
+      if (periodEl) periodEl.value = m.period != null ? m.period : 1;
+      if (dirEl) dirEl.value = m.direction || '';
+    } else {
+      nameEl.value = '';
+      if (descEl) descEl.value = '';
+      if (tagsEl) tagsEl.value = '';
+      if (catEl) catEl.value = 'misc';
+      if (periodEl) periodEl.value = 1;
+      if (dirEl) dirEl.value = '';
+    }
+  }
+  _updateEditorSaveUI() {
+    const saveBtn = document.getElementById('editor-save-btn');
+    const statusEl = document.getElementById('editor-save-status');
+    if (!saveBtn) return;
+    if (this._editorMode === 'edit' && this._editorEditingName) {
+      saveBtn.textContent = `💾 Update "${this._editorEditingName}"`;
+      if (statusEl) {
+        statusEl.textContent = `Editing existing custom pattern "${this._editorEditingName}".`;
+        statusEl.style.color = '#ffcc44';
+      }
+    } else if (this._editorMode === 'new') {
+      saveBtn.textContent = '💾 Save as New Pattern';
+      if (statusEl) {
+        statusEl.textContent = 'Creating a new custom pattern.';
+        statusEl.style.color = '#88ff88';
+      }
+    } else {
+      saveBtn.textContent = '💾 Save as New Pattern';
+      if (statusEl) {
+        statusEl.textContent = '';
+      }
+    }
+  }
+  _initEditorSaveControls() {
+    // Build the save/meta UI dynamically and inject into the editor overlay
+    // panel so we don't have to edit index.html (this file is self-contained).
+    const panel = document.getElementById('pattern-editor-panel');
+    if (!panel) {
+      Logger.warn('[DrawTools] pattern-editor-panel not found; cannot inject save UI.');
+      return;
+    }
+    // Avoid double-injection.
+    if (document.getElementById('editor-save-section')) return;
+    const section = document.createElement('div');
+    section.id = 'editor-save-section';
+    section.className = 'editor-save-section';
+    section.innerHTML = `
+       <div class="editor-save-header">💾 Save / Metadata</div>
+       <div class="editor-meta-grid">
+         <label class="editor-meta-row">
+           <span>Name:</span>
+           <input id="editor-meta-name" type="text" placeholder="my pattern" maxlength="40" />
+         </label>
+         <label class="editor-meta-row">
+           <span>Category:</span>
+           <select id="editor-meta-category">
+             <option value="misc">Misc</option>
+             <option value="still_life">Still Life</option>
+             <option value="oscillator">Oscillator</option>
+             <option value="spaceship">Spaceship</option>
+             <option value="gun">Gun</option>
+             <option value="methuselah">Methuselah</option>
+             <option value="puffer">Puffer</option>
+           </select>
+         </label>
+         <label class="editor-meta-row">
+           <span>Period:</span>
+           <input id="editor-meta-period" type="number" min="0" max="9999" step="1" value="1" />
+         </label>
+         <label class="editor-meta-row">
+           <span>Direction:</span>
+           <select id="editor-meta-direction">
+             <option value="">(none)</option>
+             <option value="N">North</option>
+             <option value="S">South</option>
+             <option value="E">East</option>
+             <option value="W">West</option>
+             <option value="NE">NE</option>
+             <option value="NW">NW</option>
+             <option value="SE">SE</option>
+             <option value="SW">SW</option>
+           </select>
+         </label>
+         <label class="editor-meta-row editor-meta-row-wide">
+           <span>Tags:</span>
+           <input id="editor-meta-tags" type="text" placeholder="custom, my-tag, ..." />
+         </label>
+         <label class="editor-meta-row editor-meta-row-wide">
+           <span>Description:</span>
+           <input id="editor-meta-desc" type="text" placeholder="A pattern I made..." maxlength="200" />
+         </label>
+       </div>
+       <div class="editor-save-buttons">
+         <button id="editor-save-btn" class="editor-action-btn editor-action-primary">💾 Save as New Pattern</button>
+         <button id="editor-saveas-btn" class="editor-action-btn">Save As...</button>
+         <span id="editor-save-status" class="editor-save-status"></span>
+       </div>
+     `;
+    panel.appendChild(section);
+    // Wire buttons.
+    const saveBtn = section.querySelector('#editor-save-btn');
+    const saveAsBtn = section.querySelector('#editor-saveas-btn');
+    saveBtn.addEventListener('click', () => this._saveEditorPattern(false));
+    saveAsBtn.addEventListener('click', () => this._saveEditorPattern(true));
+  }
+  _collectEditorCells() {
+    // Convert editorCells (Set of "x,y") to [[x,y],...].
+    const cells = [];
+    for (const key of this.editorCells) {
+      const [x, y] = key.split(',').map(Number);
+      cells.push([x, y]);
+    }
+    return cells;
+  }
+  _collectEditorMeta() {
+    const descEl = document.getElementById('editor-meta-desc');
+    const tagsEl = document.getElementById('editor-meta-tags');
+    const catEl = document.getElementById('editor-meta-category');
+    const periodEl = document.getElementById('editor-meta-period');
+    const dirEl = document.getElementById('editor-meta-direction');
+    const tagsRaw = (tagsEl && tagsEl.value) || '';
+    const tags = tagsRaw
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+    if (!tags.includes('custom')) tags.unshift('custom');
+    return {
+      category: (catEl && catEl.value) || 'misc',
+      period: periodEl ? Math.max(0, parseInt(periodEl.value, 10) || 1) : 1,
+      direction: (dirEl && dirEl.value) || null,
+      description: (descEl && descEl.value) || '',
+      tags,
+      rulesets: ['*'],
+      createdAt: Date.now(),
+    };
+  }
+  _saveEditorPattern(forceSaveAs = false) {
+    if (!this.patternCapture) {
+      Logger.warn('[DrawTools] No patternCapture reference; cannot save.');
+      return;
+    }
+    const cells = this._collectEditorCells();
+    if (cells.length === 0) {
+      this._setSaveStatus('Cannot save empty pattern.', 'err');
+      return;
+    }
+    // Normalize to (0,0) origin before saving.
+    const norm = normalizeCells(cells);
+    const cellsForSave = norm.cells;
+    const nameEl = document.getElementById('editor-meta-name');
+    let name = ((nameEl && nameEl.value) || '').trim();
+    const meta = this._collectEditorMeta();
+    // Determine if this is an update vs. new save.
+    const isUpdate = !forceSaveAs && this._editorMode === 'edit' && this._editorEditingName;
+    if (isUpdate) {
+      const oldName = this._editorEditingName;
+      // If the name changed, rename first.
+      if (name && name !== oldName) {
+        const renamed = this.patternCapture.renamePattern(oldName, name);
+        if (!renamed) {
+          this._setSaveStatus(`Could not rename — "${name}" may already exist.`, 'err');
+          return;
+        }
+        this._editorEditingName = name;
+      } else {
+        name = oldName;
+      }
+      // Overwrite with new cells + meta.
+      this.patternCapture.savePatternExternal(name, cellsForSave, meta);
+      this._setSaveStatus(`✓ Updated "${name}".`, 'ok');
+      return;
+    }
+    // New save: name required.
+    if (!name) {
+      this._setSaveStatus('Please enter a name first.', 'err');
+      if (nameEl) nameEl.focus();
+      return;
+    }
+    const existing = this.patternCapture.listSaved().map((p) => p.name);
+    if (existing.includes(name)) {
+      if (!window.confirm(`A pattern named "${name}" already exists. Overwrite?`)) {
+        this._setSaveStatus('Choose a different name.', 'err');
+        return;
+      }
+      this.patternCapture.deleteSaved(name);
+    }
+    this.patternCapture.savePatternExternal(name, cellsForSave, meta);
+    this._editorMode = 'edit';
+    this._editorEditingName = name;
+    this._setSaveStatus(`✓ Saved "${name}" as new custom pattern.`, 'ok');
+    this._updateEditorSaveUI();
+  }
+  _setSaveStatus(msg, kind) {
+    const el = document.getElementById('editor-save-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = kind === 'ok' ? '#88ff88' : '#ff8888';
+    if (this._saveStatusTimer) clearTimeout(this._saveStatusTimer);
+    this._saveStatusTimer = setTimeout(() => {
+      if (el && this._editorMode === 'edit') {
+        // Restore the "editing X" message.
+        this._updateEditorSaveUI();
+      } else if (el) {
+        el.textContent = '';
+      }
+    }, 3500);
+  }
+  _initEditorJsonIO() {
+    // Inject JSON I/O UI into the editor panel. Includes a textarea +
+    // copy/import/export buttons for the pattern (cells + metadata).
+    const panel = document.getElementById('pattern-editor-panel');
+    if (!panel) return;
+    if (document.getElementById('editor-json-section')) return;
+    const section = document.createElement('div');
+    section.id = 'editor-json-section';
+    section.className = 'editor-json-section';
+    section.innerHTML = `
+       <div class="editor-json-header">
+         📋 JSON Import / Export
+         <button id="editor-json-toggle" class="editor-json-toggle">▸ Show</button>
+       </div>
+       <div id="editor-json-body" class="editor-json-body" style="display:none;">
+         <div class="editor-json-buttons">
+           <button id="editor-json-export" class="editor-action-btn">📤 Export Current</button>
+           <button id="editor-json-copy" class="editor-action-btn editor-action-primary">📋 Copy to Clipboard</button>
+           <button id="editor-json-import" class="editor-action-btn editor-action-primary">📥 Import from Box</button>
+           <span id="editor-json-status" class="editor-save-status"></span>
+         </div>
+         <textarea id="editor-json-textarea" class="editor-json-textarea"
+           rows="10"
+           placeholder='Click "Export Current" to dump cells + metadata as JSON, or paste a JSON pattern here and click "Import from Box".'
+         ></textarea>
+         <p class="editor-json-hint">
+           JSON schema: <code>{ "name": "...", "cells": [[x,y],...], "meta": { "category", "period", "direction", "description", "tags", "rulesets" } }</code>
+         </p>
+       </div>
+     `;
+    panel.appendChild(section);
+    // Wire toggle.
+    const toggleBtn = section.querySelector('#editor-json-toggle');
+    const body = section.querySelector('#editor-json-body');
+    toggleBtn.addEventListener('click', () => {
+      const shown = body.style.display !== 'none';
+      body.style.display = shown ? 'none' : 'block';
+      toggleBtn.textContent = shown ? '▸ Show' : '▾ Hide';
+    });
+    // Wire buttons.
+    section
+      .querySelector('#editor-json-export')
+      .addEventListener('click', () => this._exportEditorJSON());
+    section
+      .querySelector('#editor-json-copy')
+      .addEventListener('click', () => this._copyEditorJSON());
+    section
+      .querySelector('#editor-json-import')
+      .addEventListener('click', () => this._importEditorJSON());
+  }
+  _buildEditorJSON() {
+    const cells = this._collectEditorCells();
+    const norm = normalizeCells(cells);
+    const meta = this._collectEditorMeta();
+    const nameEl = document.getElementById('editor-meta-name');
+    const name = ((nameEl && nameEl.value) || '').trim() || 'untitled';
+    return {
+      name,
+      cells: norm.cells,
+      width: norm.width,
+      height: norm.height,
+      meta,
+    };
+  }
+  _exportEditorJSON() {
+    const ta = document.getElementById('editor-json-textarea');
+    if (!ta) return;
+    const data = this._buildEditorJSON();
+    ta.value = JSON.stringify(data, null, 2);
+    this._setJsonStatus('Pattern + metadata exported below.', 'ok');
+  }
+  async _copyEditorJSON() {
+    const ta = document.getElementById('editor-json-textarea');
+    if (!ta) return;
+    const data = this._buildEditorJSON();
+    const json = JSON.stringify(data, null, 2);
+    ta.value = json;
+    try {
+      await navigator.clipboard.writeText(json);
+      this._setJsonStatus('✓ Copied to clipboard!', 'ok');
+    } catch (e) {
+      ta.select();
+      document.execCommand('copy');
+      this._setJsonStatus('✓ Copied (fallback method).', 'ok');
+    }
+  }
+  _importEditorJSON() {
+    const ta = document.getElementById('editor-json-textarea');
+    if (!ta) return;
+    const txt = (ta.value || '').trim();
+    if (!txt) {
+      this._setJsonStatus('Paste JSON into the box first.', 'err');
+      return;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(txt);
+    } catch (e) {
+      this._setJsonStatus(`✗ Invalid JSON: ${e.message}`, 'err');
+      return;
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      this._setJsonStatus('✗ JSON must be an object.', 'err');
+      return;
+    }
+    const cells = parsed.cells;
+    if (!Array.isArray(cells)) {
+      this._setJsonStatus('✗ JSON missing "cells" array.', 'err');
+      return;
+    }
+    // Validate cells structure.
+    for (const c of cells) {
+      if (
+        !Array.isArray(c) ||
+        c.length !== 2 ||
+        !Number.isInteger(c[0]) ||
+        !Number.isInteger(c[1])
+      ) {
+        this._setJsonStatus('✗ Bad cell format. Expected [[x,y],...].', 'err');
+        return;
+      }
+    }
+    // Load into editor.
+    const name = parsed.name && typeof parsed.name === 'string' ? parsed.name : null;
+    // If a pattern with this name already exists in custom patterns,
+    // open in edit mode; otherwise it's a new pattern.
+    let mode = 'new';
+    if (name && this.patternCapture) {
+      const existing = this.patternCapture.listSaved().map((p) => p.name);
+      if (existing.includes(name)) mode = 'edit';
+    }
+    this.loadPatternIntoEditor(cells, mode === 'edit' ? name : null, mode);
+    // Also populate metadata fields from import.
+    const meta = parsed.meta || {};
+    const nameEl = document.getElementById('editor-meta-name');
+    const descEl = document.getElementById('editor-meta-desc');
+    const tagsEl = document.getElementById('editor-meta-tags');
+    const catEl = document.getElementById('editor-meta-category');
+    const periodEl = document.getElementById('editor-meta-period');
+    const dirEl = document.getElementById('editor-meta-direction');
+    if (nameEl && name) nameEl.value = name;
+    if (descEl && meta.description) descEl.value = meta.description;
+    if (tagsEl && Array.isArray(meta.tags)) tagsEl.value = meta.tags.join(', ');
+    if (catEl && meta.category) catEl.value = meta.category;
+    if (periodEl && meta.period != null) periodEl.value = meta.period;
+    if (dirEl) dirEl.value = meta.direction || '';
+    this._setJsonStatus(`✓ Imported ${cells.length} cell(s). Click Save to persist.`, 'ok');
+    this._updateEditorSaveUI();
+  }
+  _setJsonStatus(msg, kind) {
+    const el = document.getElementById('editor-json-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = kind === 'ok' ? '#88ff88' : '#ff8888';
+    if (this._jsonStatusTimer) clearTimeout(this._jsonStatusTimer);
+    this._jsonStatusTimer = setTimeout(() => {
+      if (el) el.textContent = '';
+    }, 4000);
   }
 
   _initKeyboard() {

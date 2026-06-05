@@ -150,6 +150,8 @@ class Game {
       canvas: this.canvas,
       drawTools: this.drawTools,
     });
+    // Cross-reference so the editor can save/update custom patterns directly.
+    this.drawTools.patternCapture = this.patternCapture;
     // Pattern Zoo — browse the pattern library with live previews.
     this.patternZoo = new PatternZoo({ game: this });
     // Auto-pause when pattern editor overlay opens; restore on close.

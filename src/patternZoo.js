@@ -3,6 +3,12 @@ import { Logger } from './logger.js';
 import { listPatterns, clonePatternCells, CATEGORY } from './patterns/index.js';
 import { listRulesets, getRuleset, CompiledRuleset, CONWAY } from './rules/ruleset.js';
 import './rules/extraRulesets.js';
+import {
+  loadCustomPatterns,
+  loadCustomPatternMeta,
+  onCustomPatternsChanged,
+} from './patternCapture.js';
+import { normalizeCells } from './patterns/library.js';
 
 /**
  * PatternZoo: browse the pattern library with live toroidal previews.
@@ -14,6 +20,8 @@ import './rules/extraRulesets.js';
  *   - Per-card controls: speed, grid size, reset.
  *   - Clicking a card opens a detail view with a larger preview,
  *     full metadata, and a "Place in Game" button.
+ *   - Custom (user-saved) patterns appear in the zoo with edit/delete
+ *     actions that open the in-game pattern editor.
  *
  * All previews share a single rAF loop and tick at independent rates
  * driven by their own configured speed multiplier.
@@ -255,6 +263,7 @@ export class PatternZoo {
     this.filterCategory = 'all';
     this.filterRuleset = 'all';
     this.filterTag = 'all';
+    this.filterSource = 'all'; // 'all' | 'builtin' | 'custom'
     this.searchQuery = '';
     // Per-card defaults (user-adjustable globally).
     this.globalGridSize = ZOO_DEFAULTS.gridSize;
@@ -267,6 +276,40 @@ export class PatternZoo {
     this._buildDom();
     this._wireGlobalControls();
     this._bindGlobalKeys();
+    // Refresh grid when custom patterns change (save/delete/rename).
+    this._unsubCustomChange = onCustomPatternsChanged(() => {
+      if (this.visible) this._rebuildGrid();
+    });
+  }
+  // Get all custom patterns as pseudo-Pattern objects compatible with the
+  // built-in registry shape, so the same rendering code works on both.
+  _getCustomPatterns() {
+    const raw = loadCustomPatterns();
+    const meta = loadCustomPatternMeta();
+    const out = [];
+    for (const [name, cells] of Object.entries(raw)) {
+      if (!Array.isArray(cells) || cells.length === 0) continue;
+      const m = meta[name] || {};
+      const normalized = normalizeCells(cells);
+      out.push({
+        id: `custom:${name}`,
+        _customName: name,
+        _isCustom: true,
+        name: `★ ${name}`,
+        category: m.category || CATEGORY.MISC,
+        cells: normalized.cells,
+        width: normalized.width,
+        height: normalized.height,
+        period: m.period != null ? m.period : 1,
+        rulesets: m.rulesets || ['*'],
+        description: m.description || 'User-captured pattern.',
+        tags: m.tags || ['custom'],
+        direction: m.direction || null,
+        source: m.source || 'User',
+        createdAt: m.createdAt || null,
+      });
+    }
+    return out;
   }
 
   // ── DOM construction ─────────────────────────────────────────────
@@ -291,6 +334,14 @@ export class PatternZoo {
                            padding:5px 8px;font-family:inherit;font-size:12px;
                            border-radius:3px;width:160px;">
                 </label>
+                 <label>
+                   Source:
+                   <select id="pz-filter-source" class="pz-select">
+                     <option value="all">All Sources</option>
+                     <option value="builtin">Built-in Only</option>
+                     <option value="custom">★ My Patterns Only</option>
+                   </select>
+                 </label>
                 <label>
                   Category:
                   <select id="pz-filter-category" class="pz-select"></select>
@@ -327,6 +378,7 @@ export class PatternZoo {
                 </label>
                 <button id="pz-pause-all" class="pz-tool-btn">⏸ Pause All</button>
                 <button id="pz-reset-all" class="pz-tool-btn">↺ Reset All</button>
+                 <button id="pz-new-pattern" class="pz-tool-btn" style="color:#ffcc44;border-color:#ffcc44;">+ New Pattern</button>
               </div>
             </div>
             <div id="pattern-zoo-grid"></div>
@@ -351,6 +403,9 @@ export class PatternZoo {
     // Wire core buttons.
     overlay.querySelector('#pattern-zoo-close-button').addEventListener('click', () => this.hide());
     overlay.querySelector('#pz-detail-back').addEventListener('click', () => this._closeDetail());
+    overlay
+      .querySelector('#pz-new-pattern')
+      .addEventListener('click', () => this._openEditorForNew());
     // Click outside content closes detail (but not the zoo).
     this.detailEl.addEventListener('click', (e) => {
       if (e.target === this.detailEl) this._closeDetail();
@@ -364,6 +419,7 @@ export class PatternZoo {
     const catSel = this.overlay.querySelector('#pz-filter-category');
     const ruleSel = this.overlay.querySelector('#pz-filter-ruleset');
     const tagSel = this.overlay.querySelector('#pz-filter-tag');
+    const sourceSel = this.overlay.querySelector('#pz-filter-source');
     // Category options.
     catSel.innerHTML = '<option value="all">All Categories</option>';
     const catLabels = {
@@ -391,7 +447,8 @@ export class PatternZoo {
     }
     // Tags: collect all unique tags from the library.
     const tagSet = new Set();
-    for (const p of listPatterns()) {
+    const allForTags = [...listPatterns(), ...this._getCustomPatterns()];
+    for (const p of allForTags) {
       for (const t of p.tags) tagSet.add(t);
     }
     const tags = Array.from(tagSet).sort();
@@ -418,6 +475,10 @@ export class PatternZoo {
     });
     tagSel.addEventListener('change', () => {
       this.filterTag = tagSel.value;
+      this._rebuildGrid();
+    });
+    sourceSel.addEventListener('change', () => {
+      this.filterSource = sourceSel.value;
       this._rebuildGrid();
     });
   }
@@ -540,7 +601,12 @@ export class PatternZoo {
 
   // ── Grid building ────────────────────────────────────────────────
   _filteredPatterns() {
-    let out = listPatterns();
+    const builtins = listPatterns();
+    const customs = this._getCustomPatterns();
+    let out;
+    if (this.filterSource === 'builtin') out = builtins;
+    else if (this.filterSource === 'custom') out = customs;
+    else out = [...builtins, ...customs];
     if (this.filterCategory !== 'all') {
       out = out.filter((p) => p.category === this.filterCategory);
     }
@@ -582,11 +648,15 @@ export class PatternZoo {
   _buildCard(pattern) {
     const card = document.createElement('div');
     card.className = 'pz-card';
+    if (pattern._isCustom) card.classList.add('pz-card-custom');
     card.dataset.id = pattern.id;
     const catLabel = this._categoryLabel(pattern.category);
     const periodLabel =
       pattern.period > 1 ? `p${pattern.period}` : pattern.period === 1 ? 'static' : '∞';
     const dirLabel = pattern.direction ? `→ ${pattern.direction}` : '';
+    const customBadge = pattern._isCustom
+      ? '<span class="pz-tag pz-tag-custom">★ CUSTOM</span>'
+      : '';
     card.innerHTML = `
           <div class="pz-card-canvas-wrap">
             <canvas class="pz-card-canvas" width="160" height="160"></canvas>
@@ -594,6 +664,7 @@ export class PatternZoo {
           <div class="pz-card-meta">
             <div class="pz-card-name">${this._escape(pattern.name)}</div>
             <div class="pz-card-tags">
+               ${customBadge}
               <span class="pz-tag pz-tag-cat pz-cat-${pattern.category}">${catLabel}</span>
               <span class="pz-tag pz-tag-period">${periodLabel}</span>
               ${dirLabel ? `<span class="pz-tag pz-tag-dir">${dirLabel}</span>` : ''}
@@ -603,6 +674,8 @@ export class PatternZoo {
           <div class="pz-card-actions">
             <button class="pz-card-btn pz-card-reset" title="Reset preview">↺</button>
             <button class="pz-card-btn pz-card-pause" title="Pause preview">⏸</button>
+             ${pattern._isCustom ? '<button class="pz-card-btn pz-card-edit" title="Edit in pattern editor">✏ Edit</button>' : ''}
+             ${pattern._isCustom ? '<button class="pz-card-btn pz-card-delete" title="Delete custom pattern">🗑</button>' : ''}
             ${this.game ? '<button class="pz-card-btn pz-card-place" title="Load into game pattern editor">⊕ Use</button>' : ''}
           </div>
         `;
@@ -641,6 +714,20 @@ export class PatternZoo {
         this._placeInGame(pattern);
       });
     }
+    const editBtn = card.querySelector('.pz-card-edit');
+    if (editBtn) {
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._openEditorForPattern(pattern);
+      });
+    }
+    const delBtn = card.querySelector('.pz-card-delete');
+    if (delBtn) {
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._deleteCustomPattern(pattern);
+      });
+    }
     this.gridEl.appendChild(card);
   }
 
@@ -655,6 +742,38 @@ export class PatternZoo {
       [CATEGORY.MISC]: 'Misc',
     };
     return labels[cat] || cat;
+  }
+  // Open the in-game pattern editor pre-loaded with a custom pattern.
+  // The editor will be opened in "edit mode" so saving updates the existing
+  // pattern rather than creating a new one.
+  _openEditorForPattern(pattern) {
+    if (!this.game || !this.game.drawTools) return;
+    const dt = this.game.drawTools;
+    // Load pattern cells into the editor.
+    dt.loadPatternIntoEditor(
+      pattern.cells,
+      pattern._customName || null,
+      pattern._isCustom ? 'edit' : 'view'
+    );
+    // Open the editor on top of the zoo. The editor has a higher z-index
+    // than the zoo, so it will appear above. We intentionally keep the
+    // zoo open so closing the editor returns the user to the zoo rather
+    // than back to the game.
+    dt._openEditorPanel();
+  }
+  _openEditorForNew() {
+    if (!this.game || !this.game.drawTools) return;
+    const dt = this.game.drawTools;
+    dt.loadPatternIntoEditor([], null, 'new');
+    dt._openEditorPanel();
+  }
+  _deleteCustomPattern(pattern) {
+    if (!pattern._isCustom || !pattern._customName) return;
+    if (!window.confirm(`Delete custom pattern "${pattern._customName}"?`)) return;
+    if (this.game && this.game.patternCapture) {
+      this.game.patternCapture.deleteSaved(pattern._customName);
+      // _rebuildGrid will be triggered automatically via the change subscription.
+    }
   }
 
   _escape(s) {
@@ -698,6 +817,16 @@ export class PatternZoo {
     const sourceHtml = pattern.source
       ? `<div class="pz-detail-row"><strong>Source:</strong> ${this._escape(pattern.source)}</div>`
       : '';
+    const customControls = pattern._isCustom
+      ? `<div class="pz-detail-custom-controls" style="margin-top:14px;padding:10px;background:rgba(255,204,68,0.08);border:1px solid #ffcc44;border-radius:4px;">
+            <strong style="color:#ffcc44;">★ Custom Pattern</strong>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button id="pz-detail-edit-custom" class="pz-tool-btn" style="color:#ffcc44;border-color:#ffcc44;">✏ Edit in Editor</button>
+              <button id="pz-detail-delete-custom" class="pz-tool-btn" style="color:#ff6666;border-color:#ff6666;">🗑 Delete</button>
+              <button id="pz-detail-rename-custom" class="pz-tool-btn">Rename</button>
+            </div>
+          </div>`
+      : '';
     this.detailBodyEl.innerHTML = `
           <h2 class="pz-detail-title">${this._escape(pattern.name)}</h2>
           <div class="pz-detail-id">id: <code>${this._escape(pattern.id)}</code></div>
@@ -740,6 +869,7 @@ export class PatternZoo {
               <div class="pz-detail-row"><strong>Tags:</strong> ${tagHtml}</div>
               ${sourceHtml}
               <div class="pz-detail-desc">${this._escape(pattern.description || '')}</div>
+               ${customControls}
             </div>
           </div>
         `;
@@ -801,6 +931,36 @@ export class PatternZoo {
     const placeBtn = this.detailEl.querySelector('#pz-detail-place');
     if (placeBtn) {
       placeBtn.addEventListener('click', () => this._placeInGame(pattern));
+    }
+    // Wire custom-pattern controls.
+    const editCustomBtn = this.detailEl.querySelector('#pz-detail-edit-custom');
+    if (editCustomBtn) {
+      editCustomBtn.addEventListener('click', () => {
+        this._closeDetail();
+        this._openEditorForPattern(pattern);
+      });
+    }
+    const delCustomBtn = this.detailEl.querySelector('#pz-detail-delete-custom');
+    if (delCustomBtn) {
+      delCustomBtn.addEventListener('click', () => {
+        this._deleteCustomPattern(pattern);
+        this._closeDetail();
+      });
+    }
+    const renameBtn = this.detailEl.querySelector('#pz-detail-rename-custom');
+    if (renameBtn) {
+      renameBtn.addEventListener('click', () => {
+        const newName = window.prompt(`Rename "${pattern._customName}" to:`, pattern._customName);
+        if (!newName || newName === pattern._customName) return;
+        if (this.game && this.game.patternCapture) {
+          const ok = this.game.patternCapture.renamePattern(pattern._customName, newName.trim());
+          if (ok) {
+            this._closeDetail();
+          } else {
+            window.alert(`Could not rename — "${newName}" may already exist.`);
+          }
+        }
+      });
     }
     // Live stats update (uses our main rAF loop).
     this._detailPattern = pattern;

@@ -3,6 +3,42 @@ import { Logger } from './logger.js';
 import { loadJSON, saveJSON } from './storage.js';
 
 const STORAGE_KEY = 'missileDefenseCustomPatterns';
+const STORAGE_KEY_META = 'missileDefenseCustomPatternsMeta';
+/**
+ * Shared module-level access to saved custom patterns. Other modules
+ * (PatternZoo, DrawToolsPanel) read from these to surface custom
+ * patterns without needing a PatternCapture instance.
+ */
+export function loadCustomPatterns() {
+  return loadJSON(STORAGE_KEY, {});
+}
+export function loadCustomPatternMeta() {
+  return loadJSON(STORAGE_KEY_META, {});
+}
+export function saveCustomPatterns(patterns) {
+  saveJSON(STORAGE_KEY, patterns);
+}
+export function saveCustomPatternMeta(meta) {
+  saveJSON(STORAGE_KEY_META, meta);
+}
+export function customKey(name) {
+  return `custom_${name.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+}
+// Simple pub/sub for custom pattern changes so the zoo can refresh live.
+const _listeners = new Set();
+export function onCustomPatternsChanged(fn) {
+  _listeners.add(fn);
+  return () => _listeners.delete(fn);
+}
+export function notifyCustomPatternsChanged() {
+  for (const fn of _listeners) {
+    try {
+      fn();
+    } catch (e) {
+      Logger.warn('custom pattern listener failed', e);
+    }
+  }
+}
 
 /**
  * PatternCapture: lets the user drag-select a rectangular region of the
@@ -30,7 +66,8 @@ export class PatternCapture {
     this._hintEl = null;
     this._nameDialog = null;
     // Custom patterns loaded from localStorage: { name: [[x,y], ...] }
-    this.customPatterns = loadJSON(STORAGE_KEY, {});
+    this.customPatterns = loadCustomPatterns();
+    this.customPatternMeta = loadCustomPatternMeta();
     // Inject saved patterns into the DrawTools preset registry so they
     // appear in the dropdown immediately.
     this._registerAllSaved();
@@ -53,14 +90,14 @@ export class PatternCapture {
     if (!bag) return;
     for (const [name, cells] of Object.entries(this.customPatterns)) {
       // Prefix custom patterns with a star so they're visually distinct.
-      const key = this._customKey(name);
+      const key = customKey(name);
       bag[key] = cells.map((c) => [c[0], c[1]]);
       this._ensureDropdownOption(key, `★ ${name}`);
     }
   }
 
   _customKey(name) {
-    return `custom_${name.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+    return customKey(name);
   }
 
   _ensureDropdownOption(key, label) {
@@ -528,15 +565,31 @@ export class PatternCapture {
   }
 
   // Save a pattern, persist to localStorage, register with DrawTools.
-  _savePattern(name, cells) {
+  _savePattern(name, cells, meta = null) {
     this.customPatterns[name] = cells.map((c) => [c[0], c[1]]);
-    saveJSON(STORAGE_KEY, this.customPatterns);
-    const key = this._customKey(name);
+    if (meta) {
+      this.customPatternMeta[name] = { ...meta };
+    } else if (!this.customPatternMeta[name]) {
+      // Default metadata for newly captured patterns.
+      this.customPatternMeta[name] = {
+        category: 'misc',
+        period: 1,
+        direction: null,
+        description: 'User-captured pattern.',
+        tags: ['custom', 'user'],
+        rulesets: ['*'],
+        createdAt: Date.now(),
+      };
+    }
+    saveCustomPatterns(this.customPatterns);
+    saveCustomPatternMeta(this.customPatternMeta);
+    const key = customKey(name);
     const bag =
       this.drawTools.constructor.PATTERN_PRESETS_REF || this.drawTools.PATTERN_PRESETS_REF;
     if (bag) bag[key] = cells.map((c) => [c[0], c[1]]);
     this._ensureDropdownOption(key, `★ ${name}`);
     Logger.info(`[PatternCapture] Saved pattern "${name}" (${cells.length} cells).`);
+    notifyCustomPatternsChanged();
     // Show a brief confirmation via the renderer.
     if (this.game.renderer && this.game.grid) {
       this.game.renderer.addBigFloater(
@@ -553,8 +606,10 @@ export class PatternCapture {
   _deletePattern(name, { silent = false } = {}) {
     if (!(name in this.customPatterns)) return false;
     delete this.customPatterns[name];
-    saveJSON(STORAGE_KEY, this.customPatterns);
-    const key = this._customKey(name);
+    delete this.customPatternMeta[name];
+    saveCustomPatterns(this.customPatterns);
+    saveCustomPatternMeta(this.customPatternMeta);
+    const key = customKey(name);
     const bag =
       this.drawTools.constructor.PATTERN_PRESETS_REF || this.drawTools.PATTERN_PRESETS_REF;
     if (bag) delete bag[key];
@@ -562,6 +617,7 @@ export class PatternCapture {
     if (!silent) {
       Logger.info(`[PatternCapture] Deleted pattern "${name}".`);
     }
+    notifyCustomPatternsChanged();
     return true;
   }
 
@@ -570,6 +626,7 @@ export class PatternCapture {
     return Object.keys(this.customPatterns).map((name) => ({
       name,
       cells: this.customPatterns[name].length,
+      meta: this.customPatternMeta[name] || null,
     }));
   }
 
@@ -584,5 +641,52 @@ export class PatternCapture {
     for (const n of names) this._deletePattern(n, { silent: true });
     Logger.info(`[PatternCapture] Cleared ${names.length} saved pattern(s).`);
     return names.length;
+  }
+  // Public API: save a pattern from external code (e.g. editor JSON import).
+  savePatternExternal(name, cells, meta) {
+    if (!name || typeof name !== 'string') return false;
+    if (!Array.isArray(cells) || cells.length === 0) return false;
+    this._savePattern(name, cells, meta);
+    return true;
+  }
+  // Public API: update metadata only.
+  updatePatternMeta(name, meta) {
+    if (!(name in this.customPatterns)) return false;
+    this.customPatternMeta[name] = { ...this.customPatternMeta[name], ...meta };
+    saveCustomPatternMeta(this.customPatternMeta);
+    notifyCustomPatternsChanged();
+    return true;
+  }
+  // Public API: get a saved pattern with metadata.
+  getSaved(name) {
+    if (!(name in this.customPatterns)) return null;
+    return {
+      name,
+      cells: this.customPatterns[name].map((c) => [c[0], c[1]]),
+      meta: this.customPatternMeta[name] || null,
+    };
+  }
+  // Public API: rename a pattern.
+  renamePattern(oldName, newName) {
+    if (!(oldName in this.customPatterns)) return false;
+    if (newName === oldName) return true;
+    if (newName in this.customPatterns) return false;
+    this.customPatterns[newName] = this.customPatterns[oldName];
+    this.customPatternMeta[newName] = this.customPatternMeta[oldName] || {};
+    delete this.customPatterns[oldName];
+    delete this.customPatternMeta[oldName];
+    saveCustomPatterns(this.customPatterns);
+    saveCustomPatternMeta(this.customPatternMeta);
+    // Update dropdown.
+    this._removeDropdownOption(customKey(oldName));
+    const bag =
+      this.drawTools.constructor.PATTERN_PRESETS_REF || this.drawTools.PATTERN_PRESETS_REF;
+    if (bag) {
+      delete bag[customKey(oldName)];
+      bag[customKey(newName)] = this.customPatterns[newName].map((c) => [c[0], c[1]]);
+    }
+    this._ensureDropdownOption(customKey(newName), `★ ${newName}`);
+    notifyCustomPatternsChanged();
+    return true;
   }
 }

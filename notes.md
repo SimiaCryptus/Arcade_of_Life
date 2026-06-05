@@ -1,3 +1,0 @@
-- bug: cannot view help of
-- Re-name and Re-theme everything: This is now "The Game of Annihilation" as a play on the annihilation mechanic. describe friendly paint as "life" and enemy paint as "anti-life".
--
