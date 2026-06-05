@@ -8,7 +8,7 @@
 const LEVELS = {debug: 10, info: 20, warn: 30, error: 40, silent: 100};
 const PREFIX = '[ArcadeOfLife]';
 
-let currentLevel = LEVELS.info;
+let currentLevel = LEVELS.debug;
 
 // Attempt to read level override from localStorage. Guarded because
 // localStorage may be unavailable (private mode, SSR contexts).

@@ -116,8 +116,12 @@ export class Simulation {
     nextColor.fill(0);
     nextDir.fill(0);
 
-    const defenseMaxAge = CONFIG.CELL_MAX_AGE_TICKS;
-    const missileMaxAge = CONFIG.MISSILE_MAX_AGE_TICKS;
+         const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
+         const defenseMaxAge = CONFIG.CELL_MAX_AGE_TICKS;
+         const missileMaxAge = CONFIG.MISSILE_MAX_AGE_TICKS;
+         // When set to the sentinel, treat as effectively infinite (skip age expiry).
+         const defenseAgeUnlimited = defenseMaxAge >= UNLIMITED;
+         const missileAgeUnlimited = missileMaxAge >= UNLIMITED;
     const cascadeTicks = CONFIG.MISSILE_CASCADE_TICKS;
     const defenseVariants = CONFIG.COLORS.DEFENSE_VARIANTS.length;
     const missileVariants = CONFIG.COLORS.MISSILE_VARIANTS.length;
@@ -177,7 +181,7 @@ export class Simulation {
     const ageDespawn = this._ageDespawn;
     ageDespawn.fill(0);
     // When enemies are frozen, skip aging entirely.
-    if (!freezeEnemies) {
+     if (!freezeEnemies && !missileAgeUnlimited) {
       for (let i = 0; i < cells.length; i++) {
         if (cells[i] === CELL_TYPE.MISSILE && age[i] >= missileMaxAge) {
           ageDespawn[i] = 1;
@@ -275,7 +279,8 @@ export class Simulation {
         if (t === CELL_TYPE.DEFENSE || t === CELL_TYPE.MISSILE) {
           const currentAge = age[i];
           const maxForType = t === CELL_TYPE.MISSILE ? missileMaxAge : defenseMaxAge;
-          if ((ln === 2 || ln === 3) && currentAge < maxForType) {
+               const ageUnlimited = t === CELL_TYPE.MISSILE ? missileAgeUnlimited : defenseAgeUnlimited;
+               if ((ln === 2 || ln === 3) && (ageUnlimited || currentAge < maxForType)) {
             next[i] = t;
             nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;
             nextColor[i] = color[i];

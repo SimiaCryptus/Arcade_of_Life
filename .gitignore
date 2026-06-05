@@ -33,3 +33,7 @@ bin/
 .DS_Store
 node_modules/
 *-lock.json
+*.hcl
+*.tfstate
+.terraform
+terraform.tfstate

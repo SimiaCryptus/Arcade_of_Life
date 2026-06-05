@@ -1,12 +1,12 @@
-# Missile Defense: Game of Life
+# The Arcade of Life
 
-A frantic, cerebral arcade defense game where Conway's **Game of Life** is the
-physics engine, your **ink** is ammunition, and every cell you draw is both a
-weapon and a liability. Paint living defenses across the lower half of the
-screen, watch them evolve under Life's rules, and pray they survive long
-enough to annihilate the gliders descending toward your cities.
+A frantic, cerebral arcade game where Conway's **Game of Life** is the
+physics engine, your **ink** is your brush, and every cell you draw is both a
+weapon and a liability. Paint living structures across the lower half of the
+screen, watch them evolve under Life's rules, and engineer collisions that
+annihilate the gliders descending toward your cities.
 
-> **Genre:** Action / Puzzle / Tower Defense
+> **Genre:** Action / Puzzle / Strategy
 > **Engine:** Pure HTML5 Canvas + ES Modules — no frameworks, no dependencies.
 > **Sim Backends:** CPU (bitpacked) or GPU (WebGL2) — auto-selected by grid size.
 
@@ -14,19 +14,19 @@ enough to annihilate the gliders descending toward your cities.
 
 ## Introduction
 
-The sky is falling — and it's *alive*. In **Missile Defense: Game of Life**,
-enemy missiles aren't dumb projectiles; they're **gliders**, **spaceships**,
-and **glider guns** straight out of Conway's cellular automaton, descending
-inexorably toward the cities you've sworn to protect.
+The grid is alive — and so is the threat. In **The Arcade of Life**,
+enemy patterns aren't dumb projectiles; they're **gliders**, **spaceships**,
+and **glider guns** straight out of Conway's cellular automaton, evolving and
+descending inexorably toward the cities you've sworn to protect.
 
-Your only weapon is **ink**. Drag your cursor across the bottom half of the
-grid to paint defensive cells. When you release the mouse, your ink *dries*
-into living defenses that obey the same Life rules as the incoming threats.
+Your only tool is **ink**. Drag your cursor across the bottom half of the
+grid to paint living cells. When you release the mouse, your ink *dries*
+into active structures that obey the same Life rules as the incoming threats.
 A lone cell dies of loneliness. A square of four cells will sit forever like
 a stone wall. A glider you stamp upward will fly into the enemy's spawn line
 and detonate their formations.
 
-Every cell is both **shield and shrapnel**. Every stroke is a tradeoff
+Every cell is both **creation and consequence**. Every stroke is a tradeoff
 between coverage and chaos. Master the rules — or watch your cities burn.
 
 ---
@@ -35,13 +35,13 @@ between coverage and chaos. Master the rules — or watch your cities burn.
 
 The grid is divided into **two halves**:
 
-- The **upper half** belongs to the enemy. Missiles spawn here as gliders
-  and descend toward your cities. You cannot draw here.
+- The **upper half** belongs to the enemy. Hostile patterns spawn here as
+  gliders and descend toward your cities. You cannot draw here.
 - The **lower half** is yours to paint. Anything you draw becomes part of
   the same Game of Life simulation — your cells evolve, reproduce, and die
-  under Conway's rules just like the missiles do.
+  under Conway's rules just like the enemy patterns do.
 
-When a **missile cell** (red/orange) and a **defense cell** (green/cyan)
+When a **hostile cell** (red/orange) and a **defense cell** (green/cyan)
 end up adjacent in the same tick, they **annihilate** each other in a
 small explosion. Your job is to engineer those collisions before missiles
 reach your **cities** (yellow blocks at the bottom).
@@ -65,12 +65,12 @@ ones kill.
    (deepening green) before becoming an active defense cell.
 4. **Watch the simulation evolve.** Your defenses will reproduce, decay,
    or stabilize based on Conway's rules.
-5. **Block the missiles.** When red enemy cells touch your green cells,
-   both die in an explosion.
+5. **Engineer collisions.** When red enemy cells touch your green cells,
+    both die in an explosion.
 6. **Protect your cities.** If even one missile cell touches a city, you
    lose part of that city. Lose all your cities and the game ends.
-7. **Survive waves.** Each wave brings more missiles, faster spawns, and
-   (eventually) deadlier patterns like glider guns.
+7. **Survive waves.** Each wave brings more hostile patterns, faster spawns,
+    and (eventually) deadlier formations like glider guns.
 
 ---
 
@@ -95,28 +95,28 @@ A single dark strip across the top displays your vital stats:
 
 The main grid where the game happens. Visual zones are clearly marked:
 
-- **Top sliver** — Enemy spawn line. Missiles appear here.
+- **Draw Zone** (subtle green tint, bottom) — Where you paint defenses.
+- **Top sliver** — Enemy spawn line. Hostile patterns appear here.
 - **Base Zone** (amber tint, top) — Static enemy bases and horizontal
   cruisers spawn here. Bases must be destroyed to clear the wave.
-- **Middle** — Neutral combat zone. Missiles descend; defenses cannot be
-  drawn here. Most explosions happen here.
-- **Draw Zone** (subtle green tint, bottom) — Where you paint defenses.
+- **Middle** — Neutral combat zone. Enemy patterns descend; defenses cannot
+  be drawn here. Most explosions happen here.
   A pulsing dashed cyan line marks the top boundary; a dashed red line
   marks the rear dead zone above the cities.
 - **Cities** (yellow blocks) — Your win condition. Lose them all and the
   game ends.
-- **Rear Dead Zone** (red tint, very bottom) — If a missile slips into
+- **Rear Dead Zone** (red tint, very bottom) — If a hostile cell slips into
   this strip, it counts as a **BREACH!** — you lose score and the
-  missile explodes.
+  cell explodes.
 
 Visual feedback is everywhere:
 
 - **Wet ink** (translucent green) → freshly drawn, still drying.
 - **Drying ink** (darkening green) → committing in real time.
 - **Active defenses** (bright green/cyan) → alive and evolving.
-- **Missile cells** (red/orange with glow) → enemy, descending.
 - **Explosions** (orange flash) → annihilation events.
 - **Particles, shockwaves, screen shake** → fire feedback for impacts,
+- **Enemy cells** (red/orange with glow) → hostile patterns, descending.
   ricochets, and base destruction.
 - **Floating text** ("RETURN FIRE!", "RICOCHET!", "CITY HIT!") →
   narrates significant events as they happen.
@@ -179,8 +179,8 @@ All of these are tunable in **Settings** if you want a different feel.
   undoing a stroke refunds the full ink cost.
 
 Running out of ink mid-stroke isn't lethal — you just can't draw more
-until it regenerates. But timing matters: a wave can overwhelm you while
-your reservoir refills.
+until it regenerates. But timing matters: a wave of hostile patterns can
+overwhelm you while your reservoir refills.
 
 ### Drawing & Drying
 
@@ -211,7 +211,7 @@ The Game of Life has just three rules:
 3. **Death.** Anything else dies — of loneliness (<2) or overcrowding
    (>3).
 
-These rules apply to **both your defenses and the enemy missiles**.
+These rules apply to **both your defenses and the enemy patterns**.
 Internalize them or perish:
 
 - A single isolated cell dies on the next tick. **Always draw in clusters.**
@@ -223,15 +223,15 @@ Internalize them or perish:
 
 ### Collisions & Annihilation
 
-Whenever a **missile cell** is adjacent (8-neighborhood) to a **defense
+Whenever a **hostile cell** is adjacent (8-neighborhood) to a **defense
 cell** at the start of a tick:
 
 - **Both cells are destroyed** and become explosions (which last a few
   ticks before fading).
-- The player **scores +10** for the missile kill.
 - A particle burst and small shockwave fire visually.
-- If the missile was *also* adjacent to a city, the **city cell** is
-  destroyed too.
+- The player **scores +10** for the kill.
+- If the hostile cell was *also* adjacent to a city, the **city cell** is
+   destroyed too.
 
 City cells follow special rules:
 
@@ -247,8 +247,8 @@ To prevent permanent "fortress" walls and endless missile clouds, every
 cell ages:
 
 - **Defense cells** die after **200 ticks** (~20 seconds at default speed).
-- **Missile cells** die after **150 ticks** (~15 seconds).
-- **Cascade despawn**: when a missile cell expires, any neighbor missile
+- **Enemy cells** die after **150 ticks** (~15 seconds).
+- **Cascade despawn**: when an enemy cell expires, any neighboring enemy
   cell within **20 ticks** of its own expiry *also* despawns. This
   creates dramatic chain reactions when you bait enemy formations into
   tangling with each other.
@@ -259,7 +259,7 @@ must keep painting and reinforcing.
 
 ### Return Fire & Ricochets
 
-If a **missile cell** somehow ends up in the top dead zone (rows 0–4)
+If a **hostile cell** somehow ends up in the top dead zone (rows 0–4)
 via Life evolution — for example, because your defenses bounced a
 glider's trajectory upward — that's called **return fire** or a
 **ricochet**:
@@ -279,7 +279,7 @@ destroy stationary enemy bases.
 
 ### Enemy Threats
 
-The enemy roster, in roughly increasing difficulty:
+The enemy pattern roster, in roughly increasing difficulty:
 
 | Pattern                           | Behavior                                                                                        |
 |-----------------------------------|-------------------------------------------------------------------------------------------------|
@@ -315,11 +315,11 @@ Recommended for veterans only. Not the default.
 A hidden lever for advanced play: configure how often **defenders**
 tick vs. **attackers**.
 
-- `DEFENDER_TICKS = 2, ATTACKER_TICKS = 1` → your defenses evolve
-  **twice as fast** as the enemy. Easier game.
-- `DEFENDER_TICKS = 1, ATTACKER_TICKS = 2` → enemy moves twice as
-  fast. Brutal.
 - Default is `1:1` — both tick together.
+- `DEFENDER_TICKS = 2, ATTACKER_TICKS = 1` → your defenses evolve
+  **twice as fast** as the enemy patterns. Easier game.
+- `DEFENDER_TICKS = 1, ATTACKER_TICKS = 2` → enemy patterns evolve
+  twice as fast. Brutal.
 
 Settable in the Settings panel.
 
@@ -610,4 +610,4 @@ Synthesized SFX via Web Audio API — no external assets.
 
 ---
 
-**Now stop reading. Your cities are burning. Go draw.**
+**Now stop reading. The grid is alive. Go draw.**

@@ -134,6 +134,20 @@ class Game {
      });
     // Drawing tools panel (mode switcher, line width/dash, pattern editor).
     this.drawTools = new DrawToolsPanel(this.input);
+    // Auto-pause when pattern editor overlay opens; restore on close.
+    this._editorPauseSpeed = null;
+    this.drawTools.onEditorOpen = () => {
+      this._editorPauseSpeed = CONFIG.SPEED_MULTIPLIER;
+      CONFIG.SPEED_MULTIPLIER = 0;
+      if (this.speedLabel) this.speedLabel.textContent = 'PAUSED (editor)';
+    };
+    this.drawTools.onEditorClose = () => {
+      if (this._editorPauseSpeed != null) {
+        CONFIG.SPEED_MULTIPLIER = this._editorPauseSpeed;
+        this._editorPauseSpeed = null;
+      }
+      if (this.speedSlider) this._applySpeedFromSlider();
+    };
     // Story engine. Adds Story Mode button to menu, runs chapters,
     // changes moods, unlocks presets, adapts difficulty.
     this.story = new StoryEngine({
@@ -180,6 +194,20 @@ class Game {
       this.ingameSettingsButton.addEventListener('click', () => this.openIngameSettings());
       this._updateIngameSettingsButton();
     }
+        // Wire the exit-to-menu button here as the primary handler.
+        // (DrawToolsPanel previously bound this; centralizing in main.js
+        // ensures it works even if DrawToolsPanel construction fails.)
+        const exitBtn = document.getElementById('exit-to-menu-button');
+        if (exitBtn) {
+          exitBtn.addEventListener('click', (e) => {
+            Logger.info('[Game] Exit button clicked.');
+            e.preventDefault();
+            e.stopPropagation();
+            this.exitToMenu();
+          });
+        } else {
+          Logger.error('[Game] exit-to-menu-button not found in DOM!');
+        }
      // Fullscreen toggle button.
      if (this.fullscreenButton) {
        this.fullscreenButton.addEventListener('click', () => toggleFullscreen());
@@ -195,6 +223,23 @@ class Game {
     this._initKeyboardShortcuts();
     this._initHotkeyHelp();
     window.addEventListener('resize', () => this._onWindowResize());
+    // Diagnostic: log any click that hits the exit/edit buttons or their parents.
+    document.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!target || !target.id) return;
+      if (target.id === 'exit-to-menu-button' ||
+          target.id === 'pattern-editor-toggle') {
+        Logger.info(`[Diag] Global click captured on #${target.id}`, {
+          defaultPrevented: e.defaultPrevented,
+          eventPhase: e.eventPhase,
+          bubbles: e.bubbles,
+          target: target.tagName,
+          disabled: target.disabled,
+          offsetParent: !!target.offsetParent,
+          rect: target.getBoundingClientRect(),
+        });
+      }
+    }, true); // capture phase
 
     this.showOverlay('The Arcade of Life',
       `Defend your cities from incoming missiles!<br>
@@ -250,6 +295,27 @@ class Game {
     console.log('  window.cheats      - cheat shortcuts (try cheats.help())');
     console.log('  window.MD          - namespaced bundle');
     console.log('  ArcadeOfLifeLogger.setLevel("debug") for verbose logs');
+    // Diagnostic dump of button state on startup.
+    setTimeout(() => {
+      const exitBtn = document.getElementById('exit-to-menu-button');
+      const editBtn = document.getElementById('pattern-editor-toggle');
+      console.log('%c[ArcadeOfLife] Button diagnostics:', css);
+      console.log('  exit-to-menu-button:', exitBtn ? {
+        exists: true,
+        visible: !!exitBtn.offsetParent,
+        disabled: exitBtn.disabled,
+        rect: exitBtn.getBoundingClientRect(),
+        computed: exitBtn.offsetParent ? window.getComputedStyle(exitBtn).pointerEvents : 'N/A',
+      } : 'MISSING');
+      console.log('  pattern-editor-toggle:', editBtn ? {
+        exists: true,
+        visible: !!editBtn.offsetParent,
+        disabled: editBtn.disabled,
+        rect: editBtn.getBoundingClientRect(),
+        computed: editBtn.offsetParent ? window.getComputedStyle(editBtn).pointerEvents : 'N/A',
+      } : 'MISSING');
+      console.log('  drawTools instance:', window.game && window.game.drawTools ? 'CONSTRUCTED' : 'MISSING');
+    }, 100);
   }
 
   _makeCheats() {
@@ -1196,6 +1262,62 @@ this.simulation.onMissileReturn = (x, y, kind) => {
     if (!this.ingameSettingsButton) return;
     this.ingameSettingsButton.style.display =
       CONFIG.IN_PLAY_SETTINGS_ENABLED ? '' : 'none';
+  }
+  // Return to the main menu from an active game (or anywhere else).
+  // Prompts for confirmation if a game is in progress.
+  exitToMenu() {
+    // Only confirm if a game is actually in progress.
+    const inGame = this.gameState.is(STATE.PLAYING) ||
+                   this.gameState.is(STATE.WAVE_TRANSITION);
+    if (inGame) {
+      const confirmed = window.confirm(
+        'Exit to main menu? Your current game will be lost.');
+      if (!confirmed) return;
+    }
+    Logger.info('Exiting to main menu.');
+    // Stop story mode if active.
+    if (this.story && this.story.isActive()) {
+      this.story.stopStory();
+    }
+    // Uninstall free-play abilities so the legacy button hides.
+    if (this.freeplayAbilities) {
+      this.freeplayAbilities.uninstall();
+    }
+    // Release wake lock; the menu shouldn't keep the screen on.
+    releaseWakeLock();
+    // Cancel any in-progress drawing.
+    if (this.input) this.input.cancelDrawing();
+    // Reset speed to 1x so resuming doesn't start paused at weird speed.
+    CONFIG.SPEED_MULTIPLIER = 1.0;
+    if (this.speedSlider) {
+      const idx = SPEED_PRESETS.findIndex(p => p.value === 1.0);
+      this.speedSlider.value = String(idx >= 0 ? idx : 3);
+      this._applySpeedFromSlider();
+    }
+    // Clear board state so the next start is clean.
+    if (this.grid) {
+      this.grid.cells.fill(0);
+      this.grid.pending.fill(0);
+      this.grid.pendingDry.fill(0);
+      this.grid.explosionTimers.fill(0);
+      this.grid.cellAge.fill(0);
+      this.grid.cellColor.fill(0);
+      this.grid.cellDir.fill(0);
+    }
+    // Transition back to menu state.
+    this.gameState.set(STATE.MENU);
+    // Show the main menu overlay.
+    this.showOverlay(
+      'The Arcade of Life',
+      `Defend your cities from incoming missiles!<br>
+       Draw defensive patterns on the bottom half of the screen.<br>
+       Released cells evolve via Conway's Game of Life.<br><br>
+       <strong>Click and drag</strong> to draw defenses.<br>
+       Release to commit them to the simulation.<br><br>
+       <strong>Hotkeys:</strong> Space = pause/resume, [ / ] = slower/faster, 0-8 = speed preset<br><br>
+       High Score: ${this.hud.highScore}`,
+      'Start Game'
+    );
   }
 
 

@@ -27,11 +27,11 @@ export const CONFIG = {
   MISSILES_PER_WAVE_INC: 3,
   // Cell aging: cells of DEFENSE/MISSILE type that survive this many ticks
   // are automatically removed. At TICK_RATE=100ms, 200 ticks = 20 seconds.
-  CELL_MAX_AGE_TICKS: 200,
+CELL_MAX_AGE_TICKS: 999999,
   // Separate max age for missile cells. When a missile cell expires, it despawns
   // with 100% chance, and any neighboring missile cells within
   // MISSILE_CASCADE_TICKS of their own expiry also despawn.
-  MISSILE_MAX_AGE_TICKS: 150,
+MISSILE_MAX_AGE_TICKS: 999999,
   MISSILE_CASCADE_TICKS: 20, // ~2 seconds at TICK_RATE=100ms
 
   // Cities
@@ -126,6 +126,9 @@ export const CONFIG = {
    BASE_GLIDER_BUFFER: 4,
 
 
+// Any value >= this threshold is treated as unlimited in the simulation.
+UNLIMITED_SENTINEL: 999999,
+
   // Colors
   COLORS: {
     BACKGROUND: '#000010',
@@ -218,7 +221,7 @@ export const GAME_MODE_PRESETS = [
        MISSILE_SPAWN_DECREMENT: 20,
        GLIDER_SE: true, GLIDER_SW: false, GLIDER_HEAVY: false,
        GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: false, GLIDER_GUN: false,
-       CELL_MAX_AGE_TICKS: 400, MISSILE_MAX_AGE_TICKS: 180,
+      CELL_MAX_AGE_TICKS: 999999, MISSILE_MAX_AGE_TICKS: 999999,
        INK_DRY_TICKS: 2, HARDCORE_MODE: false,
        BASE_SPAWN_ENABLED: false,
        CITY_COUNT: 5,
@@ -235,7 +238,7 @@ export const GAME_MODE_PRESETS = [
        MISSILE_SPAWN_DECREMENT: 75,
        GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: false,
        GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: false, GLIDER_GUN: false,
-       CELL_MAX_AGE_TICKS: 200, MISSILE_MAX_AGE_TICKS: 150,
+      CELL_MAX_AGE_TICKS: 999999, MISSILE_MAX_AGE_TICKS: 999999,
        INK_DRY_TICKS: 5, HARDCORE_MODE: false,
        BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 1, BASE_SPAWN_COUNT_INC: 0.5,
        CITY_COUNT: 5,
@@ -252,7 +255,7 @@ export const GAME_MODE_PRESETS = [
        MISSILE_SPAWN_DECREMENT: 60,
        GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: true,
        GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: true, GLIDER_GUN: false,
-       CELL_MAX_AGE_TICKS: 120, MISSILE_MAX_AGE_TICKS: 90,
+      CELL_MAX_AGE_TICKS: 120, MISSILE_MAX_AGE_TICKS: 120,
        INK_DRY_TICKS: 2, HARDCORE_MODE: false,
        BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 2, BASE_SPAWN_COUNT_INC: 0.75,
        CITY_COUNT: 5,
@@ -269,7 +272,7 @@ export const GAME_MODE_PRESETS = [
        MISSILE_SPAWN_DECREMENT: 50,
        GLIDER_SE: false, GLIDER_SW: false, GLIDER_HEAVY: false,
        GLIDER_LWSS: true, GLIDER_MWSS: true, GLIDER_TWIN: true, GLIDER_GUN: false,
-       CELL_MAX_AGE_TICKS: 250, MISSILE_MAX_AGE_TICKS: 160,
+      CELL_MAX_AGE_TICKS: 999999, MISSILE_MAX_AGE_TICKS: 999999,
        INK_DRY_TICKS: 4, HARDCORE_MODE: false,
        BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 1, BASE_SPAWN_COUNT_INC: 0.5,
        CITY_COUNT: 5,
@@ -286,7 +289,7 @@ export const GAME_MODE_PRESETS = [
        MISSILE_SPAWN_DECREMENT: 40,
        GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: true,
        GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: false, GLIDER_GUN: false,
-       CELL_MAX_AGE_TICKS: 300, MISSILE_MAX_AGE_TICKS: 200,
+      CELL_MAX_AGE_TICKS: 999999, MISSILE_MAX_AGE_TICKS: 999999,
        INK_DRY_TICKS: 4, HARDCORE_MODE: false,
        BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 3, BASE_SPAWN_COUNT_INC: 1.0,
        BASE_SPAWN_MAX: 8,
@@ -304,7 +307,7 @@ export const GAME_MODE_PRESETS = [
        MISSILE_SPAWN_DECREMENT: 60,
        GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: true,
        GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: false, GLIDER_GUN: false,
-       CELL_MAX_AGE_TICKS: 180, MISSILE_MAX_AGE_TICKS: 130,
+      CELL_MAX_AGE_TICKS: 999999, MISSILE_MAX_AGE_TICKS: 300,
        INK_DRY_TICKS: 4, HARDCORE_MODE: true,
        BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 2, BASE_SPAWN_COUNT_INC: 0.75,
        CITY_COUNT: 4,
@@ -321,7 +324,7 @@ export const GAME_MODE_PRESETS = [
        MISSILE_SPAWN_DECREMENT: 15,
        GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: false,
        GLIDER_LWSS: false, GLIDER_MWSS: false, GLIDER_TWIN: false, GLIDER_GUN: false,
-       CELL_MAX_AGE_TICKS: 600, MISSILE_MAX_AGE_TICKS: 300,
+      CELL_MAX_AGE_TICKS: 999999, MISSILE_MAX_AGE_TICKS: 999999,
        INK_DRY_TICKS: 1, HARDCORE_MODE: false,
        BASE_SPAWN_ENABLED: false,
        CITY_COUNT: 6,
@@ -338,7 +341,7 @@ export const GAME_MODE_PRESETS = [
        MISSILE_SPAWN_DECREMENT: 80,
        GLIDER_SE: true, GLIDER_SW: true, GLIDER_HEAVY: true,
        GLIDER_LWSS: true, GLIDER_MWSS: true, GLIDER_TWIN: true, GLIDER_GUN: true,
-       CELL_MAX_AGE_TICKS: 200, MISSILE_MAX_AGE_TICKS: 120,
+      CELL_MAX_AGE_TICKS: 999999, MISSILE_MAX_AGE_TICKS: 999999,
        INK_DRY_TICKS: 2, HARDCORE_MODE: false,
        BASE_SPAWN_ENABLED: true, BASE_SPAWN_COUNT_BASE: 3, BASE_SPAWN_COUNT_INC: 1.0,
        BASE_SPAWN_MAX: 8,

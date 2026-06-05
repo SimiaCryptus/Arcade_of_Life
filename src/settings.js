@@ -106,6 +106,12 @@ DEFAULTS.CUSTOM_GRID_HEIGHT = 100;
 DEFAULTS.GAME_MODE_ID = 'custom';
 // Numeric settings added in v2
 DEFAULTS.BASE_GLIDER_BUFFER = CONFIG.BASE_GLIDER_BUFFER;
+// Unlimited toggles (true = the corresponding numeric setting is ignored / treated as ∞)
+DEFAULTS.UNLIMITED_MAX_INK = false;
+DEFAULTS.UNLIMITED_INK_REGEN = false;
+DEFAULTS.UNLIMITED_CELL_AGE = true;
+DEFAULTS.UNLIMITED_MISSILE_AGE = true;
+DEFAULTS.UNLIMITED_MISSILE_CASCADE = false;
 
 export class Settings {
     constructor() {
@@ -144,6 +150,13 @@ export class Settings {
             for (const def of BOOLEAN_SETTING_DEFS) {
                 CONFIG[def.key] = this.values[def.key];
             }
+            // Apply unlimited overrides — when the "unlimited" toggle is on,
+            // write the sentinel value into CONFIG regardless of the slider.
+            if (this.values.UNLIMITED_MAX_INK) CONFIG.MAX_INK = 999999;
+            if (this.values.UNLIMITED_INK_REGEN) CONFIG.INK_REGEN_RATE = 999999;
+            if (this.values.UNLIMITED_CELL_AGE) CONFIG.CELL_MAX_AGE_TICKS = 999999;
+            if (this.values.UNLIMITED_MISSILE_AGE) CONFIG.MISSILE_MAX_AGE_TICKS = 999999;
+            if (this.values.UNLIMITED_MISSILE_CASCADE) CONFIG.MISSILE_CASCADE_TICKS = 999999;
             // Apply resolution preset.
             const idx = Math.max(0, Math.min(RESOLUTION_PRESETS.length - 1,
                 this.values.RESOLUTION_INDEX | 0));
@@ -235,6 +248,7 @@ export class SettingsPanel {
         this._initCustomResInputs();
         this._initInputs();
         this._initBooleanInputs();
+        this._initUnlimitedCheckboxes();
         this._initGameModeSelect();
         this.backButton.addEventListener('click', () => this.hide());
         this.resetButton.addEventListener('click', () => this._onReset());
@@ -432,6 +446,88 @@ export class SettingsPanel {
             if (seInput) seInput.checked = true;
         }
     }
+    // ---- Unlimited checkbox wiring ----
+    // Maps: { valueKey, checkboxId, sliderId, valueId, label }
+    static get UNLIMITED_DEFS() {
+        return [
+            {
+                valueKey: 'UNLIMITED_MAX_INK',
+                checkboxId: 'setting-unlimited-max-ink',
+                sliderId: 'setting-max-ink',
+                valueId: 'setting-max-ink-value',
+                label: '∞',
+            },
+            {
+                valueKey: 'UNLIMITED_INK_REGEN',
+                checkboxId: 'setting-unlimited-ink-regen',
+                sliderId: 'setting-ink-regen',
+                valueId: 'setting-ink-regen-value',
+                label: '∞',
+            },
+            {
+                valueKey: 'UNLIMITED_CELL_AGE',
+                checkboxId: 'setting-unlimited-cell-age',
+                sliderId: 'setting-cell-age',
+                valueId: 'setting-cell-age-value',
+                label: '∞',
+            },
+            {
+                valueKey: 'UNLIMITED_CELL_AGE',
+                checkboxId: 'setting-unlimited-cell-age-adv',
+                sliderId: 'setting-cell-age-adv',
+                valueId: 'setting-cell-age-adv-value',
+                label: '∞',
+            },
+            {
+                valueKey: 'UNLIMITED_MISSILE_AGE',
+                checkboxId: 'setting-unlimited-missile-age',
+                sliderId: 'setting-missile-age',
+                valueId: 'setting-missile-age-value',
+                label: '∞',
+            },
+            {
+                valueKey: 'UNLIMITED_MISSILE_CASCADE',
+                checkboxId: 'setting-unlimited-cascade',
+                sliderId: 'setting-cascade-ticks',
+                valueId: 'setting-cascade-ticks-value',
+                label: '∞',
+            },
+        ];
+    }
+    _initUnlimitedCheckboxes() {
+        for (const def of SettingsPanel.UNLIMITED_DEFS) {
+            const cb = document.getElementById(def.checkboxId);
+            if (!cb) continue;
+            cb.addEventListener('change', () => {
+                this.settings.values[def.valueKey] = cb.checked;
+                this.settings.apply();
+                this.settings.save();
+                this._applyUnlimitedState(def);
+            });
+        }
+    }
+    _applyUnlimitedState(def) {
+        const cb = document.getElementById(def.checkboxId);
+        const slider = document.getElementById(def.sliderId);
+        const valueEl = document.getElementById(def.valueId);
+        if (!cb || !slider) return;
+        const unlimited = cb.checked;
+        slider.disabled = unlimited;
+        slider.style.opacity = unlimited ? '0.35' : '';
+        if (valueEl) valueEl.textContent = unlimited ? '∞' : slider.value;
+    }
+    _syncUnlimitedCheckboxes() {
+        // Deduplicate by valueKey so we don't double-apply for the mirrored
+        // cell-age slider (Drawing tab + Advanced tab share the same valueKey).
+        const seen = new Set();
+        for (const def of SettingsPanel.UNLIMITED_DEFS) {
+            const cb = document.getElementById(def.checkboxId);
+            if (!cb) continue;
+            cb.checked = !!this.settings.values[def.valueKey];
+            this._applyUnlimitedState(def);
+            seen.add(def.valueKey);
+        }
+    }
 
     _syncInputs() {
         for (const { def, input, valueEl } of this.bindings) {
@@ -461,12 +557,14 @@ export class SettingsPanel {
         this.settings.reset();
         this._syncInputs();
         this._syncGameModeSelect();
+        this._syncUnlimitedCheckboxes();
         if (this.onResolutionChange) this.onResolutionChange();
     }
 
     show() {
         this._syncInputs();
         this._syncGameModeSelect();
+        this._syncUnlimitedCheckboxes();
         this.overlay.classList.remove('hidden');
     }
 

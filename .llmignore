@@ -3,3 +3,5 @@ console_guide.md
 .idea/
 *.md
 *.log
+src/story.js
+*.png

@@ -374,6 +374,25 @@ body {
   color: #ff8888;
   box-shadow: none;
 }
+/* ---------- Exit to Menu Button ---------- */
+#exit-to-menu-button {
+   background: transparent;
+   color: #ff6666;
+   border: 1px solid #ff6666;
+   padding: 4px 10px;
+   font-size: 12px;
+   font-family: inherit;
+   cursor: pointer;
+   border-radius: 3px;
+   font-weight: bold;
+   transition: all 0.2s;
+   margin-left: auto;
+}
+#exit-to-menu-button:hover {
+   background: #ff6666;
+   color: #000010;
+   box-shadow: 0 0 10px #ff6666;
+}
 
 #draw-tools {
   display: flex;
@@ -446,12 +465,176 @@ body {
   background: #000010;
   cursor: pointer;
   image-rendering: pixelated;
+  /* Larger interactive area in the overlay. */
+  width: 360px;
+  height: 360px;
+  max-width: 80vmin;
+  max-height: 60vh;
 }
 
 .pattern-buttons {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+/* ---------- Pattern preset row + collapsible editor ---------- */
+.pattern-preset-row {
+   display: flex;
+   align-items: center;
+   gap: 6px;
+}
+#pattern-editor-toggle {
+   background: transparent;
+   color: #00ffff;
+   border: 1px solid #00ffff;
+      padding: 4px 12px;
+      font-size: 12px;
+   font-family: inherit;
+   cursor: pointer;
+   border-radius: 3px;
+   transition: all 0.15s;
+   white-space: nowrap;
+      font-weight: bold;
+}
+#pattern-editor-toggle:hover {
+   background: rgba(0, 255, 255, 0.15);
+      box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+}
+#pattern-editor-toggle.active {
+   background: #00ffff;
+   color: #000010;
+      box-shadow: 0 0 10px #00ffff;
+}
+   #pattern-editor-toggle-group {
+      display: flex;
+      align-items: center;
+   }
+/* ---------- Pattern Editor Overlay ---------- */
+#pattern-editor-overlay {
+   z-index: 13;
+}
+#pattern-editor-content {
+   text-align: center;
+   padding: 28px 36px;
+   border: 2px solid #00ffff;
+   background: rgba(10, 10, 30, 0.96);
+   border-radius: 8px;
+   max-width: 90vw;
+   max-height: 92vh;
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
+   animation: editorOverlayIn 0.18s ease-out;
+}
+#pattern-editor-title {
+   font-size: 28px;
+   color: #00ffff;
+   margin-bottom: 6px;
+   text-shadow: 0 0 10px #00ffff;
+   letter-spacing: 1px;
+}
+#pattern-editor-subtitle {
+   color: #a0a0c0;
+   font-size: 13px;
+   margin-bottom: 18px;
+   font-style: italic;
+}
+#pattern-editor-panel {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   gap: 16px;
+}
+.pattern-editor-controls {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   gap: 14px;
+   width: 100%;
+}
+.pattern-editor-hints {
+   display: grid;
+   grid-template-columns: repeat(2, auto);
+   gap: 6px 24px;
+   font-size: 12px;
+   color: #c0c0d0;
+   justify-content: center;
+}
+.pattern-editor-hints kbd {
+   display: inline-block;
+   background: #1a1a3a;
+   color: #00ffff;
+   border: 1px solid #4040a0;
+   border-bottom-width: 2px;
+   border-radius: 3px;
+   padding: 1px 7px;
+   font-family: inherit;
+   font-size: 11px;
+   font-weight: bold;
+   min-width: 18px;
+   text-align: center;
+   margin-right: 6px;
+}
+  .pattern-editor-hint-clickable {
+     cursor: pointer;
+     padding: 4px 8px;
+     border-radius: 4px;
+     transition: background 0.15s, color 0.15s, transform 0.1s;
+     user-select: none;
+  }
+  .pattern-editor-hint-clickable:hover {
+     background: rgba(0, 255, 255, 0.12);
+     color: #ffffff;
+     transform: translateY(-1px);
+  }
+  .pattern-editor-hint-clickable:active {
+     transform: translateY(0);
+     background: rgba(0, 255, 255, 0.22);
+  }
+  .pattern-editor-hint-clickable:focus-visible {
+     outline: 1px solid #00ffff;
+     outline-offset: 2px;
+  }
+.pattern-editor-buttons {
+   display: flex;
+   gap: 12px;
+   justify-content: center;
+}
+.pattern-editor-buttons button {
+   padding: 8px 20px;
+   font-size: 14px;
+   font-family: inherit;
+   cursor: pointer;
+   border-radius: 4px;
+   font-weight: bold;
+   transition: all 0.15s;
+}
+#pattern-editor-close {
+   background: transparent;
+   color: #00ffff;
+   border: 2px solid #00ffff;
+}
+#pattern-editor-close:hover {
+   background: #00ffff;
+   color: #000010;
+   box-shadow: 0 0 12px #00ffff;
+}
+.pattern-editor-buttons #pattern-clear {
+   background: transparent;
+   color: #ff8888;
+   border: 2px solid #ff8888;
+   padding: 8px 20px;
+   font-size: 14px;
+}
+.pattern-editor-buttons #pattern-clear:hover {
+   background: #ff8888;
+   color: #000010;
+   box-shadow: 0 0 12px #ff8888;
+}
+@keyframes editorOverlayIn {
+   from { opacity: 0; transform: scale(0.95); }
+   to   { opacity: 1; transform: scale(1); }
 }
 
 #pattern-clear {
@@ -1232,6 +1415,39 @@ body {
   color: #00ffff;
   text-align: right;
   font-weight: bold;
+}
+/* Slider + unlimited checkbox side-by-side */
+.setting-slider-row {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   width: 100%;
+}
+.setting-slider-row input[type="range"] {
+   flex: 1;
+   min-width: 0;
+}
+.unlimited-label {
+   display: inline-flex;
+   align-items: center;
+   gap: 3px;
+   font-size: 13px;
+   font-weight: bold;
+   color: #ffcc44;
+   cursor: pointer;
+   white-space: nowrap;
+   flex-shrink: 0;
+   user-select: none;
+}
+.unlimited-label input[type="checkbox"] {
+   accent-color: #ffcc44;
+   cursor: pointer;
+   width: 14px;
+   height: 14px;
+}
+.unlimited-label:hover {
+   color: #ffe080;
+   text-shadow: 0 0 6px rgba(255, 204, 68, 0.6);
 }
 
 .settings-buttons {

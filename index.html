@@ -31,6 +31,7 @@
         <button id="howtoplay-ingame-button" title="Open How to Play guide [H]">Help</button>
         <button id="help-button" title="Open the Console Hacking Guide (pauses game)">Guide</button>
         <button id="fullscreen-button" title="Toggle fullscreen [F11]">⛶</button>
+        <button id="exit-to-menu-button" title="Exit to main menu">✕ Exit</button>
         <span id="speed-hint">[Space=pause, [ ] slow/fast, 0–7 speed, C clear, Z undo, S settings, M mute, H help, ? hotkeys]</span>
     </div>
     <div id="draw-tools">
@@ -54,8 +55,7 @@
         </div>
         <div class="tool-group" id="pattern-tools">
             <label>Pattern:</label>
-            <canvas height="120" id="pattern-editor" width="120"></canvas>
-            <div class="pattern-buttons">
+            <div class="pattern-preset-row">
                 <select id="pattern-presets" title="Load a preset pattern">
                     <option value="">-- Preset --</option>
                     <option value="glider">Glider</option>
@@ -67,11 +67,33 @@
                     <option value="toad">Toad</option>
                     <option value="beacon">Beacon</option>
                 </select>
-                <button id="pattern-clear">Clear</button>
             </div>
-            <span class="tool-hint">Click cells to toggle. R=rotate, X=flip H, Y=flip V.</span>
         </div>
+           <div class="tool-group" id="pattern-editor-toggle-group">
+               <button id="pattern-editor-toggle" title="Open pattern editor (switches to pattern mode)">✏ Edit Pattern</button>
+           </div>
         <span class="tool-hint">[F/L/P mode, Tab cycle, R rotate, X flip H, Y flip V, +/- width, Shift+1-8 preset]</span>
+    </div>
+    <div class="overlay hidden" id="pattern-editor-overlay">
+        <div id="pattern-editor-content">
+            <h1 id="pattern-editor-title">Pattern Editor</h1>
+            <p id="pattern-editor-subtitle">Click cells to toggle. Game is paused while editor is open.</p>
+            <div id="pattern-editor-panel">
+                <canvas height="240" id="pattern-editor" width="240"></canvas>
+                <div class="pattern-editor-controls">
+                    <div class="pattern-editor-hints">
+                        <div><kbd>R</kbd> Rotate</div>
+                        <div><kbd>X</kbd> Flip horizontal</div>
+                        <div><kbd>Y</kbd> Flip vertical</div>
+                        <div><kbd>Esc</kbd> Close</div>
+                    </div>
+                    <div class="pattern-editor-buttons">
+                        <button id="pattern-clear">Clear Pattern</button>
+                        <button id="pattern-editor-close">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <div class="overlay hidden" id="overlay">
         <div id="overlay-content">
@@ -157,12 +179,22 @@
                     </div>
                     <div class="setting-row">
                         <label for="setting-max-ink">Max Ink</label>
-                        <input id="setting-max-ink" max="800" min="100" step="10" type="range">
+                        <div class="setting-slider-row">
+                            <input id="setting-max-ink" max="800" min="100" step="10" type="range">
+                            <label class="unlimited-label" title="No ink cap">
+                                <input id="setting-unlimited-max-ink" type="checkbox"> ∞
+                            </label>
+                        </div>
                         <span class="setting-value" id="setting-max-ink-value"></span>
                     </div>
                     <div class="setting-row">
                         <label for="setting-ink-regen">Ink Regen / Tick</label>
-                        <input id="setting-ink-regen" max="3" min="0" step="0.1" type="range">
+                        <div class="setting-slider-row">
+                            <input id="setting-ink-regen" max="3" min="0" step="0.1" type="range">
+                            <label class="unlimited-label" title="Infinite regen">
+                                <input id="setting-unlimited-ink-regen" type="checkbox"> ∞
+                            </label>
+                        </div>
                         <span class="setting-value" id="setting-ink-regen-value"></span>
                     </div>
                     <div class="setting-row">
@@ -225,12 +257,22 @@
                     </div>
                     <div class="setting-row">
                         <label for="setting-missile-age">Missile Max Age (ticks)</label>
-                        <input id="setting-missile-age" max="1000" min="20" step="10" type="range">
+                        <div class="setting-slider-row">
+                            <input id="setting-missile-age" max="1000" min="20" step="10" type="range">
+                            <label class="unlimited-label" title="Missiles never expire">
+                                <input id="setting-unlimited-missile-age" type="checkbox"> ∞
+                            </label>
+                        </div>
                         <span class="setting-value" id="setting-missile-age-value"></span>
                     </div>
                     <div class="setting-row">
                         <label for="setting-cascade-ticks">Cascade Window (ticks)</label>
-                        <input id="setting-cascade-ticks" max="100" min="0" step="1" type="range">
+                        <div class="setting-slider-row">
+                            <input id="setting-cascade-ticks" max="100" min="0" step="1" type="range">
+                            <label class="unlimited-label" title="Always cascade">
+                                <input id="setting-unlimited-cascade" type="checkbox"> ∞
+                            </label>
+                        </div>
                         <span class="setting-value" id="setting-cascade-ticks-value"></span>
                     </div>
                     <div class="setting-section-header">Enemy Bases</div>
@@ -283,7 +325,12 @@
                     </div>
                     <div class="setting-row">
                         <label for="setting-cell-age">Defense Cell Max Age (ticks)</label>
-                        <input id="setting-cell-age" max="1000" min="20" step="10" type="range">
+                        <div class="setting-slider-row">
+                            <input id="setting-cell-age" max="1000" min="20" step="10" type="range">
+                            <label class="unlimited-label" title="Defenses never expire">
+                                <input id="setting-unlimited-cell-age" type="checkbox"> ∞
+                            </label>
+                        </div>
                         <span class="setting-value" id="setting-cell-age-value"></span>
                     </div>
                     <div class="setting-row setting-row-checks">
@@ -396,7 +443,12 @@
                     <div class="setting-row">
                         <label for="setting-cell-age-adv" title="Same as Drawing tab">Defense Cell Max Age
                             (ticks)</label>
-                        <input id="setting-cell-age-adv" max="1000" min="20" step="10" type="range">
+                        <div class="setting-slider-row">
+                            <input id="setting-cell-age-adv" max="1000" min="20" step="10" type="range">
+                            <label class="unlimited-label" title="Defenses never expire">
+                                <input id="setting-unlimited-cell-age-adv" type="checkbox"> ∞
+                            </label>
+                        </div>
                         <span class="setting-value" id="setting-cell-age-adv-value"></span>
                     </div>
                     <div class="setting-section-header">Simulation</div>
