@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Missile Defense - Game of Life</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+  <div id="speed-control">
+    <label for="speed-slider" id="speed-control-label">Speed:</label>
+    <input type="range" id="speed-slider" min="0" max="7" step="1" value="3">
+    <span id="speed-label">1x</span>
+    <button id="clear-defenses-button" title="Clear all defense cells and refund ink">Clear Defenses</button>
+     <button id="ingame-settings-button" title="Open settings (pauses game) [S]">⚙ Settings</button>
+    <button id="help-button" title="Open the Console Hacking Guide (pauses game)">Guide</button>
+     <span id="speed-hint">[Space=pause, [ ] slow/fast, 0–7 speed, C clear, Z undo, S settings, M mute, ? help]</span>
+  </div>
+  <div id="draw-tools">
+    <div class="tool-group">
+      <label>Mode:</label>
+      <button class="mode-btn active" data-mode="freehand" title="Freehand draw (F)">Freehand</button>
+      <button class="mode-btn" data-mode="line" title="Straight line (L)">Line</button>
+      <button class="mode-btn" data-mode="pattern" title="Pattern stamp (P)">Pattern</button>
+    </div>
+    <div class="tool-group" id="line-tools">
+      <label for="line-width">Width:</label>
+      <input type="range" id="line-width" min="1" max="8" step="1" value="1">
+      <span id="line-width-label">1</span>
+      <label for="line-dash">Dash:</label>
+      <select id="line-dash">
+        <option value="solid">Solid</option>
+        <option value="dashed">Dashed</option>
+        <option value="dotted">Dotted</option>
+        <option value="sparse">Sparse</option>
+      </select>
+    </div>
+    <div class="tool-group" id="pattern-tools">
+      <label>Pattern:</label>
+      <canvas id="pattern-editor" width="120" height="120"></canvas>
+      <div class="pattern-buttons">
+        <select id="pattern-presets" title="Load a preset pattern">
+          <option value="">-- Preset --</option>
+          <option value="glider">Glider</option>
+          <option value="blinker">Blinker</option>
+          <option value="block">Block</option>
+          <option value="lwss">LWSS</option>
+          <option value="rpentomino">R-Pentomino</option>
+          <option value="acorn">Acorn</option>
+          <option value="toad">Toad</option>
+          <option value="beacon">Beacon</option>
+        </select>
+        <button id="pattern-clear">Clear</button>
+      </div>
+      <span class="tool-hint">Click cells to toggle. R=rotate.</span>
+    </div>
+    <span class="tool-hint">[F/L/P mode, Tab cycle, R rotate, X flip, +/- width, Shift+1-8 preset]</span>
+  </div>
+  <div id="overlay" class="overlay hidden">
+    <div id="overlay-content">
+      <h1 id="overlay-title">Missile Defense</h1>
+      <p id="overlay-message">
+        Defend your cities from incoming missiles!<br>
+        Draw defensive patterns on the bottom half of the screen.<br>
+        Released cells evolve via Conway's Game of Life.<br><br>
+        <strong>Click and drag</strong> to draw defenses.<br>
+        Release to commit them to the simulation.
+      </p>
+      <button id="start-button">Start Game</button>
+      <button id="settings-button">Settings</button>
+      <button id="guide-button">Console Hacking Guide</button>
+    </div>
+  </div>
+  <div id="settings-overlay" class="overlay hidden">
+    <div id="overlay-content">
+      <h1 id="overlay-title">Settings</h1>
+      <div id="settings-list">
+        <div class="setting-row">
+          <label for="setting-resolution">Resolution</label>
+          <select id="setting-resolution" class="setting-select"></select>
+          <span class="setting-value">&nbsp;</span>
+        </div>
+        <div class="setting-row" id="setting-custom-res-row" style="display:none;">
+          <label>Custom Grid (W × H)</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="number" id="setting-custom-w" min="60" max="800" step="10" value="160"
+                   style="width:70px;background:#0a0a20;color:#e0e0ff;border:1px solid #4040a0;padding:4px;font-family:inherit;border-radius:3px;">
+            <span style="color:#a0a0c0;">×</span>
+            <input type="number" id="setting-custom-h" min="40" max="600" step="10" value="100"
+                   style="width:70px;background:#0a0a20;color:#e0e0ff;border:1px solid #4040a0;padding:4px;font-family:inherit;border-radius:3px;">
+          </div>
+          <span class="setting-value">&nbsp;</span>
+        </div>
+        <div class="setting-row setting-row-checks">
+          <label>Enabled Glider Types</label>
+          <div class="setting-checkboxes">
+            <label><input type="checkbox" id="setting-glider-se"> R-Glider (SE)</label>
+            <label><input type="checkbox" id="setting-glider-sw"> L-Glider (SW)</label>
+            <label><input type="checkbox" id="setting-glider-heavy"> Heavy Descender</label>
+            <label><input type="checkbox" id="setting-glider-lwss"> Lightweight Spaceship</label>
+            <label><input type="checkbox" id="setting-glider-mwss"> Middleweight Spaceship</label>
+            <label><input type="checkbox" id="setting-glider-twin"> Twin Glider Formation</label>
+            <label><input type="checkbox" id="setting-glider-gun"> ⚠ Gosper Glider Gun (RARE)</label>
+          </div>
+          <span class="setting-value">&nbsp;</span>
+        </div>
+        <div class="setting-row setting-row-checks">
+           <label>Friendly Fire</label>
+          <div class="setting-checkboxes">
+            <label><input type="checkbox" id="setting-hardcore"> Defenses damage cities</label>
+          </div>
+          <span class="setting-value">&nbsp;</span>
+        </div>
+         <div class="setting-row setting-row-checks">
+           <label>Enabled Abilities</label>
+           <div class="setting-checkboxes">
+             <label><input type="checkbox" id="setting-ability-double-score"> ⭐ Combat Bonuses (+50% score)</label>
+             <label><input type="checkbox" id="setting-ability-no-dry"> ⚡ Instant Set (no ink drying)</label>
+             <label><input type="checkbox" id="setting-ability-wave-bonus"> 💰 Veteran Pay (+30 ink/wave)</label>
+             <label><input type="checkbox" id="setting-ability-safe-zone"> 🛡 Demilitarized Zone (no friendly fire)</label>
+             <label><input type="checkbox" id="setting-ability-slow-missiles"> 🐢 Atmospheric Drag (-20% missile speed)</label>
+             <label><input type="checkbox" id="setting-ability-emp-burst"> 💥 EMP Burst (active)</label>
+             <label><input type="checkbox" id="setting-ability-ink-surge"> 🎁 Ink Surge (active)</label>
+             <label><input type="checkbox" id="setting-ability-freeze"> ⏱ Time Stop (active)</label>
+           </div>
+           <span class="setting-value">&nbsp;</span>
+         </div>
+        <div class="setting-row">
+          <label for="setting-ink">Starting Ink</label>
+          <input type="range" id="setting-ink" min="50" max="500" step="10">
+          <span class="setting-value" id="setting-ink-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-max-ink">Max Ink</label>
+          <input type="range" id="setting-max-ink" min="100" max="800" step="10">
+          <span class="setting-value" id="setting-max-ink-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-ink-regen">Ink Regen / Tick</label>
+          <input type="range" id="setting-ink-regen" min="0" max="3" step="0.1">
+          <span class="setting-value" id="setting-ink-regen-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-tick-rate">Tick Rate (ms)</label>
+          <input type="range" id="setting-tick-rate" min="40" max="300" step="10">
+          <span class="setting-value" id="setting-tick-rate-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-defender-ticks" title="M in M:N timestep ratio. Higher = defenders evolve faster.">Defender Ticks (M)</label>
+          <input type="range" id="setting-defender-ticks" min="1" max="8" step="1">
+          <span class="setting-value" id="setting-defender-ticks-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-attacker-ticks" title="N in M:N timestep ratio. Higher = attackers evolve faster.">Attacker Ticks (N)</label>
+          <input type="range" id="setting-attacker-ticks" min="1" max="8" step="1">
+          <span class="setting-value" id="setting-attacker-ticks-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-missiles-base">Missiles / Wave (base)</label>
+          <input type="range" id="setting-missiles-base" min="1" max="30" step="1">
+          <span class="setting-value" id="setting-missiles-base-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-missiles-inc">Missiles / Wave (increment)</label>
+          <input type="range" id="setting-missiles-inc" min="0" max="10" step="1">
+          <span class="setting-value" id="setting-missiles-inc-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-spawn-interval">Missile Spawn Interval (ms)</label>
+          <input type="range" id="setting-spawn-interval" min="200" max="3000" step="50">
+          <span class="setting-value" id="setting-spawn-interval-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-spawn-decrement">Missile Speed-up / Wave (ms)</label>
+          <input type="range" id="setting-spawn-decrement" min="0" max="200" step="5">
+          <span class="setting-value" id="setting-spawn-decrement-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-spawn-min">Missile Spawn Min Interval (ms)</label>
+          <input type="range" id="setting-spawn-min" min="100" max="2000" step="50">
+          <span class="setting-value" id="setting-spawn-min-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-cell-age">Cell Max Age (ticks)</label>
+          <input type="range" id="setting-cell-age" min="20" max="1000" step="10">
+          <span class="setting-value" id="setting-cell-age-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-missile-age">Missile Max Age (ticks)</label>
+          <input type="range" id="setting-missile-age" min="20" max="1000" step="10">
+          <span class="setting-value" id="setting-missile-age-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-cascade-ticks">Missile Cascade Window (ticks)</label>
+          <input type="range" id="setting-cascade-ticks" min="0" max="100" step="1">
+          <span class="setting-value" id="setting-cascade-ticks-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-city-count">City Count</label>
+          <input type="range" id="setting-city-count" min="1" max="10" step="1">
+          <span class="setting-value" id="setting-city-count-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-clear-refund">Clear Defenses Refund</label>
+          <input type="range" id="setting-clear-refund" min="0" max="1" step="0.05">
+          <span class="setting-value" id="setting-clear-refund-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-ink-dry">Ink Drying Time (ticks)</label>
+          <input type="range" id="setting-ink-dry" min="0" max="30" step="1">
+          <span class="setting-value" id="setting-ink-dry-value"></span>
+        </div>
+        <div class="setting-row">
+          <label for="setting-draw-zone">Draw Zone Size</label>
+          <input type="range" id="setting-draw-zone" min="0.2" max="0.8" step="0.05">
+          <span class="setting-value" id="setting-draw-zone-value"></span>
+        </div>
+        <div class="setting-row setting-row-checks">
+          <label>Draw Zone Display</label>
+          <div class="setting-checkboxes">
+            <label><input type="checkbox" id="setting-show-draw-zone"> Show drawable area indicator</label>
+          </div>
+          <span class="setting-value">&nbsp;</span>
+        </div>
+      </div>
+      <div class="settings-buttons">
+        <button id="settings-reset-button">Reset to Defaults</button>
+        <button id="settings-back-button">Back</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="guide-overlay" class="overlay hidden">
+  <div id="guide-content">
+    <h1 id="guide-title">Console Hacking Guide</h1>
+    <div id="guide-body">Loading…</div>
+    <div class="guide-buttons">
+      <button id="guide-close-button">Close</button>
+    </div>
+  </div>
+</div>
+<script src="src/marked.min.js"></script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

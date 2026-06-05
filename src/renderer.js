@@ -1,0 +1,452 @@
+import {CONFIG, CELL_TYPE} from './config.js';
+import {Logger} from './logger.js';
+
+/**
+ * Renders the grid and HUD onto the canvas.
+ */
+export class Renderer {
+  constructor(canvas, grid) {
+    this.canvas = canvas;
+    this.grid = grid;
+    this.ctx = canvas.getContext('2d');
+    if (!this.ctx) {
+      Logger.error('Renderer: failed to acquire 2D canvas context.');
+      throw new Error('Canvas 2D context unavailable.');
+    }
+    // Optional input manager for previewing pending stamps/lines.
+    this.input = null;
+    // Floating text effects (e.g. "RETURN FIRE!", "BOUNCE!").
+    // Each: { x, y, text, color, ttl, maxTtl, scale? }
+    this.floaters = [];
+    // Particle effects (plumes, sparks, debris).
+    // Each: { x, y, vx, vy, color, ttl, maxTtl, size, gravity, glow }
+    this.particles = [];
+    // Shockwaves (expanding rings). Each: { x, y, radius, maxRadius, color, ttl, maxTtl, width }
+    this.shockwaves = [];
+    // Screen shake state.
+    this.shakeTime = 0;
+    this.shakeIntensity = 0;
+    this.resize();
+  }
+
+  // Recompute canvas size from current grid + CONFIG.
+  // Call this after resolution changes or grid replacement.
+  resize() {
+    this.canvas.width = this.grid.width * CONFIG.CELL_SIZE;
+    this.canvas.height = this.grid.height * CONFIG.CELL_SIZE + CONFIG.HUD_HEIGHT;
+  }
+
+  addFloater(gx, gy, text, color) {
+    const cs = CONFIG.CELL_SIZE;
+    this.floaters.push({
+      x: gx * cs + cs / 2,
+      y: gy * cs + CONFIG.HUD_HEIGHT,
+      text,
+      color,
+      ttl: 60,
+      maxTtl: 60,
+      scale: 1.0,
+    });
+  }
+
+  addBigFloater(gx, gy, text, color, scale = 1.6) {
+    const cs = CONFIG.CELL_SIZE;
+    this.floaters.push({
+      x: gx * cs + cs / 2,
+      y: gy * cs + CONFIG.HUD_HEIGHT,
+      text,
+      color,
+      ttl: 90,
+      maxTtl: 90,
+      scale,
+    });
+  }
+
+  // Spawn a burst of particles centered on grid (gx, gy).
+  // opts: { count, color(s), speed, spread, ttl, size, gravity, glow, vy0 }
+  addParticleBurst(gx, gy, opts = {}) {
+    const cs = CONFIG.CELL_SIZE;
+    const cx = gx * cs + cs / 2;
+    const cy = gy * cs + CONFIG.HUD_HEIGHT + cs / 2;
+    const count = opts.count != null ? opts.count : 12;
+    const colors = Array.isArray(opts.colors) ? opts.colors
+      : (opts.color ? [opts.color] : ['#ffffff']);
+    const speed = opts.speed != null ? opts.speed : 1.5;
+    const spread = opts.spread != null ? opts.spread : Math.PI * 2;
+    const dir = opts.dir != null ? opts.dir : 0;
+    const ttl = opts.ttl != null ? opts.ttl : 30;
+    const size = opts.size != null ? opts.size : 2;
+    const gravity = opts.gravity != null ? opts.gravity : 0;
+    const glow = opts.glow != null ? opts.glow : 6;
+    const vy0 = opts.vy0 != null ? opts.vy0 : 0;
+    for (let i = 0; i < count; i++) {
+      const a = dir - spread / 2 + Math.random() * spread;
+      const v = speed * (0.5 + Math.random());
+      const lifeJitter = 0.6 + Math.random() * 0.6;
+      this.particles.push({
+        x: cx + (Math.random() - 0.5) * cs * 0.6,
+        y: cy + (Math.random() - 0.5) * cs * 0.6,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v + vy0,
+        color: colors[(Math.random() * colors.length) | 0],
+        ttl: ttl * lifeJitter,
+        maxTtl: ttl * lifeJitter,
+        size: size * (0.7 + Math.random() * 0.7),
+        gravity,
+        glow,
+      });
+    }
+  }
+
+  // Add an expanding shockwave ring.
+  addShockwave(gx, gy, opts = {}) {
+    const cs = CONFIG.CELL_SIZE;
+    this.shockwaves.push({
+      x: gx * cs + cs / 2,
+      y: gy * cs + CONFIG.HUD_HEIGHT + cs / 2,
+      radius: opts.startRadius != null ? opts.startRadius : 2,
+      maxRadius: opts.maxRadius != null ? opts.maxRadius : 40,
+      color: opts.color || '#ffffff',
+      ttl: opts.ttl != null ? opts.ttl : 24,
+      maxTtl: opts.ttl != null ? opts.ttl : 24,
+      width: opts.width != null ? opts.width : 2,
+    });
+  }
+
+  // Trigger screen shake for `ticks` frames with given intensity in px.
+  addShake(intensity, ticks) {
+    if (intensity > this.shakeIntensity) this.shakeIntensity = intensity;
+    if (ticks > this.shakeTime) this.shakeTime = ticks;
+  }
+
+
+  setInput(input) {
+    this.input = input;
+  }
+
+  setGrid(grid) {
+    this.grid = grid;
+    this.resize();
+  }
+
+  render(hud) {
+    const ctx = this.ctx;
+    const cs = CONFIG.CELL_SIZE;
+    const colors = CONFIG.COLORS;
+    const defenseVariants = colors.DEFENSE_VARIANTS;
+    const missileVariants = colors.MISSILE_VARIANTS;
+
+    // Background
+    ctx.fillStyle = colors.BACKGROUND;
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    // Screen shake transform (only the play area, not HUD).
+    let shakeX = 0, shakeY = 0;
+    if (this.shakeTime > 0 && this.shakeIntensity > 0) {
+      shakeX = (Math.random() - 0.5) * this.shakeIntensity * 2;
+      shakeY = (Math.random() - 0.5) * this.shakeIntensity * 2;
+      this.shakeTime--;
+      if (this.shakeTime <= 0) {
+        this.shakeIntensity = 0;
+      } else {
+        // Decay intensity over time.
+        this.shakeIntensity *= 0.9;
+      }
+    }
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
+
+    const gridYOffset = CONFIG.HUD_HEIGHT;
+
+    // Draw the draw-zone boundary + a subtle tint over the drawable area.
+    const dzMinY = this.grid.drawZoneMinY();
+    const midY = dzMinY * cs + gridYOffset;
+    if (CONFIG.SHOW_DRAW_ZONE !== false) {
+      // Subtle background tint for the drawable region.
+      ctx.fillStyle = colors.DRAW_ZONE_TINT || 'rgba(0,255,136,0.04)';
+      ctx.fillRect(0, midY, this.canvas.width,
+        this.grid.height * cs + gridYOffset - midY);
+      // Pulsing boundary line.
+      const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 400);
+      ctx.save();
+      ctx.strokeStyle = colors.DRAW_ZONE_BOUNDARY || 'rgba(0,255,200,0.35)';
+      ctx.globalAlpha = pulse;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(0, midY + 0.5);
+      ctx.lineTo(this.canvas.width, midY + 0.5);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      // Small label on the left edge.
+      ctx.save();
+      ctx.fillStyle = colors.DRAW_ZONE_BOUNDARY || 'rgba(0,255,200,0.6)';
+      ctx.font = 'bold 10px "Courier New", monospace';
+      ctx.textBaseline = 'bottom';
+      ctx.textAlign = 'left';
+      ctx.fillText('▼ DRAW ZONE', 4, midY - 2);
+      ctx.restore();
+    } else {
+      // Fallback: just the old midline.
+      ctx.strokeStyle = colors.MIDLINE;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, midY);
+      ctx.lineTo(this.canvas.width, midY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Draw cells
+    const cells = this.grid.cells;
+    const cellColor = this.grid.cellColor;
+    for (let y = 0; y < this.grid.height; y++) {
+      for (let x = 0; x < this.grid.width; x++) {
+        const i = y * this.grid.width + x;
+        const t = cells[i];
+        if (t === CELL_TYPE.EMPTY) continue;
+        let color;
+        switch (t) {
+          case CELL_TYPE.DEFENSE:
+            color = defenseVariants[cellColor[i] % defenseVariants.length];
+            break;
+          case CELL_TYPE.MISSILE:
+            color = missileVariants[cellColor[i] % missileVariants.length];
+            break;
+          case CELL_TYPE.CITY:
+            color = colors.CELL_CITY;
+            break;
+          case CELL_TYPE.EXPLOSION:
+            color = colors.CELL_EXPLOSION;
+            break;
+          default:
+            color = '#ffffff';
+        }
+        // For missile cells, add a subtle glow to maximize contrast
+        // against defenses & background.
+        if (t === CELL_TYPE.MISSILE && cs >= 4) {
+          ctx.save();
+          ctx.shadowColor = color;
+          ctx.shadowBlur = Math.min(8, cs);
+          ctx.fillStyle = color;
+          ctx.fillRect(x * cs, y * cs + gridYOffset, cs, cs);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = color;
+          ctx.fillRect(x * cs, y * cs + gridYOffset, cs, cs);
+        }
+      }
+    }
+
+    // Draw pending cells (translucent, with drying progress shading)
+    const pendingDry = this.grid.pendingDry;
+    const dryMax = Math.max(1, CONFIG.INK_DRY_TICKS | 0);
+    for (let y = 0; y < this.grid.height; y++) {
+      for (let x = 0; x < this.grid.width; x++) {
+        const i = y * this.grid.width + x;
+        if (this.grid.pending[i]) {
+          const dryRemain = pendingDry[i];
+          let alpha;
+          if (dryRemain === 0) {
+            // Not yet drying (still being drawn). Show as wet ink.
+            alpha = 0.35;
+          } else {
+            // Drying in progress: 0 = fully dry, 1 = freshly started.
+            const progress = 1 - (dryRemain / dryMax);
+            alpha = 0.35 + progress * 0.45;
+          }
+          ctx.fillStyle = `rgba(0, 255, 136, ${alpha})`;
+          ctx.fillRect(x * cs, y * cs + gridYOffset, cs, cs);
+        }
+      }
+    }
+    // Draw preview overlay (pattern stamp hover / line drag preview).
+    this._renderPreview(gridYOffset);
+    // Render particles & shockwaves over cells but under floaters.
+    this._renderShockwaves();
+    this._renderParticles();
+    // Update + draw floaters (rising, fading text effects).
+    this._renderFloaters();
+    ctx.restore();
+
+
+    // Draw HUD
+    this._renderHUD(hud);
+  }
+
+  _renderPreview(gridYOffset) {
+    if (!this.input) return;
+    const cells = this.input.getPreviewCells();
+    if (!cells || cells.length === 0) return;
+    const ctx = this.ctx;
+    const cs = CONFIG.CELL_SIZE;
+    const dzMinY = this.grid.drawZoneMinY();
+    // Pulse the alpha slightly so the preview is visually distinct.
+    const pulse = 0.55 + 0.15 * Math.sin(performance.now() / 200);
+    for (const c of cells) {
+      const x = c.x;
+      const y = c.y;
+      if (y < 0 || y >= this.grid.height) continue;
+      const wx = this.grid.wrapX(x);
+      const inDrawZone = y >= dzMinY;
+      const i = y * this.grid.width + wx;
+      const occupied = this.grid.cells[i] !== CELL_TYPE.EMPTY ||
+        this.grid.pending[i] !== 0;
+      let color;
+      if (!inDrawZone) {
+        color = `rgba(255, 80, 80, ${pulse * 0.6})`; // out-of-zone = red
+      } else if (occupied) {
+        color = `rgba(255, 200, 80, ${pulse * 0.7})`; // blocked = amber
+      } else {
+        color = `rgba(0, 255, 200, ${pulse})`; // ok = cyan
+      }
+      ctx.fillStyle = color;
+      ctx.fillRect(wx * cs, y * cs + gridYOffset, cs, cs);
+      // Outline for clarity.
+      ctx.strokeStyle = `rgba(255, 255, 255, ${pulse * 0.4})`;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(wx * cs + 0.5, y * cs + gridYOffset + 0.5, cs - 1, cs - 1);
+    }
+  }
+
+  _renderParticles() {
+    const ctx = this.ctx;
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.ttl--;
+      if (p.ttl <= 0) {
+        this.particles.splice(i, 1);
+        continue;
+      }
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      // Slight air drag.
+      p.vx *= 0.97;
+      p.vy *= 0.99;
+      const t = p.ttl / p.maxTtl;
+      const alpha = Math.min(1, t * 1.6);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      if (p.glow > 0) {
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = p.glow;
+      }
+      const s = p.size * (0.5 + t * 0.5);
+      ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+      ctx.restore();
+    }
+  }
+
+  _renderShockwaves() {
+    const ctx = this.ctx;
+    for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+      const s = this.shockwaves[i];
+      s.ttl--;
+      if (s.ttl <= 0) {
+        this.shockwaves.splice(i, 1);
+        continue;
+      }
+      const t = 1 - (s.ttl / s.maxTtl); // 0 -> 1
+      s.radius = 2 + t * s.maxRadius;
+      const alpha = (1 - t) * 0.9;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = s.width;
+      ctx.shadowColor = s.color;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+
+  _renderFloaters() {
+    const ctx = this.ctx;
+    for (let i = this.floaters.length - 1; i >= 0; i--) {
+      const f = this.floaters[i];
+      f.ttl--;
+      if (f.ttl <= 0) {
+        this.floaters.splice(i, 1);
+        continue;
+      }
+      const t = f.ttl / f.maxTtl; // 1 -> 0
+      const alpha = Math.min(1, t * 1.5);
+      const yOff = (1 - t) * 30;
+      const scale = f.scale != null ? f.scale : 1.0;
+      // Pop-in effect: scale up briefly at birth.
+      const popPhase = Math.max(0, Math.min(1, (f.maxTtl - (f.maxTtl - f.ttl)) / f.maxTtl));
+      const birthScale = 1 + Math.max(0, (1 - popPhase * 4)) * 0.4;
+      const fontPx = Math.round(16 * scale * birthScale);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = f.color;
+      ctx.font = `bold ${fontPx}px "Courier New", monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = f.color;
+      ctx.shadowBlur = 8 + scale * 6;
+      ctx.fillText(f.text, f.x, f.y - yOff);
+      ctx.restore();
+    }
+  }
+
+  _renderHUD(hud) {
+    const ctx = this.ctx;
+    const colors = CONFIG.COLORS;
+    const w = this.canvas.width;
+
+    ctx.fillStyle = '#050514';
+    ctx.fillRect(0, 0, w, CONFIG.HUD_HEIGHT);
+
+    ctx.fillStyle = colors.HUD_TEXT;
+    ctx.font = '14px "Courier New", monospace';
+    ctx.textBaseline = 'middle';
+
+    // Score
+    ctx.textAlign = 'left';
+    ctx.fillText(`SCORE: ${hud.score}`, 10, CONFIG.HUD_HEIGHT / 2);
+
+    // Wave
+    ctx.fillText(`WAVE: ${hud.wave}`, 140, CONFIG.HUD_HEIGHT / 2);
+
+    // Cities
+    ctx.fillText(`CITIES: ${hud.citiesAlive}`, 230, CONFIG.HUD_HEIGHT / 2);
+
+    // Ink bar
+    const inkBarX = 340;
+    const inkBarY = 12;
+    const inkBarW = 160;
+    const inkBarH = 16;
+    ctx.fillStyle = colors.INK_BAR_BG;
+    ctx.fillRect(inkBarX, inkBarY, inkBarW, inkBarH);
+    ctx.fillStyle = colors.INK_BAR;
+    const inkPct = hud.maxInk > 0 ? hud.ink / hud.maxInk : 0;
+    ctx.fillRect(inkBarX, inkBarY, inkBarW * inkPct, inkBarH);
+    ctx.strokeStyle = colors.HUD_TEXT;
+    ctx.strokeRect(inkBarX, inkBarY, inkBarW, inkBarH);
+    ctx.fillStyle = colors.HUD_TEXT;
+    ctx.textAlign = 'left';
+    ctx.fillText('INK', inkBarX - 30, CONFIG.HUD_HEIGHT / 2);
+
+    // Speed indicator
+    const speed = CONFIG.SPEED_MULTIPLIER;
+    let speedLabel;
+    if (speed === 0) speedLabel = 'PAUSED';
+    else if (speed >= 8) speedLabel = `HYPER ${speed}x`;
+    else speedLabel = `${speed}x`;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = speed === 0 ? '#ffaa00' : (speed > 1 ? '#ff60ff' : colors.HUD_TEXT);
+    ctx.fillText(`SPD: ${speedLabel}`, inkBarX + inkBarW + 20, CONFIG.HUD_HEIGHT / 2);
+
+    // High score
+    ctx.textAlign = 'right';
+    ctx.fillStyle = colors.HUD_TEXT;
+    ctx.fillText(`HI: ${hud.highScore}`, w - 10, CONFIG.HUD_HEIGHT / 2);
+  }
+}
