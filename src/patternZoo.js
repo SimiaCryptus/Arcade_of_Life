@@ -433,6 +433,7 @@ export class PatternZoo {
         id: `custom:${name}`,
         _customName: name,
         _isCustom: true,
+        _duplicateOf: m.duplicateOf || null,
         name: `★ ${name}`,
         category: m.category || CATEGORY.MISC,
         cells: normalized.cells,
@@ -445,6 +446,12 @@ export class PatternZoo {
         direction: m.direction || null,
         source: m.source || 'User',
         createdAt: m.createdAt || null,
+        maxBounds: m.maxBounds || null,
+        maxPopulation: m.maxPopulation,
+        finalPopulation: m.finalPopulation,
+        stabilizedAt: m.stabilizedAt,
+        extinct: !!m.extinct,
+        unbounded: !!m.unbounded,
       });
     }
     this._customCache = out;
@@ -978,6 +985,11 @@ export class PatternZoo {
     const customBadge = pattern._isCustom
       ? '<span class="pz-tag pz-tag-custom">★ CUSTOM</span>'
       : '';
+    // Custom-pattern "duplicate of" badge.
+    const dupBadge =
+      pattern._isCustom && pattern._duplicateOf
+        ? `<span class="pz-tag" title="Duplicate of built-in ${pattern._duplicateOf}" style="color:#ffaa66;border-color:#ffaa66;">⚠ dup: ${this._escape(pattern._duplicateOf)}</span>`
+        : '';
     const linkBadge = pattern.link
       ? '<span class="pz-tag pz-tag-link" title="Has reference link" style="color:#66ccff;border-color:#66ccff;">🔗</span>'
       : '';
@@ -1002,6 +1014,7 @@ export class PatternZoo {
             <div class="pz-card-name">${this._escape(pattern.name)}</div>
             <div class="pz-card-tags">
                ${customBadge}
+              ${dupBadge}
               <span class="pz-tag pz-tag-cat pz-cat-${pattern.category}">${catLabel}</span>
               <span class="pz-tag pz-tag-period">${periodLabel}</span>
               ${dirLabel ? `<span class="pz-tag pz-tag-dir">${dirLabel}</span>` : ''}

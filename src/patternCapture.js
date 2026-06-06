@@ -1,6 +1,9 @@
 import { CONFIG, CELL_TYPE } from './config.js';
 import { Logger } from './logger.js';
 import { loadJSON, saveJSON } from './storage.js';
+import { normalizeCells } from './patterns/library.js';
+import { listPatterns } from './patterns/index.js';
+import { inferPatternMetadata } from './patterns/inferMetadata.js';
 
 const STORAGE_KEY = 'missileDefenseCustomPatterns';
 const STORAGE_KEY_META = 'missileDefenseCustomPatternsMeta';
@@ -79,6 +82,8 @@ export class PatternCapture {
     this._onTouchMove = this._onTouchMove.bind(this);
     this._onTouchEnd = this._onTouchEnd.bind(this);
     this._onKey = this._onKey.bind(this);
+    // Bind inference fn for use in _savePattern.
+    this._inferFn = inferPatternMetadata;
   }
 
   // Inject all currently-saved custom patterns into DrawTools so they
@@ -566,12 +571,36 @@ export class PatternCapture {
 
   // Save a pattern, persist to localStorage, register with DrawTools.
   _savePattern(name, cells, meta = null) {
-    this.customPatterns[name] = cells.map((c) => [c[0], c[1]]);
+    // Normalize cells so the saved pattern is anchored at (0,0). This
+    // matches the format produced by the importer and the pattern
+    // library, ensuring custom patterns can be deduplicated and
+    // characterized identically to imported ones.
+    const normalized = normalizeCells(cells);
+    const normCells = normalized.cells;
+    this.customPatterns[name] = normCells.map((c) => [c[0], c[1]]);
+
+    // Detect duplicates of built-in patterns by canonical fingerprint.
+    const duplicateOf = this._findDuplicateBuiltin(normCells);
+
+    // Run characterization to infer category/period/direction etc.
+    // This mirrors the lifewikiImporter pipeline so saved patterns get
+    // the same metadata treatment as bundled ones.
+    let inferred = null;
+    try {
+      inferred = this._inferMetadata(normCells);
+    } catch (e) {
+      Logger.warn('[PatternCapture] Metadata inference failed:', e);
+    }
+
     if (meta) {
-      this.customPatternMeta[name] = { ...meta };
+      // Merge user-provided meta with inferred values; user values win.
+      const merged = inferred ? { ...inferred, ...meta } : { ...meta };
+      if (duplicateOf) merged.duplicateOf = duplicateOf;
+      this.customPatternMeta[name] = merged;
     } else if (!this.customPatternMeta[name]) {
-      // Default metadata for newly captured patterns.
-      this.customPatternMeta[name] = {
+      // Default metadata for newly captured patterns. Use inferred
+      // values if available, falling back to generic defaults.
+      const defaults = {
         category: 'misc',
         period: 1,
         direction: null,
@@ -580,26 +609,119 @@ export class PatternCapture {
         rulesets: ['*'],
         createdAt: Date.now(),
       };
+      const merged = inferred ? { ...defaults, ...inferred } : defaults;
+      if (duplicateOf) {
+        merged.duplicateOf = duplicateOf;
+        merged.description = `User-captured pattern. Duplicate of built-in "${duplicateOf}".`;
+        if (!merged.tags.includes('duplicate')) merged.tags.push('duplicate');
+      }
+      this.customPatternMeta[name] = merged;
+    } else if (inferred) {
+      // Existing pattern being re-saved — refresh inferred fields only
+      // if they weren't user-overridden.
+      const existing = this.customPatternMeta[name];
+      if (!existing.category || existing.category === 'misc') existing.category = inferred.category;
+      if (existing.period == null || existing.period === 1) existing.period = inferred.period;
+      if (!existing.direction) existing.direction = inferred.direction;
+      if (duplicateOf && !existing.duplicateOf) existing.duplicateOf = duplicateOf;
     }
+    if (duplicateOf) {
+      Logger.info(`[PatternCapture] Saved "${name}" — duplicate of built-in "${duplicateOf}".`);
+    }
+
     saveCustomPatterns(this.customPatterns);
     saveCustomPatternMeta(this.customPatternMeta);
     const key = customKey(name);
     const bag =
       this.drawTools.constructor.PATTERN_PRESETS_REF || this.drawTools.PATTERN_PRESETS_REF;
-    if (bag) bag[key] = cells.map((c) => [c[0], c[1]]);
+    if (bag) bag[key] = normCells.map((c) => [c[0], c[1]]);
     this._ensureDropdownOption(key, `★ ${name}`);
-    Logger.info(`[PatternCapture] Saved pattern "${name}" (${cells.length} cells).`);
+    Logger.info(
+      `[PatternCapture] Saved pattern "${name}" (${normCells.length} cells)` +
+        (inferred
+          ? ` → ${inferred.category}${inferred.period > 1 ? ` p${inferred.period}` : ''}`
+          : '')
+    );
     notifyCustomPatternsChanged();
     // Show a brief confirmation via the renderer.
     if (this.game.renderer && this.game.grid) {
+      const label = duplicateOf
+        ? `★ SAVED: ${name}\n(duplicate of ${duplicateOf})`
+        : `★ SAVED: ${name}`;
       this.game.renderer.addBigFloater(
         Math.floor(this.game.grid.width / 2),
         Math.floor(this.game.grid.height / 3),
-        `★ SAVED: ${name}`,
+        label,
         '#ffcc44',
         1.6
       );
     }
+  }
+  // Build a canonical fingerprint for a normalized cell list and
+  // search the built-in pattern registry for a match. Returns the id
+  // of the matching built-in pattern, or null.
+  _findDuplicateBuiltin(normCells) {
+    if (!Array.isArray(normCells) || normCells.length === 0) return null;
+    const fingerprint = this._fingerprint(normCells);
+    try {
+      const all = listPatterns();
+      for (const p of all) {
+        // Skip other custom patterns (those have ids starting with "custom:").
+        if (p.id && p.id.startsWith('custom:')) continue;
+        const fp = this._fingerprint(p.cells);
+        if (fp === fingerprint) return p.id;
+      }
+    } catch (e) {
+      Logger.warn('[PatternCapture] Duplicate scan failed:', e);
+    }
+    return null;
+  }
+  // Canonical fingerprint: sort cells lexicographically and join.
+  // Assumes input is already normalized (min = 0,0).
+  _fingerprint(cells) {
+    const sorted = cells.map(([x, y]) => `${x},${y}`).sort();
+    return `${sorted.length}:${sorted.join(';')}`;
+  }
+  // Run pattern characterization to infer category, period, direction.
+  // Uses dynamic import so the inference module is only loaded when needed
+  // (and so we don't pull Node-only path/fs imports into the browser bundle).
+  _inferMetadata(normCells) {
+    // We import synchronously via the module graph since inferMetadata.js
+    // is browser-safe (only depends on rules/* and library.js).
+    // Note: this requires the import at module top-level.
+    if (!this._inferFn) {
+      // Lazy bind on first use.
+      return null;
+    }
+    const result = this._inferFn(normCells, {
+      maxPeriod: 30,
+      methuselahGens: 100,
+      populationCap: 5000,
+    });
+    if (!result) return null;
+    const tags = ['custom', 'user'];
+    if (result.category) tags.push(result.category);
+    if (result.period > 1) tags.push(`p${result.period}`);
+    if (result.unbounded) tags.push('unbounded');
+    if (result.extinct) tags.push('extinct');
+    return {
+      category: result.category || 'misc',
+      period: result.period > 0 ? result.period : 1,
+      direction: result.direction || null,
+      description:
+        result.notes && result.notes.length > 0
+          ? `User-captured pattern. ${result.notes[0]}`
+          : 'User-captured pattern.',
+      tags,
+      rulesets: ['*'],
+      createdAt: Date.now(),
+      maxBounds: result.maxBounds || null,
+      maxPopulation: result.maxPopulation,
+      finalPopulation: result.finalPopulation,
+      stabilizedAt: result.stabilizedAt,
+      extinct: !!result.extinct,
+      unbounded: !!result.unbounded,
+    };
   }
 
   // Delete a saved pattern.

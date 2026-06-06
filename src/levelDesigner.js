@@ -1,6 +1,13 @@
 import { CONFIG, CELL_TYPE } from './config.js';
 import { Logger } from './logger.js';
-import { listLevels, saveLevel, deleteLevel, getLevel, onLevelsChanged } from './levels.js';
+import {
+  listLevels,
+  saveLevel,
+  deleteLevel,
+  getLevel,
+  onLevelsChanged,
+  importLevelJSON,
+} from './levels.js';
 import { listRulesets } from './rules/index.js';
 import { getPattern, clonePatternCells } from './patterns/index.js';
 import { SETTING_DEFS, BOOLEAN_SETTING_DEFS } from './settings.js';
@@ -262,6 +269,7 @@ export class LevelDesigner {
               <button id="ld-save-btn" class="ld-btn ld-btn-primary">💾 Save Level</button>
               <button id="ld-play-btn" class="ld-btn ld-btn-primary">▶ Save & Play</button>
               <button id="ld-export-btn" class="ld-btn">📤 Export JSON</button>
+              <button id="ld-import-btn" class="ld-btn">📥 Import JSON</button>
               <button id="ld-close-btn" class="ld-btn">Close</button>
               <span id="ld-status"></span>
             </div>
@@ -480,6 +488,7 @@ export class LevelDesigner {
     ov.querySelector('#ld-save-btn').addEventListener('click', () => this._save());
     ov.querySelector('#ld-play-btn').addEventListener('click', () => this._saveAndPlay());
     ov.querySelector('#ld-export-btn').addEventListener('click', () => this._exportJSON());
+    ov.querySelector('#ld-import-btn').addEventListener('click', () => this._importJSON());
     ov.querySelector('#ld-close-btn').addEventListener('click', () => this.hide());
     ov.querySelector('#ld-load-btn').addEventListener('click', () => this._loadSelected());
     ov.querySelector('#ld-delete-btn').addEventListener('click', () => this._deleteSelected());
@@ -511,8 +520,80 @@ export class LevelDesigner {
       if (this.visible && e.key === 'Escape') {
         e.preventDefault();
         this.hide();
+        return;
+      }
+      if (!this.visible) return;
+      // Don't fire hotkeys while typing in an input/textarea/select.
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      // Mode hotkeys.
+      const modeKeys = {
+        d: DESIGNER_MODE.DEFENSE,
+        l: DESIGNER_MODE.LINE,
+        f: DESIGNER_MODE.FILL,
+        c: DESIGNER_MODE.CITY,
+        p: DESIGNER_MODE.PATTERN,
+        b: DESIGNER_MODE.BASE,
+        s: DESIGNER_MODE.SPAWNER,
+        e: DESIGNER_MODE.ERASE,
+      };
+      const k = e.key.toLowerCase();
+      if (modeKeys[k]) {
+        e.preventDefault();
+        this._selectModeButton(modeKeys[k]);
+        return;
+      }
+      // Rotate / flip current stamp.
+      if (k === 'r') {
+        e.preventDefault();
+        if (this.mode === DESIGNER_MODE.PATTERN) this._rotateStamp('defense');
+        else if (this.mode === DESIGNER_MODE.BASE) this._rotateStamp('base');
+        else if (this.mode === DESIGNER_MODE.SPAWNER) this._rotateStamp('spawner');
+        return;
+      }
+      if (k === 'x') {
+        e.preventDefault();
+        if (this.mode === DESIGNER_MODE.PATTERN) this._flipStamp('defense');
+        else if (this.mode === DESIGNER_MODE.BASE) this._flipStamp('base');
+        else if (this.mode === DESIGNER_MODE.SPAWNER) this._flipStamp('spawner');
+        return;
+      }
+      // Brush size +/-.
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        const brushInput = this.overlay.querySelector('#ld-brush-size');
+        if (brushInput) {
+          const cur = parseInt(brushInput.value, 10) || 1;
+          const max = parseInt(brushInput.max, 10) || 8;
+          brushInput.value = String(Math.min(max, cur + 1));
+          brushInput.dispatchEvent(new Event('input'));
+        }
+        return;
+      }
+      if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        const brushInput = this.overlay.querySelector('#ld-brush-size');
+        if (brushInput) {
+          const cur = parseInt(brushInput.value, 10) || 1;
+          const min = parseInt(brushInput.min, 10) || 1;
+          brushInput.value = String(Math.max(min, cur - 1));
+          brushInput.dispatchEvent(new Event('input'));
+        }
+        return;
+      }
+      // Ctrl+S save shortcut.
+      if (k === 's' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        this._save();
+        return;
       }
     });
+  }
+  // Programmatically click a mode button to switch tools.
+  _selectModeButton(mode) {
+    const btn = this.overlay.querySelector(`.ld-mode-btn[data-mode="${mode}"]`);
+    if (btn) btn.click();
   }
 
   // ── Pointer drawing ───────────────────────────────────────────
@@ -1425,6 +1506,25 @@ export class LevelDesigner {
         // Fallback: open in a prompt.
         prompt('Copy this JSON:', json);
       });
+  }
+  _importJSON() {
+    const txt = window.prompt(
+      'Paste level JSON below to import.\nThis will overwrite any saved level with the same name.',
+      ''
+    );
+    if (!txt) return;
+    const trimmed = txt.trim();
+    if (!trimmed) return;
+    const result = importLevelJSON(trimmed);
+    if (result.ok) {
+      this._setStatus(`✓ Imported "${result.name}".`, 'ok');
+      this._refreshLevelList();
+      // Auto-load the imported level into the designer.
+      const lvl = getLevel(result.name);
+      if (lvl) this._deserialize(lvl);
+    } else {
+      this._setStatus(`✗ Import failed: ${result.error}`, 'err');
+    }
   }
 
   _loadSelected() {

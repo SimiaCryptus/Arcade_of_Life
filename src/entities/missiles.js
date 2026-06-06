@@ -919,9 +919,22 @@ export class Missiles {
   _updateDesignedBases(_deltaMs) {
     if (this._designedBases.length === 0) return;
     const g = this.grid;
+    const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
     for (let i = this._designedBases.length - 1; i >= 0; i--) {
       const b = this._designedBases[i];
       if (!b.alive) continue;
+      // Refresh cell ages so designer-placed bases don't age out from
+      // CONFIG.MISSILE_MAX_AGE_TICKS. The base lives until its cells
+      // are killed by neighbor rules or the player.
+      for (const [dx, dy] of b.cells) {
+        const px = b.x + dx,
+          py = b.y + dy;
+        if (!g.inBounds(px, py)) continue;
+        const idx = py * g.width + g.wrapX(px);
+        if (g.cells[idx] === CELL_TYPE.MISSILE) {
+          g.cellAge[idx] = 1; // keep young
+        }
+      }
       // Designed bases evolve naturally via Life rules. We track
       // "alive-ness" by counting how many of the originally-stamped
       // footprint cells still contain MISSILE cells. Once that falls
@@ -975,9 +988,21 @@ export class Missiles {
   _updateDesignedSpawners(deltaMs) {
     if (this._designedSpawners.length === 0) return;
     const g = this.grid;
+    const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
     for (let i = this._designedSpawners.length - 1; i >= 0; i--) {
       const s = this._designedSpawners[i];
       if (!s.alive) continue;
+      // Refresh cell ages so designer-placed spawners (guns, etc.)
+      // don't age out. Their cells stay young indefinitely.
+      for (const [dx, dy] of s.cells) {
+        const px = s.x + dx,
+          py = s.y + dy;
+        if (!g.inBounds(px, py)) continue;
+        const idx = py * g.width + g.wrapX(px);
+        if (g.cells[idx] === CELL_TYPE.MISSILE) {
+          g.cellAge[idx] = 1;
+        }
+      }
 
       // Track spawner aliveness the same way as bases: count how many
       // originally-stamped cells still exist as MISSILE at the anchor.
