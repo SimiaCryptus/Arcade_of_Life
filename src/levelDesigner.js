@@ -235,6 +235,24 @@ export class LevelDesigner {
                     Each spawner can use any pattern from the Pattern Zoo. Spawning
                     is fully driven by placed spawners — there are no default waves.
                   </p>
+                  <div style="margin-top:8px;">
+                    <label>Default interval (ms):
+                      <input id="ld-spawner-interval" type="number" min="100" max="60000" step="100" value="2000" />
+                    </label>
+                    <label>Default emit limit (0 = ∞):
+                      <input id="ld-spawner-emit-limit" type="number" min="0" max="9999" step="1" value="0" />
+                    </label>
+                    <label>Default initial delay (ms):
+                      <input id="ld-spawner-initial-delay" type="number" min="0" max="60000" step="100" value="2000" />
+                    </label>
+                    <p style="font-size:10px;color:#888;margin:4px 0 0;">
+                      These values are applied to new spawners as you place them.
+                      Existing spawners keep their original config.
+                    </p>
+                    <button id="ld-apply-spawner-defaults" class="ld-btn" style="margin-top:4px;">
+                      Apply to All Existing Spawners
+                    </button>
+                  </div>
                 </div>
                 <div class="ld-section">
                   <h3>📊 Stats</h3>
@@ -518,6 +536,52 @@ export class LevelDesigner {
     if (wrapShiftInput) {
       wrapShiftInput.addEventListener('input', (e) => {
         this.wrapVerticalShift = parseInt(e.target.value, 10) || 0;
+      });
+    }
+    // Spawner default config inputs.
+    const spawnerIntervalInput = ov.querySelector('#ld-spawner-interval');
+    const spawnerLimitInput = ov.querySelector('#ld-spawner-emit-limit');
+    const spawnerDelayInput = ov.querySelector('#ld-spawner-initial-delay');
+    this._defaultSpawnerInterval = 2000;
+    this._defaultSpawnerEmitLimit = 0;
+    this._defaultSpawnerInitialDelay = 2000;
+    if (spawnerIntervalInput) {
+      spawnerIntervalInput.addEventListener('input', (e) => {
+        this._defaultSpawnerInterval = Math.max(100, parseInt(e.target.value, 10) || 2000);
+      });
+    }
+    if (spawnerLimitInput) {
+      spawnerLimitInput.addEventListener('input', (e) => {
+        this._defaultSpawnerEmitLimit = Math.max(0, parseInt(e.target.value, 10) || 0);
+      });
+    }
+    if (spawnerDelayInput) {
+      spawnerDelayInput.addEventListener('input', (e) => {
+        this._defaultSpawnerInitialDelay = Math.max(0, parseInt(e.target.value, 10) || 0);
+      });
+    }
+    const applyDefaultsBtn = ov.querySelector('#ld-apply-spawner-defaults');
+    if (applyDefaultsBtn) {
+      applyDefaultsBtn.addEventListener('click', () => {
+        if (this.spawners.length === 0) {
+          this._setStatus('No spawners placed yet.', 'err');
+          return;
+        }
+        if (
+          !confirm(
+            `Apply current defaults to all ${this.spawners.length} placed spawner(s)?\n` +
+              `Interval: ${this._defaultSpawnerInterval}ms\n` +
+              `Emit limit: ${this._defaultSpawnerEmitLimit || '∞'}\n` +
+              `Initial delay: ${this._defaultSpawnerInitialDelay}ms`
+          )
+        )
+          return;
+        for (const sp of this.spawners) {
+          sp.interval = this._defaultSpawnerInterval;
+          sp.emitLimit = this._defaultSpawnerEmitLimit;
+          sp.initialDelay = this._defaultSpawnerInitialDelay;
+        }
+        this._setStatus(`✓ Updated ${this.spawners.length} spawner(s).`, 'ok');
       });
     }
     // Clear all.
@@ -1105,7 +1169,13 @@ export class LevelDesigner {
       width: stamp.width,
       height: stamp.height,
       cells: stamp.cells.map(([dx, dy]) => [dx, dy]),
-      interval: 2000, // default emission interval (ms)
+      // Use the currently-configured defaults from the sidebar.
+      interval: this._defaultSpawnerInterval || 2000,
+      emitLimit: this._defaultSpawnerEmitLimit || 0,
+      initialDelay:
+        this._defaultSpawnerInitialDelay != null
+          ? this._defaultSpawnerInitialDelay
+          : this._defaultSpawnerInterval || 2000,
     });
   }
 
@@ -1365,7 +1435,13 @@ export class LevelDesigner {
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
         const labelPos = this._cellPixelPos(sp.x, sp.y);
-        ctx.fillText('🚀 ' + sp.name, labelPos.px + 2, labelPos.py - 1);
+        const limitStr = sp.emitLimit > 0 ? `×${sp.emitLimit}` : '∞';
+        const intervalSec = ((sp.interval || 2000) / 1000).toFixed(1);
+        ctx.fillText(
+          `🚀 ${sp.name} ${limitStr} @${intervalSec}s`,
+          labelPos.px + 2,
+          labelPos.py - 1
+        );
       }
     }
     // ── Previews ──────────────────────────────────────────
@@ -1622,6 +1698,8 @@ export class LevelDesigner {
         height: sp.height,
         cells: sp.cells.map(([dx, dy]) => [dx, dy]),
         interval: sp.interval || 2000,
+        emitLimit: sp.emitLimit || 0,
+        initialDelay: sp.initialDelay != null ? sp.initialDelay : sp.interval || 2000,
       })),
       ruleset: this.ruleset,
       description: this.description,
@@ -1662,6 +1740,8 @@ export class LevelDesigner {
       height: sp.height,
       cells: (sp.cells || []).map(([dx, dy]) => [dx, dy]),
       interval: sp.interval || 2000,
+      emitLimit: sp.emitLimit || 0,
+      initialDelay: sp.initialDelay != null ? sp.initialDelay : sp.interval || 2000,
     }));
     this.ruleset = level.ruleset || 'conway';
     this.description = level.description || '';

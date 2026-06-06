@@ -763,7 +763,19 @@ class Game {
     else this.defenses.maxInk = CONFIG.MAX_INK;
     // Rebuild input manager to bind to new grid (canvas same).
     const prevInput = this.input;
-    if (this.input) this.input.cancelDrawing();
+    if (this.input) {
+      this.input.cancelDrawing();
+      // Detach old listeners if the InputManager supports it. This
+      // prevents the old manager from continuing to receive canvas
+      // events (which would double-charge ink on subsequent strokes).
+      if (typeof this.input.destroy === 'function') {
+        try {
+          this.input.destroy();
+        } catch (e) {
+          Logger.warn('[Game] InputManager.destroy() failed', e);
+        }
+      }
+    }
     this.input = new InputManager(this.canvas, this.grid, this.defenses);
     // Carry over drawing mode/settings from previous input manager.
     if (prevInput) {
@@ -1178,6 +1190,11 @@ class Game {
         const oldGrid = this.grid;
         const oldW = oldGrid.width;
         const oldH = oldGrid.height;
+        // Preserve ink state across rebuild — _buildWorld would
+        // otherwise leave this.defenses intact but the InputManager
+        // rebuild can double-charge ink for in-flight strokes.
+        // Cancel any in-progress drawing so ink isn't double-charged.
+        if (this.input) this.input.cancelDrawing();
         CONFIG.GRID_WIDTH = dims.width;
         CONFIG.GRID_HEIGHT = dims.height;
         this._fitCellSize();

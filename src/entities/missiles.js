@@ -528,8 +528,19 @@ export class Missiles {
       // bug where a custom level with no spawners/bases instantly wins.
       const hadDesignedThreats = this._customSpawners.length > 0 || this._customBases.length > 0;
       if (!hadDesignedThreats) return false;
-      if (this._designedSpawners.some((s) => s.alive)) return false;
+      // A spawner counts as "still active" if it's alive AND either
+      // unlimited (emitLimit=0) or still has emissions remaining.
+      const activeSpawners = this._designedSpawners.filter(
+        (s) => s.alive && (s.emitLimit === 0 || s.emitCount < s.emitLimit)
+      );
+      if (activeSpawners.length > 0) return false;
       if (this._designedBases.some((b) => b.alive)) return false;
+      // Wait for any still-flying missile cells to clear so the
+      // victory banner doesn't pop up while gliders are still mid-air.
+      const cells = this.grid.cells;
+      for (let i = 0; i < cells.length; i++) {
+        if (cells[i] === CELL_TYPE.MISSILE) return false;
+      }
       // All designed threats are eliminated. Wave is complete even if
       // a few stray glider cells are still flying around — the player
       // has eliminated the source structures, which is the win condition.
@@ -905,34 +916,16 @@ export class Missiles {
    */
   _spawnDesignedSpawners() {
     if (this._customSpawners.length === 0) return;
-    const g = this.grid;
-    const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
     for (const spec of this._customSpawners) {
       if (!Array.isArray(spec.cells) || spec.cells.length === 0) continue;
       const interval = spec.interval > 0 ? spec.interval : 2000;
-      // Clear footprint + halo and stamp the pattern marker.
-      for (let dy = -1; dy <= spec.height; dy++) {
-        for (let dx = -1; dx <= spec.width; dx++) {
-          const px = spec.x + dx,
-            py = spec.y + dy;
-          if (!g.inBounds(px, py)) continue;
-          const i = py * g.width + g.wrapX(px);
-          if (g.cells[i] === CELL_TYPE.CITY) continue;
-          g.cells[i] = CELL_TYPE.EMPTY;
-          g.cellAge[i] = 0;
-          g.cellDir[i] = 0;
-        }
-      }
-      for (const [dx, dy] of spec.cells) {
-        const px = spec.x + dx,
-          py = spec.y + dy;
-        if (!g.inBounds(px, py)) continue;
-        g.set(px, py, CELL_TYPE.MISSILE);
-        const i = py * g.width + g.wrapX(px);
-        g.cellColor[i] = (i * 11) % variants;
-        g.cellDir[i] = 0;
-        g.cellAge[i] = 0;
-      }
+      const emitLimit = spec.emitLimit > 0 ? spec.emitLimit : 0;
+      const initialDelay = spec.initialDelay >= 0 ? spec.initialDelay : interval;
+      // NOTE: We do NOT stamp the spawner pattern onto the grid here.
+      // The spawner is a *spawn point* — patterns appear at (spec.x,
+      // spec.y) on each emission and then evolve naturally via Life
+      // rules (gliders glide away, spaceships fly, etc.). The first
+      // emission happens after `initialDelay` ms.
       this._designedSpawners.push({
         patternId: spec.patternId,
         name: spec.name || spec.patternId,
@@ -942,13 +935,20 @@ export class Missiles {
         h: spec.height,
         cells: spec.cells.map(([dx, dy]) => [dx, dy]),
         interval,
-        cooldown: 500 + Math.random() * interval,
+        // First emission is delayed by `initialDelay` (defaults to one
+        // full interval) so the player sees an empty playfield first.
+        cooldown: initialDelay + Math.random() * 200,
         alive: true,
         _damage: 0,
         emitCount: 0,
+        // Per-spawner emission limit. 0 = unlimited (default).
+        emitLimit,
+        // Track consecutive blocked emissions; if too many in a row,
+        // we may flag the spawner as destroyed (handled in update).
+        _consecutiveBlocked: 0,
       });
       Logger.info(
-        `[Missiles]   designed spawner "${spec.name || spec.patternId}" at (${spec.x},${spec.y}) interval=${interval}ms.`
+        `[Missiles]   designed spawner "${spec.name || spec.patternId}" at (${spec.x},${spec.y}) interval=${interval}ms, limit=${emitLimit || '∞'}, initialDelay=${initialDelay}ms.`
       );
     }
   }
@@ -1031,8 +1031,15 @@ export class Missiles {
 
   /**
    * Designed spawners: emit gliders periodically while alive.
-   * Damage tracking + halo clearing keeps them stable against
-   * Life rule erosion.
+   *
+   * Spawners are pure spawn points: each emission stamps the pattern
+   * at the spawn location and lets Life evolution carry it away. There
+   * is no persistent visual marker — patterns appear, move, and are
+   * replaced periodically.
+   *
+   * Destruction: if the player paints DEFENSE cells covering the spawn
+   * footprint, emissions are blocked. After a sustained block, the
+   * spawner is considered destroyed.
    */
   _updateDesignedSpawners(deltaMs) {
     if (this._designedSpawners.length === 0) return;
@@ -1040,64 +1047,41 @@ export class Missiles {
     for (let i = this._designedSpawners.length - 1; i >= 0; i--) {
       const s = this._designedSpawners[i];
       if (!s.alive) continue;
-      // Refresh cell ages so designer-placed spawners (guns, etc.)
-      // don't age out. Their cells stay young indefinitely.
-      for (const [dx, dy] of s.cells) {
-        const px = s.x + dx,
-          py = s.y + dy;
-        if (!g.inBounds(px, py)) continue;
-        const idx = py * g.width + g.wrapX(px);
-        if (g.cells[idx] === CELL_TYPE.MISSILE) {
-          g.cellAge[idx] = 1;
-        }
-      }
 
       if (s._lifeTicks === undefined) s._lifeTicks = 0;
       s._lifeTicks++;
-      // Track nearby missile mass using a sliding window centered on
-      // the pattern's last known centroid. Spawners typically don't
-      // move (they emit gliders) but we use the same approach as
-      // bases for consistency. Stays anchored to the spawn point.
-      if (s._lifeTicks % 5 === 0 || s._lastNearbyCellCount == null) {
-        const cx = s.x + s.w / 2;
-        const cy = s.y + s.h / 2;
-        // For spawners, only count cells within the original footprint
-        // PLUS a small halo — we don't want to count emitted gliders
-        // far away as "spawner mass".
-        const scanRadius = Math.max(s.w, s.h);
-        let nearbyCells = 0;
-        for (
-          let sy = Math.max(0, Math.floor(cy - scanRadius));
-          sy < Math.min(g.height, Math.ceil(cy + scanRadius) + 1);
-          sy++
-        ) {
-          for (let sx = -scanRadius; sx <= scanRadius; sx++) {
-            const px = Math.floor(cx + sx);
-            if (!g.inBounds(px, sy)) continue;
-            const idx = sy * g.width + g.wrapX(px);
-            if (g.cells[idx] === CELL_TYPE.MISSILE) nearbyCells++;
+
+      // Destruction check: count player DEFENSE cells covering the
+      // spawn footprint. If a significant fraction is blocked, the
+      // spawner is considered destroyed. Checked every few ticks for
+      // perf.
+      if (s._lifeTicks % 5 === 0) {
+        let defenseHits = 0;
+        for (const [dx, dy] of s.cells) {
+          const px = s.x + dx,
+            py = s.y + dy;
+          if (!g.inBounds(px, py)) continue;
+          const idx = py * g.width + g.wrapX(px);
+          if (g.cells[idx] === CELL_TYPE.DEFENSE) defenseHits++;
+        }
+        const destroyThreshold = Math.max(1, Math.ceil(s.cells.length * 0.4));
+        if (defenseHits >= destroyThreshold) {
+          s.alive = false;
+          if (this.onBaseDestroyed) {
+            this.onBaseDestroyed(s.x + s.w / 2, s.y + s.h / 2, 'spawner');
           }
+          Logger.info(
+            `[Missiles] designed spawner "${s.name}" destroyed by player defenses (${defenseHits} hits) after emitting ${s.emitCount} glider(s).`
+          );
+          this._designedSpawners.splice(i, 1);
+          continue;
         }
-        s._lastNearbyCellCount = nearbyCells;
-      }
-      const totalCells = s.cells.length;
-      // Spawner is destroyed when its tracked mass drops below 25% of
-      // its original cell count AND we're past the grace period.
-      const massThreshold = Math.max(2, Math.ceil(totalCells * 0.25));
-      const graceTicks = 120;
-      if (s._lifeTicks > graceTicks && s._lastNearbyCellCount < massThreshold) {
-        s.alive = false;
-        if (this.onBaseDestroyed) {
-          this.onBaseDestroyed(s.x + s.w / 2, s.y + s.h / 2, 'spawner');
-        }
-        Logger.info(
-          `[Missiles] designed spawner "${s.name}" destroyed (${s._lastNearbyCellCount} nearby < threshold ${massThreshold}) after emitting ${s.emitCount} glider(s).`
-        );
-        this._designedSpawners.splice(i, 1);
-        continue;
       }
 
-      // No re-imprinting! Let the spawner pattern evolve naturally.
+      // Check emission limit (custom levels can cap per-spawner emits).
+      if (s.emitLimit > 0 && s.emitCount >= s.emitLimit) {
+        continue;
+      }
 
       // Emit on cooldown.
       s.cooldown -= deltaMs;
@@ -1106,12 +1090,24 @@ export class Missiles {
         if (emitted) {
           s.emitCount++;
           s.cooldown = s.interval;
+          s._consecutiveBlocked = 0;
           Logger.debug(`[Missiles] designed spawner "${s.name}" emitted glider #${s.emitCount}.`);
         } else {
-          // Emit blocked — wait a short time and retry. We do NOT
-          // emit in a different location. The user designed this
-          // spawn point; we wait for it to clear.
-          s.cooldown = Math.min(300, s.interval * 0.15);
+          // Emit blocked: the spawn footprint + halo is not clear. This
+          // happens often for large spaceships (LWSS/MWSS) when the
+          // previous emission hasn't fully cleared the spawn area yet.
+          // Wait patiently — retry interval scales with consecutive
+          // blocks so we don't spam the check, but caps at ~1 second
+          // so we resume promptly once the area clears.
+          s._consecutiveBlocked++;
+          const backoff = Math.min(1000, 200 + s._consecutiveBlocked * 100);
+          s.cooldown = backoff;
+          if (s._consecutiveBlocked % 10 === 1) {
+            Logger.debug(
+              `[Missiles] designed spawner "${s.name}" blocked ${s._consecutiveBlocked}x, ` +
+                `retrying in ${backoff}ms.`
+            );
+          }
         }
       }
     }
@@ -1120,43 +1116,39 @@ export class Missiles {
   _designedSpawnerEmit(s) {
     const g = this.grid;
     const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
-    // Designed spawners emit copies of their own pattern.
     const pattern = s.cells;
     if (!pattern || pattern.length === 0) {
       Logger.warn(`[Missiles] designed spawner "${s.name}" has no cells to emit.`);
       return false;
     }
-    let pw = 0,
-      ph = 0;
-    for (const [dx, dy] of pattern) {
-      if (dx + 1 > pw) pw = dx + 1;
-      if (dy + 1 > ph) ph = dy + 1;
-    }
-    const buffer = 3;
-    // Emit centered horizontally below the spawner footprint.
-    const baseX = s.x + Math.floor((s.w - pw) / 2);
-    let baseY = s.y + s.h + buffer;
-    // Apply wrap vertical shift if configured (for off-screen spawners).
-    if (g.wrapVerticalShift && baseY >= g.height) {
-      baseY = (baseY + g.wrapVerticalShift) % g.height;
-    }
-    if (baseY + ph >= g.height) {
-      Logger.debug(`[Missiles] designed spawner "${s.name}" emit blocked: off-grid bottom.`);
-      return false;
-    }
-    // Check the entire emit footprint + 1-cell halo is clear. If ANY
-    // cell is occupied by anything (MISSILE, DEFENSE, CITY, EXPLOSION),
-    // abort and let the caller schedule a retry. We do NOT emit
-    // elsewhere.
-    for (let dy = -1; dy <= ph; dy++) {
-      for (let dx = -1; dx <= pw; dx++) {
-        const px = baseX + dx,
-          py = baseY + dy;
-        if (!g.inBounds(px, py)) continue;
-        const t = g.get(px, py);
-        if (t !== CELL_TYPE.EMPTY) {
+    // Emit AT the spawn point itself. The pattern is then free to
+    // evolve naturally via Life rules — gliders glide away, spaceships
+    // fly, oscillators oscillate. This is the correct behavior for a
+    // "spawn point": new patterns appear here and leave on their own.
+    const baseX = s.x;
+    const baseY = s.y;
+    const pw = s.w;
+    const ph = s.h;
+    // Clearance check: the entire pattern bounding box PLUS 1 cell of
+    // padding (halo) must be clear of any non-empty cells (DEFENSE,
+    // MISSILE, CITY). Only EMPTY and EXPLOSION (transient) cells are
+    // acceptable. This prevents large spaceships (LWSS/MWSS) from being
+    // corrupted when the previous emission is still partially within
+    // the spawn area — they're long patterns that can occupy the spawn
+    // zone for many ticks before fully gliding away.
+    const padding = 1;
+    const minX = baseX - padding;
+    const maxX = baseX + pw - 1 + padding;
+    const minY = baseY - padding;
+    const maxY = baseY + ph - 1 + padding;
+    for (let cy = minY; cy <= maxY; cy++) {
+      for (let cx = minX; cx <= maxX; cx++) {
+        if (!g.inBounds(cx, cy)) continue;
+        const t = g.get(cx, cy);
+        if (t === CELL_TYPE.DEFENSE || t === CELL_TYPE.MISSILE || t === CELL_TYPE.CITY) {
           Logger.debug(
-            `[Missiles] designed spawner "${s.name}" emit blocked at (${px},${py}) type=${t}. Will retry.`
+            `[Missiles] designed spawner "${s.name}" emit blocked: ` +
+              `(${cx},${cy}) type=${t} in footprint+halo.`
           );
           return false;
         }
@@ -1166,15 +1158,14 @@ export class Missiles {
     for (const [dx, dy] of pattern) {
       const px = baseX + dx,
         py = baseY + dy;
-      if (g.inBounds(px, py) && g.get(px, py) === CELL_TYPE.EMPTY) {
-        g.set(px, py, CELL_TYPE.MISSILE);
-        const wx = g.wrapX(px);
-        const i = py * g.width + wx;
-        g.cellColor[i] = (Math.random() * variants) | 0;
-        g.cellDir[i] = DIR_DOWN;
-        g.cellAge[i] = 1;
-        placed++;
-      }
+      if (!g.inBounds(px, py)) continue;
+      g.set(px, py, CELL_TYPE.MISSILE);
+      const wx = g.wrapX(px);
+      const i = py * g.width + wx;
+      g.cellColor[i] = (Math.random() * variants) | 0;
+      g.cellDir[i] = DIR_DOWN;
+      g.cellAge[i] = 1;
+      placed++;
     }
     if (placed > 0 && this.onMissileSpawn) {
       this.onMissileSpawn(baseX + pw / 2, baseY + ph / 2, pw, ph);
