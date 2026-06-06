@@ -251,8 +251,12 @@ export class InputManager {
     const y = (e.clientY || 0) - rect.top - CONFIG.HUD_HEIGHT;
     const topologyId = this.grid && this.grid.topologyId ? this.grid.topologyId : 'square';
     if (topologyId === 'square') {
-      const gx = Math.floor((x * scaleX) / cs);
+      const displayX = Math.floor((x * scaleX) / cs);
       const gy = Math.floor((y * scaleY) / cs);
+      // Convert display x back to logical grid x using pan offset.
+      const panOffset = this.grid.panOffset || 0;
+      const w = this.grid.width;
+      const gx = (((displayX + panOffset) % w) + w) % w;
       return { gx, gy };
     }
     // Hex / Tri: use topology helper.

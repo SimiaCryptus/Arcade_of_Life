@@ -151,6 +151,10 @@ export class Simulation {
     if (this._ruleId !== (CONFIG.ACTIVE_RULESET || 'conway')) {
       this._compileActiveRuleset();
     }
+    // Sync wrap vertical shift to backend so generic path can apply it.
+    if (this.backend) {
+      this.backend._wrapVerticalShift = this.grid.wrapVerticalShift | 0;
+    }
     // Exotic rules: dispatch to the exotic engine. The exotic engine
     // operates on a binary DEFENSE-only grid; we extract DEFENSE cells,
     // run the exotic step, and reintegrate while preserving missiles,
@@ -741,6 +745,7 @@ export class Simulation {
 
   _detectReturnFire(minY, maxY) {
     if (!this.onMissileReturn) return;
+    if (!CONFIG.EVENT_RETURN_FIRE && !CONFIG.EVENT_RICOCHET) return;
     const g = this.grid;
     const w = g.width;
     const h = g.height;
@@ -778,6 +783,9 @@ export class Simulation {
         } else {
           kind = neighbors >= 4 ? 'ricochet' : 'return';
         }
+        // Respect per-event toggles.
+        if (kind === 'ricochet' && !CONFIG.EVENT_RICOCHET) continue;
+        if (kind === 'return' && !CONFIG.EVENT_RETURN_FIRE) continue;
         this.onMissileReturn(x, y, kind);
         fired[i] = 1;
         if (kind === 'ricochet') {
@@ -805,6 +813,7 @@ export class Simulation {
   // they slipped past the player's defenses without hitting a city.
   _detectBreach() {
     if (!this.onBreach) return;
+    if (!CONFIG.EVENT_BREACH) return;
     const g = this.grid;
     const w = g.width;
     const h = g.height;

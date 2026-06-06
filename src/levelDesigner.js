@@ -62,6 +62,8 @@ export class LevelDesigner {
     this.cellSize = 6;
     this.cities = []; // {x, y, width, height}
     this.defenseCells = new Set(); // "x,y" keys
+    // Wrap settings.
+    this.wrapVerticalShift = 0;
     // Bases from the zoo. Each entry is
     // {patternId, x, y, cells:[[dx,dy],...], width, height, name}.
     this.bases = [];
@@ -212,6 +214,17 @@ export class LevelDesigner {
                   <p id="ld-ruleset-desc" style="font-size:11px;color:#a0a0c0;font-style:italic;margin:4px 0 0;"></p>
                 </div>
                 <div class="ld-section">
+                  <h3>🔄 Toroidal Wrap</h3>
+                  <p style="font-size:11px;color:#a0a0c0;font-style:italic;margin:0 0 6px;">
+                    Vertical shift applied when patterns wrap around the east/west edges. 
+                    Set to 0 for a normal torus. Positive values offset wrapping cells downward,
+                    negative upward. Useful for Klein-bottle-like topologies.
+                  </p>
+                  <label>Wrap Vertical Shift (cells):
+                    <input id="ld-wrap-shift" type="number" min="-100" max="100" step="1" value="0" />
+                  </label>
+                </div>
+                <div class="ld-section">
                   <h3>ℹ Spawning</h3>
                   <p style="font-size:11px;color:#a0a0c0;font-style:italic;margin:0;">
                     Place 🚀 Spawner markers on the map to define where missiles emit. 
@@ -271,6 +284,7 @@ export class LevelDesigner {
                 </p>
                 <div class="ld-settings-actions">
                   <button id="ld-theme-reset" class="ld-btn ld-btn-danger">↺ Reset Theme</button>
+                  <button id="ld-theme-randomize" class="ld-btn" style="color:#ff80ff;border-color:#ff80ff;">🎲 Randomize</button>
                   <button id="ld-theme-preview" class="ld-btn">👁 Live Preview</button>
                 </div>
                 <div id="ld-theme-list"></div>
@@ -447,7 +461,20 @@ export class LevelDesigner {
       this.gridHeight = Math.max(40, Math.min(300, h));
       this._clipContent();
       this._resizeCanvas();
+      // Update slider ranges that depend on grid size.
+      const bzInput = ov.querySelector('#ld-set-BASE_ZONE_HEIGHT');
+      if (bzInput) {
+        const newMax = Math.max(20, Math.floor(this.gridHeight * 0.6));
+        bzInput.max = String(newMax);
+      }
     });
+    // Wrap shift input.
+    const wrapShiftInput = ov.querySelector('#ld-wrap-shift');
+    if (wrapShiftInput) {
+      wrapShiftInput.addEventListener('input', (e) => {
+        this.wrapVerticalShift = parseInt(e.target.value, 10) || 0;
+      });
+    }
     // Clear all.
     ov.querySelector('#ld-clear-btn').addEventListener('click', () => {
       if (!confirm('Clear all cities, defenses, and bases?')) return;
@@ -1144,6 +1171,26 @@ export class LevelDesigner {
     ctx.moveTo(0, (topDeadMax + 1) * cs + 0.5);
     ctx.lineTo(w, (topDeadMax + 1) * cs + 0.5);
     ctx.stroke();
+    // Wrap visualization: draw arrows at east/west edges showing the shift.
+    if (this.wrapVerticalShift && this.wrapVerticalShift !== 0) {
+      ctx.strokeStyle = 'rgba(255, 200, 80, 0.6)';
+      ctx.setLineDash([2, 2]);
+      const shiftPx = this.wrapVerticalShift * cs;
+      // East edge arrow indicator.
+      ctx.beginPath();
+      ctx.moveTo(w - 4, (this.gridHeight * cs) / 2);
+      ctx.lineTo(w - 4, (this.gridHeight * cs) / 2 + shiftPx);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255, 200, 80, 0.85)';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(
+        `wrap +${this.wrapVerticalShift}`,
+        w - 8,
+        (this.gridHeight * cs) / 2 + shiftPx + 12
+      );
+      ctx.setLineDash([]);
+    }
     // Base zone bottom border.
     if (bzMaxY >= bzMinY) {
       ctx.strokeStyle = 'rgba(255, 180, 60, 0.6)';
@@ -1412,6 +1459,7 @@ export class LevelDesigner {
       allowedTools: { ...this.allowedTools },
       allowedPatterns: Array.from(this.allowedPatterns),
       colorTheme: { ...this.colorTheme },
+      wrapVerticalShift: this.wrapVerticalShift | 0,
     };
   }
 
@@ -1474,6 +1522,8 @@ export class LevelDesigner {
     // Load color theme.
     this.colorTheme =
       level.colorTheme && typeof level.colorTheme === 'object' ? { ...level.colorTheme } : {};
+    // Wrap settings.
+    this.wrapVerticalShift = level.wrapVerticalShift | 0;
     this._syncUIFromState();
     this._resizeCanvas();
     this._updateStats();
@@ -1487,6 +1537,8 @@ export class LevelDesigner {
     this._updateRulesetDesc();
     ov.querySelector('#ld-grid-w').value = this.gridWidth;
     ov.querySelector('#ld-grid-h').value = this.gridHeight;
+    const wrapInp = ov.querySelector('#ld-wrap-shift');
+    if (wrapInp) wrapInp.value = this.wrapVerticalShift;
     this._syncSettingsPanelFromState();
     this._syncToolsPanelFromState();
     this._syncThemePanelFromState();
@@ -1795,6 +1847,57 @@ export class LevelDesigner {
         this._setStatus('Theme preview applied to map canvas.', 'ok');
       });
     }
+    const randomizeBtn = this.overlay.querySelector('#ld-theme-randomize');
+    if (randomizeBtn) {
+      randomizeBtn.addEventListener('click', () => {
+        this._randomizeColorTheme();
+        this._setStatus('🎲 Color theme randomized!', 'ok');
+      });
+    }
+  }
+  _randomizeColorTheme() {
+    // Generate a coherent random palette.
+    const hueBase = Math.random() * 360;
+    const hsl = (h, s, l, a = 1) =>
+      a < 1 ? `hsla(${h % 360}, ${s}%, ${l}%, ${a})` : `hsl(${h % 360}, ${s}%, ${l}%)`;
+    const hslHex = (h, s, l) => {
+      // Convert HSL to hex for color picker compatibility.
+      h = (h % 360) / 360;
+      s = s / 100;
+      l = l / 100;
+      const a = s * Math.min(l, 1 - l);
+      const f = (n) => {
+        const k = (n + h * 12) % 12;
+        const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+        return Math.round(c * 255)
+          .toString(16)
+          .padStart(2, '0');
+      };
+      return `#${f(0)}${f(8)}${f(4)}`;
+    };
+    // Background is dark, with a subtle tint.
+    this.colorTheme.BACKGROUND = hslHex(hueBase, 60, 5);
+    this.colorTheme.GRID = hslHex(hueBase + 20, 40, 10);
+    this.colorTheme.MIDLINE = hslHex(hueBase + 40, 50, 20);
+    // Cities — bright, warm complement.
+    this.colorTheme.CELL_CITY = hslHex(hueBase + 180, 80, 65);
+    // Explosions — orange/red.
+    this.colorTheme.CELL_EXPLOSION = hslHex((hueBase + 30) % 360, 90, 55);
+    // HUD text — light, slightly tinted.
+    this.colorTheme.HUD_TEXT = hslHex(hueBase + 60, 30, 90);
+    // Ink bar — bright accent.
+    this.colorTheme.INK_BAR = hslHex(hueBase + 90, 80, 55);
+    this.colorTheme.INK_BAR_BG = hslHex(hueBase + 90, 40, 15);
+    // Floater colors.
+    this.colorTheme.RETURN_FIRE_TEXT = hslHex(hueBase + 120, 70, 60);
+    this.colorTheme.RICOCHET_TEXT = hslHex(hueBase + 60, 90, 60);
+    // Draw zone.
+    this.colorTheme.DRAW_ZONE_BOUNDARY = hsl(hueBase + 150, 70, 50, 0.4);
+    this.colorTheme.DRAW_ZONE_TINT = hsl(hueBase + 150, 60, 40, 0.05);
+    // Sync UI.
+    this._syncThemePanelFromState();
+    // Redraw the preview canvas.
+    this._draw();
   }
   _setSwatchAndColor(colorInput, swatch, value) {
     swatch.style.background = value || 'transparent';
@@ -1929,9 +2032,9 @@ export class LevelDesigner {
           'INITIAL_INK',
           'MAX_INK',
           'INK_REGEN_RATE',
-          'CITY_COUNT',
           'CLEAR_REFUND_FRACTION',
           'HARDCORE_MODE',
+          'STARTING_SPEED',
         ],
       },
       {
@@ -1975,9 +2078,18 @@ export class LevelDesigner {
         ],
       },
       {
+        title: '🎯 Event Detection',
+        keys: [
+          'EVENT_RETURN_FIRE',
+          'EVENT_RICOCHET',
+          'EVENT_BREACH',
+          'EVENT_CITY_HIT',
+          'EVENT_ANNIHILATION',
+        ],
+      },
+      {
         title: '⚙️ Advanced',
         keys: [
-          'TICK_RATE',
           'DEFENDER_TICKS',
           'ATTACKER_TICKS',
           'SIM_HASHLIFE_ENABLED',
@@ -1995,6 +2107,25 @@ export class LevelDesigner {
     for (const d of SETTING_DEFS) sliderDefs[d.key] = d;
     const boolDefs = {};
     for (const d of BOOLEAN_SETTING_DEFS) boolDefs[d.key] = d;
+    // Synthetic defs for keys that aren't in SETTING_DEFS / BOOLEAN_SETTING_DEFS
+    // but should be exposed in the level designer.
+    const eventKeys = [
+      'EVENT_RETURN_FIRE',
+      'EVENT_RICOCHET',
+      'EVENT_BREACH',
+      'EVENT_CITY_HIT',
+      'EVENT_ANNIHILATION',
+    ];
+    for (const k of eventKeys) {
+      if (!boolDefs[k]) boolDefs[k] = { key: k, id: `setting-${k.toLowerCase()}` };
+    }
+    if (!sliderDefs.STARTING_SPEED) {
+      sliderDefs.STARTING_SPEED = {
+        key: 'STARTING_SPEED',
+        id: 'setting-starting-speed',
+        format: (v) => `${v.toFixed(2)}x`,
+      };
+    }
     this._settingsInputs = {}; // key → {input, valueEl, type}
     for (const sec of sections) {
       const header = document.createElement('div');
@@ -2090,6 +2221,18 @@ export class LevelDesigner {
       this.levelSettings[def.key] = v;
       numInput.value = String(v);
       valueEl.textContent = def.format(v);
+      // If DRAW_ZONE_FRACTION changed, recompute BASE_ZONE_HEIGHT slider max.
+      if (def.key === 'DRAW_ZONE_FRACTION' || def.key === 'REAR_DEAD_ZONE_HEIGHT') {
+        this._updateBaseZoneSliderMax();
+      }
+      // If DRAW_ZONE_FRACTION changed, redraw the map preview.
+      if (
+        def.key === 'DRAW_ZONE_FRACTION' ||
+        def.key === 'REAR_DEAD_ZONE_HEIGHT' ||
+        def.key === 'BASE_ZONE_HEIGHT'
+      ) {
+        this._draw();
+      }
     });
     numInput.addEventListener('change', () => {
       const step = parseFloat(numInput.step) || 1;
@@ -2104,6 +2247,16 @@ export class LevelDesigner {
       const clamped = Math.max(sMin, Math.min(sMax, v));
       input.value = String(clamped);
       valueEl.textContent = def.format(v);
+      if (def.key === 'DRAW_ZONE_FRACTION' || def.key === 'REAR_DEAD_ZONE_HEIGHT') {
+        this._updateBaseZoneSliderMax();
+      }
+      if (
+        def.key === 'DRAW_ZONE_FRACTION' ||
+        def.key === 'REAR_DEAD_ZONE_HEIGHT' ||
+        def.key === 'BASE_ZONE_HEIGHT'
+      ) {
+        this._draw();
+      }
     });
     container.appendChild(row);
     this._settingsInputs[def.key] = {
@@ -2115,6 +2268,23 @@ export class LevelDesigner {
       type: 'slider',
       def,
     };
+  }
+  // Recompute the BASE_ZONE_HEIGHT slider max based on current draw
+  // zone fraction and rear dead zone. Called when those settings change.
+  _updateBaseZoneSliderMax() {
+    const entry = this._settingsInputs && this._settingsInputs.BASE_ZONE_HEIGHT;
+    if (!entry) return;
+    const range = this._guessSliderRange('BASE_ZONE_HEIGHT');
+    entry.input.max = String(range.max);
+    entry.numInput.max = String(range.max);
+    // Clamp current value if it exceeds the new max.
+    const cur = this.levelSettings.BASE_ZONE_HEIGHT;
+    if (cur > range.max) {
+      this.levelSettings.BASE_ZONE_HEIGHT = range.max;
+      entry.input.value = String(range.max);
+      entry.numInput.value = String(range.max);
+      entry.valueEl.textContent = entry.def.format(range.max);
+    }
   }
   _buildBoolRow(container, def) {
     const row = document.createElement('div');
@@ -2145,6 +2315,7 @@ export class LevelDesigner {
       INK_REGEN_RATE: { min: 0, max: 10, step: 0.1 },
       INK_DRY_TICKS: { min: 0, max: 30, step: 1 },
       TICK_RATE: { min: 40, max: 300, step: 10 },
+      STARTING_SPEED: { min: 0.25, max: 8.0, step: 0.25 },
       DEFENDER_TICKS: { min: 1, max: 8, step: 1 },
       ATTACKER_TICKS: { min: 1, max: 8, step: 1 },
       MISSILES_PER_WAVE_BASE: { min: 1, max: 30, step: 1 },
@@ -2152,23 +2323,47 @@ export class LevelDesigner {
       MISSILE_SPAWN_INTERVAL: { min: 200, max: 5000, step: 50 },
       MISSILE_SPAWN_DECREMENT: { min: 0, max: 200, step: 5 },
       MISSILE_SPAWN_MIN: { min: 100, max: 2000, step: 50 },
-      CELL_MAX_AGE_TICKS: { min: 20, max: 999999, step: 10 },
-      MISSILE_MAX_AGE_TICKS: { min: 20, max: 999999, step: 10 },
-      DEFENSE_AGE_FRIENDLY: { min: 20, max: 999999, step: 10 },
-      DEFENSE_AGE_ENEMY: { min: 20, max: 999999, step: 10 },
-      MISSILE_AGE_FRIENDLY: { min: 20, max: 999999, step: 10 },
-      MISSILE_AGE_ENEMY: { min: 20, max: 999999, step: 10 },
+      CELL_MAX_AGE_TICKS: { min: 20, max: 2000, step: 10 },
+      MISSILE_MAX_AGE_TICKS: { min: 20, max: 2000, step: 10 },
+      DEFENSE_AGE_FRIENDLY: { min: 20, max: 2000, step: 10 },
+      DEFENSE_AGE_ENEMY: { min: 20, max: 2000, step: 10 },
+      MISSILE_AGE_FRIENDLY: { min: 20, max: 2000, step: 10 },
+      MISSILE_AGE_ENEMY: { min: 20, max: 2000, step: 10 },
       MISSILE_CASCADE_TICKS: { min: 0, max: 100, step: 1 },
-      CITY_COUNT: { min: 1, max: 10, step: 1 },
       CLEAR_REFUND_FRACTION: { min: 0, max: 1, step: 0.05 },
       DRAW_ZONE_FRACTION: { min: 0.2, max: 0.8, step: 0.05 },
       REAR_DEAD_ZONE_HEIGHT: { min: 0, max: 10, step: 1 },
-      BASE_ZONE_HEIGHT: { min: 0, max: 20, step: 1 },
+      BASE_ZONE_HEIGHT: { min: 0, max: 60, step: 1 },
       BASE_SPAWN_COUNT_BASE: { min: 0, max: 6, step: 1 },
       BASE_SPAWN_COUNT_INC: { min: 0, max: 2, step: 0.1 },
       BASE_SPAWN_MAX: { min: 1, max: 12, step: 1 },
       BASE_GLIDER_BUFFER: { min: 1, max: 12, step: 1 },
     };
+    // For BASE_ZONE_HEIGHT, the maximum depends on grid height AND the
+    // current draw zone fraction. The base zone has to fit between the
+    // top dead zone and the draw zone.
+    if (key === 'BASE_ZONE_HEIGHT' && this.gridHeight) {
+      // Compute available rows for the base zone:
+      //   gridHeight - topDeadZone - drawZoneRows - rearDeadZone
+      const settings = this.levelSettings || {};
+      const drawFrac =
+        settings.DRAW_ZONE_FRACTION != null
+          ? settings.DRAW_ZONE_FRACTION
+          : CONFIG.DRAW_ZONE_FRACTION || 0.5;
+      const topDeadMax =
+        settings.RETURN_FIRE_ZONE_MAX_Y != null
+          ? settings.RETURN_FIRE_ZONE_MAX_Y
+          : CONFIG.RETURN_FIRE_ZONE_MAX_Y || 4;
+      const rearH =
+        settings.REAR_DEAD_ZONE_HEIGHT != null
+          ? settings.REAR_DEAD_ZONE_HEIGHT
+          : CONFIG.REAR_DEAD_ZONE_HEIGHT || 2;
+      const drawZoneRows = Math.floor(this.gridHeight * drawFrac);
+      const topDeadRows = topDeadMax + 1;
+      const available = this.gridHeight - topDeadRows - drawZoneRows - rearH - 1;
+      const maxByGrid = Math.max(2, available);
+      ranges.BASE_ZONE_HEIGHT.max = maxByGrid;
+    }
     return ranges[key] || { min: 0, max: 1000, step: 1 };
   }
   // Convert a CONFIG key like "MISSILES_PER_WAVE_BASE" → "Missiles Per Wave (Base)".

@@ -284,6 +284,7 @@ class Game {
     this._initSpeedControls();
     this._initKeyboardShortcuts();
     this._initHotkeyHelp();
+    this._initPanControls();
     window.addEventListener('resize', () => this._onWindowResize());
     // Diagnostic: log any click that hits the exit/edit buttons or their parents.
     document.addEventListener(
@@ -847,6 +848,7 @@ class Game {
     };
     this.simulation.onAnnihilation = (x, y) => {
       try {
+        if (!CONFIG.EVENT_ANNIHILATION) return;
         Sfx.annihilation();
         if (!this.renderer) return;
         // Bright orange/yellow spark burst + a small shockwave.
@@ -871,6 +873,7 @@ class Game {
     };
     this.simulation.onCityHit = (x, y, attacker) => {
       try {
+        if (!CONFIG.EVENT_CITY_HIT) return;
         if (attacker === 'defense') Sfx.friendlyFire();
         else Sfx.cityHit();
         if (!this.renderer) return;
@@ -1571,6 +1574,61 @@ class Game {
       this.hotkeyHelpEl.classList.add('hidden');
     }
   }
+  _initPanControls() {
+    // Shift+arrow keys pan the view horizontally during gameplay.
+    // Also Shift+drag with middle mouse button or Alt+drag.
+    window.addEventListener('keydown', (e) => {
+      if (!this.gameState.is(STATE.PLAYING) && !this.gameState.is(STATE.WAVE_TRANSITION)) return;
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (!this.grid) return;
+      if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        const step = e.ctrlKey ? 10 : 2;
+        const delta = e.key === 'ArrowLeft' ? -step : step;
+        const w = this.grid.width;
+        this.grid.panOffset = (((this.grid.panOffset + delta) % w) + w) % w;
+        if (this.renderer) {
+          this.renderer.addFloater(
+            Math.floor(w / 2),
+            Math.floor(this.grid.height / 2),
+            `↔ Pan: ${this.grid.panOffset}`,
+            '#88ddff'
+          );
+        }
+      }
+    });
+    // Alt+drag pan with mouse.
+    if (this.canvas) {
+      let panning = false;
+      let lastX = 0;
+      let accumulator = 0;
+      this.canvas.addEventListener('mousedown', (e) => {
+        if (!e.altKey) return;
+        if (!this.gameState.is(STATE.PLAYING) && !this.gameState.is(STATE.WAVE_TRANSITION)) return;
+        e.preventDefault();
+        panning = true;
+        lastX = e.clientX;
+        accumulator = 0;
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!panning) return;
+        const dx = e.clientX - lastX;
+        lastX = e.clientX;
+        accumulator += dx;
+        const cs = CONFIG.CELL_SIZE > 0 ? CONFIG.CELL_SIZE : 1;
+        const cellsMoved = Math.trunc(accumulator / cs);
+        if (cellsMoved !== 0 && this.grid) {
+          const w = this.grid.width;
+          this.grid.panOffset = (((this.grid.panOffset - cellsMoved) % w) + w) % w;
+          accumulator -= cellsMoved * cs;
+        }
+      });
+      window.addEventListener('mouseup', () => {
+        panning = false;
+      });
+    }
+  }
 
   showOverlay(title, message, buttonText) {
     this.overlayTitle.innerHTML = title;
@@ -1633,6 +1691,7 @@ class Game {
     }
     Logger.info(`[Game] Starting custom level "${levelName}".`);
     this._activeCustomLevel = level;
+    this._customVictoryShown = false;
     // Apply full settings snapshot first (if present) so that downstream
     // overrides like waveConfig and ruleset still take precedence.
     if (level.settings && typeof level.settings === 'object') {
@@ -1700,6 +1759,10 @@ class Game {
     // Rebuild world for new grid size.
     this._fitCellSize();
     this._buildWorld();
+    // Apply wrap vertical shift to the new grid.
+    if (this.grid && typeof level.wrapVerticalShift === 'number') {
+      this.grid.wrapVerticalShift = level.wrapVerticalShift | 0;
+    }
     this.renderer.setGrid(this.grid);
     this._initSpeedControls();
     this.defenses.maxInk = CONFIG.MAX_INK;
@@ -1751,10 +1814,32 @@ class Game {
       } else {
         this.drawTools.setLevelPatternRestriction(null);
       }
+      // Auto-select the first enabled drawing tool.
+      if (level.allowedTools) {
+        const toolOrder = ['freehand', 'line', 'pattern', 'fill'];
+        const firstEnabled = toolOrder.find((t) => level.allowedTools[t]);
+        if (firstEnabled) {
+          this.drawTools.setMode(firstEnabled);
+        }
+      }
+      // Auto-select the first enabled pattern.
+      if (Array.isArray(level.allowedPatterns) && level.allowedPatterns.length > 0) {
+        const presetSelect = document.getElementById('pattern-presets');
+        if (presetSelect) {
+          const firstAllowed = level.allowedPatterns[0];
+          // Verify it exists in the dropdown.
+          const found = Array.from(presetSelect.options).some((o) => o.value === firstAllowed);
+          if (found) {
+            presetSelect.value = firstAllowed;
+            presetSelect.dispatchEvent(new Event('change'));
+          }
+        }
+      }
     }
     // Start wave 0. If the level has custom spawners, no default gliders
     // will spawn; otherwise default wave behavior takes over.
     this.missiles.startWave(0);
+    this._announceWave(1);
     this.gameState.set(STATE.PLAYING);
     this.hideOverlay();
     // Show a banner indicating custom level is active.
@@ -1773,6 +1858,19 @@ class Game {
       this.freeplayAbilities.install();
     }
     Sfx.waveStart();
+    // Apply starting speed (game always starts paused, but slider reflects
+    // the configured starting speed so resuming uses it).
+    if (this.speedSlider) {
+      // Always start paused.
+      const pausedIdx = 0;
+      this.speedSlider.value = String(pausedIdx);
+      this._applySpeedFromSlider();
+      // Remember the starting speed for when the player presses Space to resume.
+      const startSpeed = CONFIG.STARTING_SPEED || 1.0;
+      const startIdx = SPEED_PRESETS.findIndex((p) => p.value === startSpeed);
+      this._prePauseIdx =
+        startIdx >= 0 ? startIdx : SPEED_PRESETS.findIndex((p) => p.value === 1.0);
+    }
     return true;
   }
 
@@ -1822,6 +1920,7 @@ class Game {
       if (!confirmed) return;
     }
     Logger.info('Exiting to main menu.');
+    this._customVictoryShown = false;
     // Restore default colors if a custom level was active.
     if (this._defaultColors) {
       Object.assign(CONFIG.COLORS, this._defaultColors);
@@ -1913,6 +2012,7 @@ class Game {
     // Initial wave: also enforce draw-zone constraint.
     this._clearFriendlyOutsideDrawZone();
     this.missiles.startWave(0);
+    this._announceWave(1);
     this.gameState.set(STATE.PLAYING);
     this.hideOverlay();
     // Install/uninstall free-play abilities based on mode.
@@ -1962,7 +2062,36 @@ class Game {
     // Clear any friendly paint outside the drawable area before the next wave starts.
     this._clearFriendlyOutsideDrawZone();
     this.missiles.startWave(this.hud.wave - 1);
+    this._announceWave(this.hud.wave);
     this.gameState.set(STATE.PLAYING);
+  }
+  // Show a dramatic floater banner announcing the start of a wave.
+  _announceWave(waveNum) {
+    if (!this.renderer || !this.grid) return;
+    const cx = Math.floor(this.grid.width / 2);
+    const cy = Math.floor(this.grid.height / 4);
+    // Pick a color that escalates with wave number.
+    const colors = ['#00ffff', '#00ffaa', '#88ff44', '#ffcc44', '#ff8844', '#ff4444', '#ff44ff'];
+    const color = colors[Math.min(waveNum - 1, colors.length - 1)];
+    this.renderer.addBigFloater(cx, cy - 3, `◆ WAVE ${waveNum} ◆`, color, 2.4);
+    this.renderer.addBigFloater(cx, cy, 'INCOMING!', color, 1.6);
+    // Add a dramatic shockwave ring.
+    this.renderer.addShockwave(cx, cy - 1, {
+      maxRadius: 120,
+      color,
+      ttl: 50,
+      width: 4,
+    });
+    // Particle burst.
+    this.renderer.addParticleBurst(cx, cy, {
+      count: 40,
+      colors: [color, '#ffffff', '#ffcc44'],
+      speed: 3.0,
+      ttl: 60,
+      size: 3.0,
+      glow: 14,
+    });
+    this.renderer.addShake(3, 18);
   }
   // Remove DEFENSE cells (and pending ink) that lie outside the current
   // drawable area. Called at the start of each new wave so stray paint
@@ -2153,8 +2282,43 @@ class Game {
     }
 
     if (this.missiles.isWaveComplete()) {
-      this.nextWave();
+      // Custom levels: when all designed threats are eliminated, show
+      // a victory banner instead of looping forever through empty waves.
+      if (this._activeCustomLevel) {
+        this._customLevelVictory();
+      } else {
+        this.nextWave();
+      }
     }
+  }
+  _customLevelVictory() {
+    if (this._customVictoryShown) return;
+    this._customVictoryShown = true;
+    Logger.info('[Game] Custom level victory!');
+    Sfx.waveStart();
+    // Bonus score for surviving cities + remaining ink.
+    this.hud.addScore(this.cities.aliveCount() * 500);
+    this.hud.addScore((Math.floor(this.defenses.ink) * 1.0) | 0);
+    releaseWakeLock();
+    this.gameState.set(STATE.GAME_OVER);
+    const levelName = this._activeCustomLevel.name || 'Custom Level';
+    this.showOverlay(
+      '🏆 VICTORY!',
+      `You completed <strong>${levelName}</strong>!<br><br>
+       All enemy structures destroyed.<br><br>
+       Cities saved: <strong>${this.cities.aliveCount()}</strong><br>
+       Final Score: <strong>${this.hud.score}</strong><br>
+       High Score: ${this.hud.highScore}`,
+      'Back to Menu'
+    );
+    // Replace start button handler temporarily.
+    const btn = this.startButton;
+    const origHandler = btn.onclick;
+    btn.onclick = () => {
+      btn.onclick = origHandler;
+      this._customVictoryShown = false;
+      this.exitToMenu();
+    };
   }
 }
 

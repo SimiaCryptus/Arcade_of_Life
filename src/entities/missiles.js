@@ -328,14 +328,20 @@ export class Missiles {
     this.recentSpawns = [];
     this.targets = [];
     this.bases = [];
-    this._designedBases = [];
-    this._designedSpawners = [];
     this.spawnPoints = [];
     this.emittedMissiles = 0;
 
-    // Spawn designer-placed bases & spawners first (they override default).
-    this._spawnDesignedBases();
-    this._spawnDesignedSpawners();
+    // Spawn designer-placed bases & spawners ONLY on wave 1 (waveNum === 0).
+    // Subsequent waves keep the surviving designed content; if everything
+    // is destroyed the wave completes and the game continues to wave N+1
+    // with no designed threats remaining (custom levels are essentially
+    // single-wave puzzles unless the designer adds more spawners later).
+    if (waveNum === 0) {
+      this._designedBases = [];
+      this._designedSpawners = [];
+      this._spawnDesignedBases();
+      this._spawnDesignedSpawners();
+    }
 
     if (this.hasCustomContent()) {
       // Custom level: designed spawners handle all glider emission.
@@ -508,20 +514,30 @@ export class Missiles {
   /**
    * Wave is complete when:
    *   - All target missiles emitted (default game) OR all spawners destroyed (custom)
-   *   - No live missile cells remain on the grid
+   *   - No live missile cells remain on the grid (default game only)
    *   - All targets, bases, designed bases, designed spawners destroyed
    */
   isWaveComplete() {
+    // Custom level logic: wave is complete when all designed spawners
+    // and designed bases are destroyed. Lingering missile cells are
+    // allowed (the player may still need to mop them up, but the
+    // structural threat is gone).
+    if (this.hasCustomContent()) {
+      if (this._designedSpawners.some((s) => s.alive)) return false;
+      if (this._designedBases.some((b) => b.alive)) return false;
+      // All designed threats are eliminated. Wave is complete even if
+      // a few stray glider cells are still flying around — the player
+      // has eliminated the source structures, which is the win condition.
+      Logger.info('[Missiles] Custom level: all designed threats destroyed — wave complete.');
+      return true;
+    }
     // For default game: must have emitted all target missiles.
-    if (!this.hasCustomContent() && this.emittedMissiles < this.targetMissiles) {
+    if (this.emittedMissiles < this.targetMissiles) {
       return false;
     }
-    // For custom: must have destroyed all designed spawners.
-    if (this._designedSpawners.some((s) => s.alive)) return false;
     // Live threats remaining?
     if (this.targets.some((t) => t.alive)) return false;
     if (this.bases.some((b) => b.alive)) return false;
-    if (this._designedBases.some((b) => b.alive)) return false;
     // Any missile cells still flying?
     const cells = this.grid.cells;
     for (let i = 0; i < cells.length; i++) {
@@ -955,13 +971,10 @@ export class Missiles {
       // footprint cells still contain MISSILE cells. Once that falls
       // below a threshold, the base is considered destroyed.
       //
-      // Note: this only catches bases that decay AT their original
-      // location. Spaceship-type bases (MWSS etc.) will move out of
-      // their footprint and naturally trigger "destruction" here even
-      // though they're alive elsewhere on the grid. That's intentional
-      // — once a designed base leaves its anchor, it's no longer
-      // tracked as a destructible objective; the player just has to
-      // deal with whatever it spawned/became.
+      // For spaceship-type bases (MWSS etc.) we extend the grace
+      // period substantially and check for missile mass anywhere in
+      // a wider tracking window to avoid false "destroyed" reports
+      // when the spaceship simply moves away from its spawn point.
       let liveCellCount = 0;
       for (const [dx, dy] of b.cells) {
         const px = b.x + dx,
@@ -970,28 +983,51 @@ export class Missiles {
         const idx = py * g.width + g.wrapX(px);
         if (g.cells[idx] === CELL_TYPE.MISSILE) liveCellCount++;
       }
-      // Initialize "anchor reached" tracker so we don't immediately
-      // destroy bases that intentionally vacate their start position
-      // (e.g. spaceships). We give them a 30-tick grace period before
-      // we start tracking decay-at-anchor.
       if (b._lifeTicks === undefined) b._lifeTicks = 0;
       b._lifeTicks++;
+      // Track total missile cells in vicinity for spaceship detection.
+      // If the base has been moving, count cells in a wide window.
+      if (b._lifeTicks <= 60) {
+        // During initial period, scan a wide area around the anchor
+        // for any missile mass to track moving spaceships.
+        let nearbyCells = 0;
+        const scanRadius = Math.max(b.w, b.h) + 4;
+        const cx = b.x + b.w / 2;
+        const cy = b.y + b.h / 2;
+        for (
+          let sy = Math.max(0, Math.floor(cy - scanRadius));
+          sy < Math.min(g.height, Math.ceil(cy + scanRadius));
+          sy++
+        ) {
+          for (let sx = -scanRadius; sx <= scanRadius; sx++) {
+            const px = Math.floor(cx + sx);
+            if (!g.inBounds(px, sy)) continue;
+            const idx = sy * g.width + g.wrapX(px);
+            if (g.cells[idx] === CELL_TYPE.MISSILE) nearbyCells++;
+          }
+        }
+        b._lastNearbyCellCount = nearbyCells;
+      }
       const aliveThreshold = Math.max(1, Math.ceil(b.cells.length / 3));
-      if (b._lifeTicks > 30 && liveCellCount < aliveThreshold) {
+      // Extended grace period: 90 ticks before checking decay-at-anchor.
+      // If the base has missile cells nearby (a spaceship moved away),
+      // require population to have dropped below threshold instead.
+      const graceTicks = 90;
+      const totalCells = b.cells.length;
+      const massDropped =
+        b._lastNearbyCellCount != null &&
+        b._lastNearbyCellCount < Math.max(2, Math.ceil(totalCells / 2));
+      if (b._lifeTicks > graceTicks && liveCellCount < aliveThreshold && massDropped) {
         b.alive = false;
         if (this.onBaseDestroyed) {
           this.onBaseDestroyed(b.x + b.w / 2, b.y + b.h / 2, 'designed');
         }
         Logger.info(
-          `[Missiles] designed base "${b.name}" destroyed (${liveCellCount}/${b.cells.length} cells remain at anchor after ${b._lifeTicks} ticks).`
+          `[Missiles] designed base "${b.name}" destroyed (${liveCellCount}/${b.cells.length} cells at anchor, ${b._lastNearbyCellCount} nearby) after ${b._lifeTicks} ticks.`
         );
         this._designedBases.splice(i, 1);
         continue;
       }
-      // No re-imprinting! Let the base evolve naturally via Life rules.
-      // If it's a spaceship pattern, it will move on its own.
-      // If it's a still life or oscillator, it will stay put.
-      // If player defenses chew through it, it will naturally decay.
     }
   }
 
@@ -1032,14 +1068,39 @@ export class Missiles {
       }
       if (s._lifeTicks === undefined) s._lifeTicks = 0;
       s._lifeTicks++;
+      // Track nearby missile mass for spawner detection (similar to bases).
+      if (s._lifeTicks <= 60) {
+        let nearbyCells = 0;
+        const scanRadius = Math.max(s.w, s.h) + 4;
+        const cx = s.x + s.w / 2;
+        const cy = s.y + s.h / 2;
+        for (
+          let sy = Math.max(0, Math.floor(cy - scanRadius));
+          sy < Math.min(g.height, Math.ceil(cy + scanRadius));
+          sy++
+        ) {
+          for (let sx = -scanRadius; sx <= scanRadius; sx++) {
+            const px = Math.floor(cx + sx);
+            if (!g.inBounds(px, sy)) continue;
+            const idx = sy * g.width + g.wrapX(px);
+            if (g.cells[idx] === CELL_TYPE.MISSILE) nearbyCells++;
+          }
+        }
+        s._lastNearbyCellCount = nearbyCells;
+      }
       const aliveThreshold = Math.max(1, Math.ceil(s.cells.length / 3));
-      if (s._lifeTicks > 30 && liveCellCount < aliveThreshold) {
+      const graceTicks = 90;
+      const totalCells = s.cells.length;
+      const massDropped =
+        s._lastNearbyCellCount != null &&
+        s._lastNearbyCellCount < Math.max(2, Math.ceil(totalCells / 2));
+      if (s._lifeTicks > graceTicks && liveCellCount < aliveThreshold && massDropped) {
         s.alive = false;
         if (this.onBaseDestroyed) {
           this.onBaseDestroyed(s.x + s.w / 2, s.y + s.h / 2, 'spawner');
         }
         Logger.info(
-          `[Missiles] designed spawner "${s.name}" destroyed (${liveCellCount}/${s.cells.length} cells at anchor) after emitting ${s.emitCount} glider(s).`
+          `[Missiles] designed spawner "${s.name}" destroyed (${liveCellCount}/${s.cells.length} at anchor, ${s._lastNearbyCellCount} nearby) after emitting ${s.emitCount} glider(s).`
         );
         this._designedSpawners.splice(i, 1);
         continue;
@@ -1083,7 +1144,11 @@ export class Missiles {
     const buffer = 3;
     // Emit centered horizontally below the spawner footprint.
     const baseX = s.x + Math.floor((s.w - pw) / 2);
-    const baseY = s.y + s.h + buffer;
+    let baseY = s.y + s.h + buffer;
+    // Apply wrap vertical shift if configured (for off-screen spawners).
+    if (g.wrapVerticalShift && baseY >= g.height) {
+      baseY = (baseY + g.wrapVerticalShift) % g.height;
+    }
     if (baseY + ph >= g.height) {
       Logger.debug(`[Missiles] designed spawner "${s.name}" emit blocked: off-grid bottom.`);
       return false;

@@ -111,20 +111,53 @@
           >
         </div>
         <div class="tool-group" id="fill-tools" style="display: none">
-          <label for="fill-pattern">Fill:</label>
-          <select id="fill-pattern">
-            <option value="solid">Solid</option>
-            <option value="checker">Checker</option>
-            <option value="stripes_h">Stripes (horizontal)</option>
-            <option value="stripes_v">Stripes (vertical)</option>
-            <option value="diagonal">Diagonal</option>
-            <option value="dots_sparse">Dots (sparse)</option>
-            <option value="dots_dense">Dots (dense)</option>
-            <option value="grid">Grid</option>
-            <option value="cross">Cross</option>
-            <option value="random50">Random 50%</option>
-            <option value="random25">Random 25%</option>
-          </select>
+          <label for="fill-pattern">Fill Pattern:</label>
+          <div class="fill-pattern-grid" id="fill-pattern-grid">
+            <button class="fill-swatch active" data-pattern="solid" title="Solid">
+              <span class="fill-swatch-preview fp-solid"></span>
+              <span class="fill-swatch-label">Solid</span>
+            </button>
+            <button class="fill-swatch" data-pattern="checker" title="Checker">
+              <span class="fill-swatch-preview fp-checker"></span>
+              <span class="fill-swatch-label">Checker</span>
+            </button>
+            <button class="fill-swatch" data-pattern="stripes_h" title="Horizontal stripes">
+              <span class="fill-swatch-preview fp-stripes-h"></span>
+              <span class="fill-swatch-label">Stripes ─</span>
+            </button>
+            <button class="fill-swatch" data-pattern="stripes_v" title="Vertical stripes">
+              <span class="fill-swatch-preview fp-stripes-v"></span>
+              <span class="fill-swatch-label">Stripes │</span>
+            </button>
+            <button class="fill-swatch" data-pattern="diagonal" title="Diagonal">
+              <span class="fill-swatch-preview fp-diagonal"></span>
+              <span class="fill-swatch-label">Diagonal</span>
+            </button>
+            <button class="fill-swatch" data-pattern="dots_sparse" title="Dots (sparse)">
+              <span class="fill-swatch-preview fp-dots-sparse"></span>
+              <span class="fill-swatch-label">Dots ·</span>
+            </button>
+            <button class="fill-swatch" data-pattern="dots_dense" title="Dots (dense)">
+              <span class="fill-swatch-preview fp-dots-dense"></span>
+              <span class="fill-swatch-label">Dots ∷</span>
+            </button>
+            <button class="fill-swatch" data-pattern="grid" title="Grid">
+              <span class="fill-swatch-preview fp-grid"></span>
+              <span class="fill-swatch-label">Grid</span>
+            </button>
+            <button class="fill-swatch" data-pattern="cross" title="Cross">
+              <span class="fill-swatch-preview fp-cross"></span>
+              <span class="fill-swatch-label">Cross</span>
+            </button>
+            <button class="fill-swatch" data-pattern="random50" title="Random 50%">
+              <span class="fill-swatch-preview fp-random50"></span>
+              <span class="fill-swatch-label">Rand 50%</span>
+            </button>
+            <button class="fill-swatch" data-pattern="random25" title="Random 25%">
+              <span class="fill-swatch-preview fp-random25"></span>
+              <span class="fill-swatch-label">Rand 25%</span>
+            </button>
+          </div>
         </div>
         <span class="tool-hint"
           >[F/L/P/B mode, Tab cycle, R rotate, X flip H, Y flip V, +/- width, Shift+1-8
@@ -165,11 +198,11 @@
             Release to commit them to the simulation.
           </p>
           <button id="start-button">Start Game</button>
-          <button id="settings-button">Settings</button>
           <button id="howtoplay-button">How to Play</button>
+          <button id="guide-button">Console Hacking Guide</button>
           <button id="pattern-zoo-button">🦓 Pattern Zoo</button>
           <button id="level-designer-button">🛠 Level Designer</button>
-          <button id="guide-button">Console Hacking Guide</button>
+          <button id="settings-button">Settings</button>
           <div class="overlay-footer">
             <a
               class="github-link"
@@ -576,11 +609,6 @@
                   />
                 </div>
                 <span class="setting-value">&nbsp;</span>
-              </div>
-              <div class="setting-row">
-                <label for="setting-city-count">City Count</label>
-                <input id="setting-city-count" max="10" min="1" step="1" type="range" />
-                <span class="setting-value" id="setting-city-count-value"></span>
               </div>
               <div class="setting-row">
                 <label for="setting-ink">Starting Ink</label>

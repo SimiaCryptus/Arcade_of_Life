@@ -157,6 +157,7 @@ export class DrawToolsPanel {
     const lineTools = document.getElementById('line-tools');
     const patternTools = document.getElementById('pattern-tools');
     const fillTools = document.getElementById('fill-tools');
+    const patternEditorToggleGroup = document.getElementById('pattern-editor-toggle-group');
     if (!lineTools || !patternTools) return;
     const mode = this.input.mode;
     // Line width/dash apply to freehand and line modes.
@@ -164,6 +165,10 @@ export class DrawToolsPanel {
       mode === DRAW_MODE.FREEHAND || mode === DRAW_MODE.LINE ? 'flex' : 'none';
     patternTools.style.display = mode === DRAW_MODE.PATTERN ? 'flex' : 'none';
     if (fillTools) fillTools.style.display = mode === DRAW_MODE.FILL ? 'flex' : 'none';
+    // Edit Pattern button only visible in pattern mode.
+    if (patternEditorToggleGroup) {
+      patternEditorToggleGroup.style.display = mode === DRAW_MODE.PATTERN ? 'flex' : 'none';
+    }
   }
 
   _initLineControls() {
@@ -184,11 +189,17 @@ export class DrawToolsPanel {
         this.input.setDashPattern(dashSelect.value);
       });
     }
-    // Fill pattern selector.
-    const fillSelect = document.getElementById('fill-pattern');
-    if (fillSelect) {
-      fillSelect.addEventListener('change', () => {
-        this.input.setFillPattern(fillSelect.value);
+    // Fill pattern selector — visual swatch grid.
+    const fillGrid = document.getElementById('fill-pattern-grid');
+    if (fillGrid) {
+      const swatches = fillGrid.querySelectorAll('.fill-swatch');
+      swatches.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const pat = btn.dataset.pattern;
+          if (!pat) return;
+          this.input.setFillPattern(pat);
+          swatches.forEach((b) => b.classList.toggle('active', b === btn));
+        });
       });
     }
   }

@@ -443,22 +443,26 @@ export class Renderer {
     const missileVariants = colors.MISSILE_VARIANTS;
     const cells = this.grid.cells;
     const cellColor = this.grid.cellColor;
+    const panOffset = this.grid.panOffset || 0;
+    const w = this.grid.width;
     for (let y = 0; y < this.grid.height; y++) {
-      for (let x = 0; x < this.grid.width; x++) {
+      for (let x = 0; x < w; x++) {
         const i = y * this.grid.width + x;
         const t = cells[i];
         if (t === CELL_TYPE.EMPTY) continue;
         const color = this._cellColorFor(t, cellColor[i], defenseVariants, missileVariants, colors);
+        // Apply pan: display column = (x - panOffset) mod w
+        const displayX = (((x - panOffset) % w) + w) % w;
         if (t === CELL_TYPE.MISSILE && cs >= 4 && CONFIG.VFX_CELL_GLOW !== false) {
           ctx.save();
           ctx.shadowColor = color;
           ctx.shadowBlur = Math.min(8, cs);
           ctx.fillStyle = color;
-          ctx.fillRect(x * cs, y * cs + gridYOffset, cs, cs);
+          ctx.fillRect(displayX * cs, y * cs + gridYOffset, cs, cs);
           ctx.restore();
         } else {
           ctx.fillStyle = color;
-          ctx.fillRect(x * cs, y * cs + gridYOffset, cs, cs);
+          ctx.fillRect(displayX * cs, y * cs + gridYOffset, cs, cs);
         }
       }
     }
@@ -566,6 +570,7 @@ export class Renderer {
     const topologyId = this.grid.topologyId || 'square';
     const w = this.grid.width;
     const pending = this.grid.pending;
+    const panOffset = this.grid.panOffset || 0;
     const computeAlpha = (i) => {
       const dryRemain = pendingDry[i];
       if (dryRemain === 0) return 0.35;
@@ -578,7 +583,8 @@ export class Renderer {
           const i = y * w + x;
           if (pending[i]) {
             ctx.fillStyle = `rgba(0, 255, 136, ${computeAlpha(i)})`;
-            ctx.fillRect(x * cs, y * cs + gridYOffset, cs, cs);
+            const displayX = (((x - panOffset) % w) + w) % w;
+            ctx.fillRect(displayX * cs, y * cs + gridYOffset, cs, cs);
           }
         }
       }

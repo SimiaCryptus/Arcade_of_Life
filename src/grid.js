@@ -23,6 +23,16 @@ export class Grid {
     this.topology = getTopology(topologyId);
     const arrSize = this.topology.arraySize(width, height);
     this.arraySize = arrSize;
+    // Horizontal pan offset (in cells). Affects rendering and input
+    // mapping. The underlying cell buffer is unchanged; only the
+    // visible window slides. Wrap-around still works because the
+    // grid is logically toroidal on the x-axis.
+    this.panOffset = 0;
+    // Per-row x-shift for spaceship base wrap (in cells). When a
+    // spaceship traveling east/west wraps around the toroidal edge,
+    // this allows it to appear at a configurable vertical offset.
+    // Configured per-level by the designer.
+    this.wrapVerticalShift = 0;
     this.cells = new Uint8Array(arrSize);
     this.pending = new Uint8Array(arrSize); // separate layer for pending cells (1 = pending)
     // Remaining "dry" ticks for each pending cell. Counts down to 0 before commit.
@@ -50,6 +60,47 @@ export class Grid {
   wrapX(x) {
     const w = this.width;
     return ((x % w) + w) % w;
+  }
+  /**
+   * Wrap a coordinate pair across the toroidal east/west edge,
+   * applying the configured wrapVerticalShift. Returns the wrapped
+   * (x, y) coordinates. Used by neighbor lookups and rendering.
+   * @param {number} x
+   * @param {number} y
+   * @returns {{x: number, y: number}}
+   */
+  wrapXY(x, y) {
+    const w = this.width;
+    const h = this.height;
+    const shift = this.wrapVerticalShift | 0;
+    let nx = x;
+    let ny = y;
+    if (shift !== 0) {
+      // Count how many times we wrapped (positive = east overflow, negative = west).
+      if (x >= w) {
+        const wraps = Math.floor(x / w);
+        nx = x - wraps * w;
+        ny = y + wraps * shift;
+      } else if (x < 0) {
+        const wraps = Math.ceil(-x / w);
+        nx = x + wraps * w;
+        ny = y - wraps * shift;
+      }
+    } else {
+      nx = ((x % w) + w) % w;
+    }
+    return { x: nx, y: ny };
+  }
+  // Apply pan offset to a grid x coordinate (for display purposes).
+  // Returns the display column for cell at logical x.
+  toDisplayX(x) {
+    const w = this.width;
+    return (((x - this.panOffset) % w) + w) % w;
+  }
+  // Inverse: convert display column to logical grid x.
+  fromDisplayX(displayX) {
+    const w = this.width;
+    return (((displayX + this.panOffset) % w) + w) % w;
   }
 
   // Row index where the draw zone starts (inclusive). Cells with y >= this

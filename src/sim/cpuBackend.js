@@ -62,6 +62,31 @@ export class CpuSimBackend {
       this._computeNeighborCountsTri(cells, w, h, lifeOut, missOut, defOut);
       return;
     }
+    // If a wrap vertical shift is configured, use the generic per-cell
+    // path with Moore offsets (the fast column-sum optimization assumes
+    // strict row alignment which the shift breaks).
+    if ((this._wrapVerticalShift | 0) !== 0) {
+      // Temporarily install Moore offsets if no neighborhood is set.
+      const savedNbhd = this._neighborhood;
+      if (!this._neighborhood || this._neighborhood.id === 'moore') {
+        this._neighborhood = {
+          id: 'moore',
+          offsets: [
+            [-1, -1],
+            [0, -1],
+            [1, -1],
+            [-1, 0],
+            [1, 0],
+            [-1, 1],
+            [0, 1],
+            [1, 1],
+          ],
+        };
+      }
+      this._computeNeighborCountsGeneric(cells, w, h, lifeOut, missOut, defOut);
+      this._neighborhood = savedNbhd;
+      return;
+    }
     // Generic path for non-Moore neighborhoods.
     if (this._neighborhood && this._neighborhood.id !== 'moore') {
       this._computeNeighborCountsGeneric(cells, w, h, lifeOut, missOut, defOut);
@@ -157,6 +182,9 @@ export class CpuSimBackend {
     defOut.fill(0);
     const offsets = this._neighborhood.offsets;
     const nOff = offsets.length;
+    // Vertical shift when wrapping horizontally (for Klein-bottle-like
+    // topologies). Pulled from a static field set by simulation.js.
+    const vShift = this._wrapVerticalShift | 0;
     for (let y = 0; y < h; y++) {
       const rowBase = y * w;
       for (let x = 0; x < w; x++) {
@@ -166,12 +194,22 @@ export class CpuSimBackend {
         for (let k = 0; k < nOff; k++) {
           const dx = offsets[k][0];
           const dy = offsets[k][1];
-          const ny = y + dy;
-          if (ny < 0 || ny >= h) continue;
           // Horizontal wrap.
           let nx = x + dx;
-          if (nx < 0) nx = ((nx % w) + w) % w;
-          else if (nx >= w) nx = nx % w;
+          let ny = y + dy;
+          if (vShift !== 0) {
+            if (nx < 0) {
+              ny -= vShift;
+              nx = ((nx % w) + w) % w;
+            } else if (nx >= w) {
+              ny += vShift;
+              nx = nx % w;
+            }
+          } else {
+            if (nx < 0) nx = ((nx % w) + w) % w;
+            else if (nx >= w) nx = nx % w;
+          }
+          if (ny < 0 || ny >= h) continue;
           const t = cells[ny * w + nx];
           if (t === CELL_TYPE.MISSILE) {
             life++;

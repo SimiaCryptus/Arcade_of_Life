@@ -980,6 +980,134 @@ body {
   margin-left: auto;
   align-self: center;
 }
+/* ---------- Fill Pattern Swatch Grid ---------- */
+.fill-pattern-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 4px;
+  max-width: 380px;
+  padding: 4px;
+  background: rgba(10, 10, 30, 0.6);
+  border: 1px solid #2a2a5a;
+  border-radius: 4px;
+}
+.fill-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  color: #c0c0d0;
+  border: 1px solid #4040a0;
+  padding: 3px 4px;
+  font-family: inherit;
+  font-size: 9px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+.fill-swatch:hover {
+  background: rgba(0, 255, 255, 0.12);
+  border-color: #00ffff;
+}
+.fill-swatch.active {
+  background: rgba(0, 255, 255, 0.25);
+  border-color: #00ffff;
+  box-shadow: 0 0 6px rgba(0, 255, 255, 0.5);
+  color: #00ffff;
+}
+.fill-swatch-preview {
+  width: 32px;
+  height: 18px;
+  border: 1px solid #2a2a5a;
+  background-color: #000010;
+  background-size: 4px 4px;
+  image-rendering: pixelated;
+}
+.fill-swatch-label {
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+/* Pattern preview backgrounds — using CSS gradients to mimic fills */
+.fp-solid {
+  background-color: #00ff88;
+}
+.fp-checker {
+  background-image:
+    linear-gradient(45deg, #00ff88 25%, transparent 25%),
+    linear-gradient(-45deg, #00ff88 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #00ff88 75%),
+    linear-gradient(-45deg, transparent 75%, #00ff88 75%);
+  background-size: 6px 6px;
+  background-position:
+    0 0,
+    0 3px,
+    3px -3px,
+    -3px 0;
+}
+.fp-stripes-h {
+  background-image: repeating-linear-gradient(
+    0deg,
+    #00ff88 0,
+    #00ff88 2px,
+    transparent 2px,
+    transparent 4px
+  );
+}
+.fp-stripes-v {
+  background-image: repeating-linear-gradient(
+    90deg,
+    #00ff88 0,
+    #00ff88 2px,
+    transparent 2px,
+    transparent 4px
+  );
+}
+.fp-diagonal {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #00ff88 0,
+    #00ff88 2px,
+    transparent 2px,
+    transparent 6px
+  );
+}
+.fp-dots-sparse {
+  background-image: radial-gradient(#00ff88 1px, transparent 1.5px);
+  background-size: 6px 6px;
+}
+.fp-dots-dense {
+  background-image: radial-gradient(#00ff88 1px, transparent 1.5px);
+  background-size: 4px 4px;
+}
+.fp-grid {
+  background-image:
+    linear-gradient(#00ff88 1px, transparent 1px),
+    linear-gradient(90deg, #00ff88 1px, transparent 1px);
+  background-size: 6px 6px;
+}
+.fp-cross {
+  background-image:
+    linear-gradient(#00ff88 1px, transparent 1px),
+    linear-gradient(90deg, #00ff88 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+.fp-random50 {
+  background-image:
+    radial-gradient(#00ff88 0.8px, transparent 1.2px),
+    radial-gradient(#00ff88 0.8px, transparent 1.2px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-position:
+    0 0,
+    2px 3px;
+}
+.fp-random25 {
+  background-image: radial-gradient(#00ff88 0.8px, transparent 1.2px);
+  background-size: 7px 7px;
+}
 
 /* ---------- Draw tool action group (Clear / Capture) ---------- */
 .tool-group-actions {

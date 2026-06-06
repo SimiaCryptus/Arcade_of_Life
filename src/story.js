@@ -1289,7 +1289,7 @@ export class StoryEngine {
       btn.id = 'story-button';
       btn.textContent = 'Story Mode';
       btn.title = 'Begin the narrative campaign';
-      const settingsBtn = document.getElementById('settings-button');
+      const settingsBtn = document.getElementById('howtoplay-button');
       if (settingsBtn) {
         settingsBtn.parentNode.insertBefore(btn, settingsBtn);
       } else {

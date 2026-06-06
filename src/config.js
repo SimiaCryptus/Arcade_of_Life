@@ -102,6 +102,18 @@ export const CONFIG = {
   DRAW_ZONE_FRACTION: 0.5,
   // Whether to render a visible boundary line at the top of the draw zone.
   SHOW_DRAW_ZONE: true,
+  // Event detection toggles. When false, the corresponding event will not fire
+  // (no floater, no sound, no shockwave, no score change). Used by the level
+  // designer to disable specific event types per-level.
+  EVENT_RETURN_FIRE: true,
+  EVENT_RICOCHET: true,
+  EVENT_BREACH: true,
+  EVENT_CITY_HIT: true,
+  EVENT_ANNIHILATION: true,
+  // Default starting speed multiplier when a game begins. The game still
+  // begins paused — this is the speed it resumes to when the player
+  // presses Space or moves the slider for the first time.
+  STARTING_SPEED: 1.0,
   // Enabled abilities (which abilities can appear as perk choices in story mode).
   // All default to true so the existing story experience is unchanged.
   ABILITY_DOUBLE_SCORE: true,
