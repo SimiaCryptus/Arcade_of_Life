@@ -85,6 +85,32 @@ body {
   border-color: #00ffff;
   box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
 }
+#step-forward-button {
+  background: transparent;
+  color: #ffcc44;
+  border: 1px solid #ffcc44;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+  font-weight: bold;
+}
+#step-forward-button:hover {
+  background: #ffcc44;
+  color: #000010;
+  box-shadow: 0 0 10px #ffcc44;
+}
+#step-forward-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+#step-forward-button:disabled:hover {
+  background: transparent;
+  color: #ffcc44;
+  box-shadow: none;
+}
 
 /* ── PWA install / update banners ──────────────────────────────────────── */
 #pwa-install-banner,

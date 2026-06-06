@@ -756,11 +756,24 @@ export class LevelDesigner {
       defense: 'Pick a pattern to stamp as defense cells',
     };
     const title = titles[target] || titles.defense;
+    // For spawners: restrict to gliders/spaceships (things that move).
+    let filter = null;
+    if (target === 'spawner') {
+      filter = (pattern) => {
+        return (
+          pattern.category === 'spaceship' ||
+          (pattern.tags && pattern.tags.includes('spaceship')) ||
+          (pattern.tags && pattern.tags.includes('glider'))
+        );
+      };
+    }
     // Hide our overlay while the zoo is shown — both use the same overlay
     // layer, so we restore on completion.
     this.overlay.classList.add('hidden');
     this.game.patternZoo.pickPattern({
       title,
+      filter,
+      categoryFilter: target === 'spawner' ? 'spaceship' : null,
       onPick: (pattern) => {
         // Re-show the designer overlay.
         this.overlay.classList.remove('hidden');
@@ -1386,6 +1399,19 @@ export class LevelDesigner {
     this.hide();
     if (this.game && this.game.startCustomLevel) {
       this.game.startCustomLevel(name);
+      // Start paused so the player can inspect the level before action begins.
+      if (this.game.speedSlider) {
+        const SPEED_PRESETS = this.game.constructor.SPEED_PRESETS;
+        // Find the "Paused" preset (value === 0).
+        const pausedIdx = 0; // First preset is always "Paused"
+        this.game.speedSlider.value = String(pausedIdx);
+        this.game._applySpeedFromSlider();
+      } else {
+        // Fallback: set CONFIG directly.
+        if (typeof window !== 'undefined' && window.CONFIG) {
+          window.CONFIG.SPEED_MULTIPLIER = 0;
+        }
+      }
     }
   }
 

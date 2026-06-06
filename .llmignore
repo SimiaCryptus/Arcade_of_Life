@@ -5,4 +5,4 @@
 *.generated.json
 src/story.js
 src/marked.min.js
-#test/
+test/

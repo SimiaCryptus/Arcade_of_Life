@@ -56,6 +56,7 @@ class Game {
     this.howToPlayButton = document.getElementById('howtoplay-button');
     this.howToPlayIngameButton = document.getElementById('howtoplay-ingame-button');
     this.fullscreenButton = document.getElementById('fullscreen-button');
+    this.stepForwardButton = document.getElementById('step-forward-button');
     this.patternZooButton = document.getElementById('pattern-zoo-button');
     this.patternZooIngameButton = document.getElementById('pattern-zoo-ingame-button');
     this.levelDesignerButton = document.getElementById('level-designer-button');
@@ -259,6 +260,10 @@ class Game {
           ? 'Exit fullscreen [F11]'
           : 'Enter fullscreen [F11]';
       });
+    }
+    // Step-forward button: advance one simulation tick when paused.
+    if (this.stepForwardButton) {
+      this.stepForwardButton.addEventListener('click', () => this.stepForward());
     }
 
     this._initSpeedControls();
@@ -1181,6 +1186,56 @@ class Game {
     const preset = SPEED_PRESETS[idx];
     CONFIG.SPEED_MULTIPLIER = preset.value;
     if (this.speedLabel) this.speedLabel.textContent = preset.name;
+    // Update step button enabled state — only useful when paused.
+    if (this.stepForwardButton) {
+      this.stepForwardButton.disabled = preset.value > 0;
+    }
+  }
+  // Advance the simulation by exactly one tick. Only meaningful when
+  // the game is paused (speed = 0). Performs the full tick cycle:
+  // missile spawning, defender/attacker simulation step, city update,
+  // ink regen, and accumulator bookkeeping.
+  stepForward() {
+    // Only valid during active gameplay.
+    if (!this.gameState.is(STATE.PLAYING) && !this.gameState.is(STATE.WAVE_TRANSITION)) {
+      return;
+    }
+    if (CONFIG.SPEED_MULTIPLIER > 0) {
+      Logger.info('Step-forward requested but game is not paused; ignoring.');
+      return;
+    }
+    // Use a synthetic dt large enough to trigger one full tick.
+    const syntheticDt = CONFIG.TICK_RATE;
+    // Temporarily set speed to 1x to satisfy the speed gate in _update.
+    CONFIG.SPEED_MULTIPLIER = 1.0;
+    // Run missile spawning + sim ticks for one full simulation step.
+    this.missiles.update(syntheticDt);
+    // Dry pending cells once.
+    this.grid.tickPendingDry();
+    // One simulation tick (both defenders and attackers).
+    this.simulation.freezeEnemies = false;
+    this.simulation.freezeDefenses = false;
+    this.simulation.tick();
+    this.cities.update();
+    this.defenses.regen(CONFIG.INK_REGEN_RATE);
+    // Check end conditions just like in _update.
+    if (this.cities.aliveCount() === 0) {
+      this.gameOver();
+    } else if (this.missiles.isWaveComplete()) {
+      this.nextWave();
+    }
+    // Restore paused state.
+    CONFIG.SPEED_MULTIPLIER = 0;
+    if (this.speedLabel) this.speedLabel.textContent = 'Paused';
+    // Show a small floater so the user gets visual feedback.
+    if (this.renderer && this.grid) {
+      this.renderer.addFloater(
+        Math.floor(this.grid.width / 2),
+        Math.floor(this.grid.height / 3),
+        '⏭ STEP',
+        '#ffcc44'
+      );
+    }
   }
 
   _setSpeedIndex(idx) {
@@ -1258,6 +1313,17 @@ class Game {
           this._setSpeedIndex(0); // paused preset
         }
         return;
+      }
+      // N: Step forward one tick (only when paused & playing).
+      if (e.key === 'n' || e.key === 'N') {
+        if (
+          (this.gameState.is(STATE.PLAYING) || this.gameState.is(STATE.WAVE_TRANSITION)) &&
+          CONFIG.SPEED_MULTIPLIER === 0
+        ) {
+          e.preventDefault();
+          this.stepForward();
+          return;
+        }
       }
       if (e.key === '[' || e.key === ',') {
         const curIdx = parseInt(this.speedSlider.value, 10) || 0;
@@ -1394,6 +1460,7 @@ class Game {
          <div class="hk-col">
            <h3>Simulation</h3>
            <div class="hk-row"><kbd>Space</kbd><span>Pause / resume</span></div>
+           <div class="hk-row"><kbd>N</kbd><span>Step forward one tick (when paused)</span></div>
            <div class="hk-row"><kbd>[</kbd> <kbd>,</kbd><span>Slower</span></div>
            <div class="hk-row"><kbd>]</kbd> <kbd>.</kbd><span>Faster</span></div>
            <div class="hk-row"><kbd>0</kbd>–<kbd>7</kbd><span>Speed preset</span></div>

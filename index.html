@@ -31,6 +31,9 @@
         <label for="speed-slider" id="speed-control-label">Speed:</label>
         <input id="speed-slider" max="7" min="0" step="1" type="range" value="3" />
         <span id="speed-label">1x</span>
+        <button id="step-forward-button" title="Advance simulation by one tick (when paused) [N]">
+          ⏭ Step
+        </button>
         <button id="ingame-settings-button" title="Open settings (pauses game) [S]">
           ⚙ Settings
         </button>
@@ -43,8 +46,8 @@
         <button id="fullscreen-button" title="Toggle fullscreen [F11]">⛶</button>
         <button id="exit-to-menu-button" title="Exit to main menu">✕ Exit</button>
         <span id="speed-hint"
-          >[Space=pause, [ ] slow/fast, 0–7 speed, C clear, Z undo, S settings, M mute, H help, ?
-          hotkeys]</span
+          >[Space=pause, N=step, [ ] slow/fast, 0–7 speed, C clear, Z undo, S settings, M mute, H
+          help, ? hotkeys]</span
         >
       </div>
       <div id="draw-tools">

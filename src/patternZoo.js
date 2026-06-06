@@ -314,7 +314,9 @@ export class PatternZoo {
     this.detailPreview = null;
     this._dragPauseDepth = 0; // number of sliders currently being dragged
     this.filterCategory = 'all';
-    this.filterRuleset = 'all';
+    // Default ruleset filter to the currently active CA ruleset so users
+    // see relevant patterns first. Falls back to 'all' if CONFIG isn't ready.
+    this.filterRuleset = (CONFIG && CONFIG.ACTIVE_RULESET) || 'all';
     this.filterTag = 'all';
     this.filterSource = 'all'; // 'all' | 'builtin' | 'custom'
     this.searchQuery = '';
@@ -355,15 +357,24 @@ export class PatternZoo {
    * @param {Function} opts.onPick   Called with the chosen pattern object,
    *                                 or `null` if the user cancels.
    * @param {Function} [opts.filter] Optional predicate to pre-filter patterns
-   *                                 shown in the picker (not yet enforced
-   *                                 by the filter UI — the user can still
-   *                                 navigate, but the filter is advisory).
+   *                                 shown in the picker. When set, only
+   *                                 patterns passing this predicate are
+   *                                 displayed in the grid.
+   * @param {string} [opts.categoryFilter] Optional category to pre-select
+   *                                 in the category dropdown (e.g. 'spaceship').
    */
-  pickPattern({ title = 'Select a pattern', onPick, filter } = {}) {
+  pickPattern({ title = 'Select a pattern', onPick, filter, categoryFilter } = {}) {
     this._pickerMode = true;
     this._pickerCallback = typeof onPick === 'function' ? onPick : null;
     this._pickerTitle = title;
     this._pickerFilter = typeof filter === 'function' ? filter : null;
+    // Pre-set category filter if provided.
+    if (categoryFilter) {
+      this.filterCategory = categoryFilter;
+      // Sync the select element if it exists.
+      const catSel = this.overlay && this.overlay.querySelector('#pz-filter-category');
+      if (catSel) catSel.value = categoryFilter;
+    }
     this.show();
     this._applyPickerUi();
   }
@@ -669,6 +680,7 @@ export class PatternZoo {
     });
     ruleSel.addEventListener('change', () => {
       this.filterRuleset = ruleSel.value;
+      this._userChangedRulesetFilter = true;
       this._invalidateCache();
       this.currentPage = 0;
       this._rebuildGrid();
@@ -792,6 +804,16 @@ export class PatternZoo {
   show() {
     if (this.visible) return;
     this.visible = true;
+    // Refresh the default ruleset filter to match the current active
+    // ruleset every time the zoo opens (config may have changed).
+    if (!this._pickerMode) {
+      const activeRuleset = (CONFIG && CONFIG.ACTIVE_RULESET) || 'all';
+      // Only override if user hasn't customized the filter yet, or if
+      // it's still on default 'all'. We respect explicit user choices.
+      if (this.filterRuleset === 'all' || !this._userChangedRulesetFilter) {
+        this.filterRuleset = activeRuleset;
+      }
+    }
     // Refresh custom-pattern cache in case the store changed while hidden.
     this._invalidateCache();
     // Pause game.
@@ -803,6 +825,9 @@ export class PatternZoo {
     }
     this.overlay.classList.remove('hidden');
     this.overlay.removeAttribute('aria-hidden');
+    // Sync the ruleset select to reflect our default.
+    const ruleSel = this.overlay.querySelector('#pz-filter-ruleset');
+    if (ruleSel) ruleSel.value = this.filterRuleset;
     this._rebuildGrid();
     this._startLoop();
   }
@@ -878,6 +903,10 @@ export class PatternZoo {
           p.name.toLowerCase().includes(q) ||
           p.tags.some((t) => t.toLowerCase().includes(q))
       );
+    }
+    // Apply picker filter last so it can override anything.
+    if (this._pickerMode && this._pickerFilter) {
+      out = out.filter(this._pickerFilter);
     }
     return out;
   }
