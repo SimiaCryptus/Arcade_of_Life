@@ -1794,7 +1794,6 @@ class Game {
       const s = level.settings;
       Logger.info(
         `[Game] startCustomLevel "${levelName}" — incoming age settings: ` +
-          `CELL_MAX_AGE_TICKS=${s.CELL_MAX_AGE_TICKS}, ` +
           `UNLIMITED_CELL_AGE=${s.UNLIMITED_CELL_AGE}, ` +
           `DEFENSE_AGE_FRIENDLY=${s.DEFENSE_AGE_FRIENDLY}, ` +
           `UNLIMITED_DEF_AGE_FRIENDLY=${s.UNLIMITED_DEF_AGE_FRIENDLY}, ` +
@@ -1850,11 +1849,6 @@ class Game {
     const unlimitedMap = {
       UNLIMITED_MAX_INK: ['MAX_INK', 'INITIAL_INK'],
       UNLIMITED_INK_REGEN: ['INK_REGEN_RATE'],
-      // Legacy CELL_MAX_AGE_TICKS is superseded by region-specific
-      // ages. When the level uses the legacy "Max Age" slider's ∞
-      // toggle, propagate it to all four region-specific age keys
-      // so the simulation (which reads those four) sees ∞.
-      UNLIMITED_CELL_AGE: ['CELL_MAX_AGE_TICKS'],
       UNLIMITED_MISSILE_CASCADE: ['MISSILE_CASCADE_TICKS'],
       UNLIMITED_DEF_AGE_FRIENDLY: ['DEFENSE_AGE_FRIENDLY'],
       UNLIMITED_DEF_AGE_ENEMY: ['DEFENSE_AGE_ENEMY'],
@@ -1862,54 +1856,15 @@ class Game {
       UNLIMITED_MISS_AGE_ENEMY: ['MISSILE_AGE_ENEMY'],
     };
     if (level.settings) {
-      // Legacy translation: the level designer exposes a single "Max Age"
-      // (CELL_MAX_AGE_TICKS) slider AS WELL AS four region-specific age
-      // sliders. The simulation only reads the four region-specific ages.
-      //
-      // Strategy: if the level explicitly sets ANY region-specific age,
-      // honor those values (they take precedence). Otherwise propagate
-      // CELL_MAX_AGE_TICKS into all four. The previous logic was buggy:
-      // it checked `== null` per-key, but the level designer captures
-      // ALL keys from CONFIG so they're never null — meaning the legacy
-      // value never got translated and adjusting the "Max Age" slider
-      // had no observable effect.
-      const legacy = level.settings.CELL_MAX_AGE_TICKS;
       const regionKeys = [
         'DEFENSE_AGE_FRIENDLY',
         'DEFENSE_AGE_ENEMY',
         'MISSILE_AGE_FRIENDLY',
         'MISSILE_AGE_ENEMY',
       ];
-      // Did any region-specific age get explicitly written by the user?
-      // We can't perfectly detect this from a snapshot, so we use a
-      // heuristic: if all four region values are identical to the legacy
-      // value (or all four are the default sentinel/value), treat the
-      // legacy slider as authoritative. Otherwise honor region values.
-      const regionValues = regionKeys.map((k) => level.settings[k]);
-      const allRegionUndef = regionValues.every((v) => v == null);
-      const allRegionSame =
-        regionValues.length > 0 && regionValues.every((v) => v === regionValues[0]);
-      const legacyValid = typeof legacy === 'number' && legacy > 0;
 
-      if (legacyValid && (allRegionUndef || allRegionSame)) {
-        // Propagate legacy into all region keys.
-        for (const rk of regionKeys) {
-          CONFIG[rk] = legacy;
-          Logger.info(
-            `[Game] Legacy CELL_MAX_AGE_TICKS=${legacy} → CONFIG.${rk} ` +
-              `(allRegionUndef=${allRegionUndef}, allRegionSame=${allRegionSame})`
-          );
-        }
-      } else if (legacyValid) {
-        Logger.info(
-          `[Game] Legacy CELL_MAX_AGE_TICKS=${legacy} NOT propagated; ` +
-            `region values differ: ${JSON.stringify(regionValues)}`
-        );
-      }
-      // Legacy unlimited toggle: if "Max Age" is marked ∞, propagate
-      // the sentinel into all region keys unless region-specific
-      // unlimited flags are explicitly set, OR the region keys have
-      // explicit finite values (< sentinel) in the level settings.
+      const regionValues = regionKeys.map((k) => level.settings[k]);
+
       if (level.settings.UNLIMITED_CELL_AGE) {
         const regionFlags = [
           ['UNLIMITED_DEF_AGE_FRIENDLY', 'DEFENSE_AGE_FRIENDLY'],

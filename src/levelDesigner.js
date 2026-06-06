@@ -1803,7 +1803,6 @@ export class LevelDesigner {
     const s = out.settings || {};
     Logger.info(
       `[LevelDesigner] _serialize "${out.name}": ` +
-        `CELL_MAX_AGE_TICKS=${s.CELL_MAX_AGE_TICKS}, ` +
         `UNLIMITED_CELL_AGE=${s.UNLIMITED_CELL_AGE}, ` +
         `DEFENSE_AGE_FRIENDLY=${s.DEFENSE_AGE_FRIENDLY}, ` +
         `UNLIMITED_DEF_AGE_FRIENDLY=${s.UNLIMITED_DEF_AGE_FRIENDLY}, ` +
@@ -2417,8 +2416,6 @@ export class LevelDesigner {
     // Diagnostic: log key age-related captured values.
     Logger.info(
       `[LevelDesigner] _captureCurrentSettings: ` +
-        `CELL_MAX_AGE_TICKS=${out.CELL_MAX_AGE_TICKS} ` +
-        `(CONFIG.CELL_MAX_AGE_TICKS=${CONFIG.CELL_MAX_AGE_TICKS}), ` +
         `DEFENSE_AGE_FRIENDLY=${out.DEFENSE_AGE_FRIENDLY}, ` +
         `DEFENSE_AGE_ENEMY=${out.DEFENSE_AGE_ENEMY}, ` +
         `MISSILE_AGE_FRIENDLY=${out.MISSILE_AGE_FRIENDLY}, ` +
@@ -2460,7 +2457,6 @@ export class LevelDesigner {
           'INK_DRY_TICKS',
           'DRAW_ZONE_FRACTION',
           'REAR_DEAD_ZONE_HEIGHT',
-          'CELL_MAX_AGE_TICKS',
           'SHOW_DRAW_ZONE',
         ],
       },
@@ -2664,11 +2660,7 @@ export class LevelDesigner {
       numInput.value = String(v);
       valueEl.textContent = def.format(v);
       // Diagnostic: log age slider changes specifically.
-      if (
-        def.key === 'CELL_MAX_AGE_TICKS' ||
-        def.key.startsWith('DEFENSE_AGE_') ||
-        def.key.startsWith('MISSILE_AGE_')
-      ) {
+      if (def.key.startsWith('DEFENSE_AGE_') || def.key.startsWith('MISSILE_AGE_')) {
         Logger.info(`[LevelDesigner] Slider ${def.key} → ${v}`);
       }
       // If DRAW_ZONE_FRACTION changed, recompute BASE_ZONE_HEIGHT slider max.
@@ -2773,11 +2765,10 @@ export class LevelDesigner {
       MISSILE_SPAWN_INTERVAL: { min: 200, max: 5000, step: 50 },
       MISSILE_SPAWN_DECREMENT: { min: 0, max: 200, step: 5 },
       MISSILE_SPAWN_MIN: { min: 100, max: 2000, step: 50 },
-      CELL_MAX_AGE_TICKS: { min: 20, max: 2000, step: 10 },
-      DEFENSE_AGE_FRIENDLY: { min: 20, max: 2000, step: 10 },
-      DEFENSE_AGE_ENEMY: { min: 20, max: 2000, step: 10 },
-      MISSILE_AGE_FRIENDLY: { min: 20, max: 2000, step: 10 },
-      MISSILE_AGE_ENEMY: { min: 20, max: 2000, step: 10 },
+      DEFENSE_AGE_FRIENDLY: { min: 100, max: 10000, step: 100 },
+      DEFENSE_AGE_ENEMY: { min: 100, max: 10000, step: 100 },
+      MISSILE_AGE_FRIENDLY: { min: 100, max: 10000, step: 100 },
+      MISSILE_AGE_ENEMY: { min: 100, max: 10000, step: 100 },
       MISSILE_CASCADE_TICKS: { min: 0, max: 200, step: 1 },
       AGE_CONTAGION_AMOUNT: { min: 0, max: 200, step: 1 },
       CLEAR_REFUND_FRACTION: { min: 0, max: 1, step: 0.05 },
@@ -2823,7 +2814,6 @@ export class LevelDesigner {
     const defaults = {
       MAX_INK: 300,
       INK_REGEN_RATE: 0.5,
-      CELL_MAX_AGE_TICKS: 200,
       DEFENSE_AGE_FRIENDLY: 200,
       DEFENSE_AGE_ENEMY: 200,
       MISSILE_AGE_FRIENDLY: 200,
@@ -2848,7 +2838,6 @@ export class LevelDesigner {
     const map = {
       MAX_INK: 'UNLIMITED_MAX_INK',
       INK_REGEN_RATE: 'UNLIMITED_INK_REGEN',
-      CELL_MAX_AGE_TICKS: 'UNLIMITED_CELL_AGE',
       MISSILE_CASCADE_TICKS: 'UNLIMITED_MISSILE_CASCADE',
       DEFENSE_AGE_FRIENDLY: 'UNLIMITED_DEF_AGE_FRIENDLY',
       DEFENSE_AGE_ENEMY: 'UNLIMITED_DEF_AGE_ENEMY',

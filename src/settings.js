@@ -59,7 +59,6 @@ export const SETTING_DEFS = [
   { key: 'MISSILE_SPAWN_INTERVAL', id: 'setting-spawn-interval', format: (v) => v },
   { key: 'MISSILE_SPAWN_DECREMENT', id: 'setting-spawn-decrement', format: (v) => v },
   { key: 'MISSILE_SPAWN_MIN', id: 'setting-spawn-min', format: (v) => v },
-  { key: 'CELL_MAX_AGE_TICKS', id: 'setting-cell-age', format: (v) => v },
   // Region-specific age settings (matrix layout).
   { key: 'DEFENSE_AGE_FRIENDLY', id: 'setting-def-age-friendly', format: (v) => v },
   { key: 'DEFENSE_AGE_ENEMY', id: 'setting-def-age-enemy', format: (v) => v },
@@ -186,7 +185,6 @@ export class Settings {
         CONFIG.INITIAL_INK = 999999;
       }
       if (this.values.UNLIMITED_INK_REGEN) CONFIG.INK_REGEN_RATE = 999999;
-      if (this.values.UNLIMITED_CELL_AGE) CONFIG.CELL_MAX_AGE_TICKS = 999999;
       if (this.values.UNLIMITED_MISSILE_CASCADE) CONFIG.MISSILE_CASCADE_TICKS = 999999;
       if (this.values.UNLIMITED_DEF_AGE_FRIENDLY) CONFIG.DEFENSE_AGE_FRIENDLY = 999999;
       if (this.values.UNLIMITED_DEF_AGE_ENEMY) CONFIG.DEFENSE_AGE_ENEMY = 999999;
@@ -817,21 +815,6 @@ export class SettingsPanel {
         this.settings.save();
       });
     }
-    // Wire the mirrored cell-age slider on the Advanced tab.
-    const advAge = document.getElementById('setting-cell-age-adv');
-    const advAgeVal = document.getElementById('setting-cell-age-adv-value');
-    const primaryAge = document.getElementById('setting-cell-age');
-    if (advAge && primaryAge) {
-      advAge.addEventListener('input', () => {
-        const v = parseInt(advAge.value, 10) || 20;
-        primaryAge.value = String(v);
-        this.settings.set('CELL_MAX_AGE_TICKS', v);
-        if (advAgeVal) advAgeVal.textContent = String(v);
-        const primaryVal = document.getElementById('setting-cell-age-value');
-        if (primaryVal) primaryVal.textContent = String(v);
-        this.settings.save();
-      });
-    }
   }
 
   _enforceGliderMin() {
@@ -861,20 +844,6 @@ export class SettingsPanel {
         checkboxId: 'setting-unlimited-ink-regen',
         sliderId: 'setting-ink-regen',
         valueId: 'setting-ink-regen-value',
-        label: '∞',
-      },
-      {
-        valueKey: 'UNLIMITED_CELL_AGE',
-        checkboxId: 'setting-unlimited-cell-age',
-        sliderId: 'setting-cell-age',
-        valueId: 'setting-cell-age-value',
-        label: '∞',
-      },
-      {
-        valueKey: 'UNLIMITED_CELL_AGE',
-        checkboxId: 'setting-unlimited-cell-age-adv',
-        sliderId: 'setting-cell-age-adv',
-        valueId: 'setting-cell-age-adv-value',
         label: '∞',
       },
       {

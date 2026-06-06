@@ -371,7 +371,7 @@ export const PERKS = {
     icon: '⚓',
     desc: 'Defenses live +80 ticks longer.',
     apply: () => {
-      CONFIG.CELL_MAX_AGE_TICKS += 80;
+      CONFIG.CELL_MAX_AGE_TICKS += 80; // TODO: Update this with new config system.
     },
   },
   missile_fragile: {
@@ -728,7 +728,6 @@ export const CHAPTERS = [
       GLIDER_MWSS: false,
       GLIDER_TWIN: false,
       GLIDER_GUN: false,
-      CELL_MAX_AGE_TICKS: 400,
       MISSILE_MAX_AGE_TICKS: 180,
       INK_DRY_TICKS: 2,
       HARDCORE_MODE: false,
@@ -776,7 +775,6 @@ export const CHAPTERS = [
       MISSILE_SPAWN_DECREMENT: 30,
       GLIDER_SE: true,
       GLIDER_SW: true,
-      CELL_MAX_AGE_TICKS: 350,
       MISSILE_MAX_AGE_TICKS: 170,
     },
     perkChoices: pickPerks(['pat_block', 'pat_blinker', 'pat_beacon']),
@@ -860,8 +858,6 @@ export const CHAPTERS = [
       MISSILE_SPAWN_INTERVAL: 1700,
       MISSILE_SPAWN_MIN: 900,
       MISSILE_SPAWN_DECREMENT: 30,
-      CELL_MAX_AGE_TICKS: 999999, // ice-cast walls — unlimited
-      MISSILE_MAX_AGE_TICKS: 280, // slow death (intentionally limited)
       INK_DRY_TICKS: 6, // ink freezes slowly
       GLIDER_SW: true,
     },
@@ -896,8 +892,6 @@ export const CHAPTERS = [
       MISSILES_PER_WAVE_INC: 1,
       MISSILE_SPAWN_INTERVAL: 1400,
       GLIDER_HEAVY: true, // ENABLE TARGET EMPLACEMENTS!
-      CELL_MAX_AGE_TICKS: 999999,
-      MISSILE_MAX_AGE_TICKS: 999999,
       INK_DRY_TICKS: 3,
     },
     perkChoices: pickPerks(['pat_lwss', 'pat_pulsar', 'pat_acorn']),
@@ -936,8 +930,6 @@ export const CHAPTERS = [
       MISSILE_SPAWN_INTERVAL: 750,
       MISSILE_SPAWN_MIN: 400,
       MISSILE_SPAWN_DECREMENT: 50,
-      CELL_MAX_AGE_TICKS: 120, // walls burn away fast (intentional)
-      MISSILE_MAX_AGE_TICKS: 90, // fragile missiles (intentional)
       INK_DRY_TICKS: 2, // ink flash-dries
       GLIDER_HEAVY: true,
     },
@@ -965,7 +957,6 @@ export const CHAPTERS = [
       MISSILE_MAX_AGE_TICKS: 70, // intentionally fragile
       MISSILE_CASCADE_TICKS: 40, // big chain reactions
       INK_DRY_TICKS: 8, // toxic glue
-      CELL_MAX_AGE_TICKS: 999999,
     },
     perkChoices: pickPerks(['pat_diehard', 'pat_toad', 'pat_beacon']),
     dialogues: [
@@ -988,8 +979,6 @@ export const CHAPTERS = [
       MISSILE_SPAWN_INTERVAL: 800,
       GLIDER_LWSS: true,
       GLIDER_TWIN: true,
-      CELL_MAX_AGE_TICKS: 999999,
-      MISSILE_MAX_AGE_TICKS: 999999,
       INK_DRY_TICKS: 4,
     },
     perkChoices: pickPerks(['pat_pulsar', 'pat_mwss', 'pat_diehard']),
@@ -1016,8 +1005,6 @@ export const CHAPTERS = [
       MISSILE_SPAWN_MIN: 300,
       MISSILE_SPAWN_DECREMENT: 60,
       GLIDER_MWSS: true,
-      CELL_MAX_AGE_TICKS: 999999,
-      MISSILE_MAX_AGE_TICKS: 999999,
       INK_DRY_TICKS: 3,
     },
     perkChoices: pickPerks(['pat_hwss', 'pat_copperhead', 'pat_acorn']),
@@ -1040,8 +1027,6 @@ export const CHAPTERS = [
       MAX_INK: 550,
       MISSILES_PER_WAVE_BASE: 14,
       MISSILE_SPAWN_INTERVAL: 700,
-      CELL_MAX_AGE_TICKS: 999999,
-      MISSILE_MAX_AGE_TICKS: 999999,
       INK_DRY_TICKS: 4,
     },
     // Offer Safe Zone as a possible ability!
@@ -1070,8 +1055,6 @@ export const CHAPTERS = [
       INITIAL_INK: 400,
       MISSILES_PER_WAVE_BASE: 15,
       MISSILE_SPAWN_INTERVAL: 650,
-      CELL_MAX_AGE_TICKS: 999999,
-      MISSILE_MAX_AGE_TICKS: 999999,
       INK_DRY_TICKS: 2,
     },
     perkChoices: pickPerks(['pat_gun', 'pat_hwss', 'pat_pulsar']),
@@ -1097,8 +1080,6 @@ export const CHAPTERS = [
       MISSILE_SPAWN_DECREMENT: 80,
       MAX_INK: 800,
       INK_REGEN_RATE: 2.5,
-      CELL_MAX_AGE_TICKS: 999999,
-      MISSILE_MAX_AGE_TICKS: 999999,
       INK_DRY_TICKS: 1,
       GLIDER_SE: true,
       GLIDER_SW: true,
