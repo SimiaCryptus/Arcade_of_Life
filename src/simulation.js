@@ -4,6 +4,7 @@ import { CpuSimBackend } from './sim/cpuBackend.js';
 import { GpuSimBackend } from './sim/gpuBackend.js';
 import { HashlifeCache } from './sim/hashlife.js';
 import { getRuleset, CompiledRuleset, CONWAY } from './rules/index.js';
+import { runExoticStep, resetExoticState } from './rules/exoticEngines.js';
 
 /**
  * Simulation runs the Game of Life tick with extensions:
@@ -59,8 +60,21 @@ export class Simulation {
   _compileActiveRuleset() {
     const id = CONFIG.ACTIVE_RULESET || 'conway';
     const def = getRuleset(id) || CONWAY;
+    // Exotic rules: use the precompiled engine, mark for dispatch.
+    if (def._exoticType && def._exoticCompiled) {
+      this._rule = def._exoticCompiled;
+      this._ruleId = id;
+      this._isExotic = true;
+      this._exoticType = def._exoticType;
+      // Reset any internal state when switching to an exotic rule.
+      resetExoticState(this._rule);
+      Logger.info(`Sim ruleset (exotic): ${def.name} [${def._exoticType}]`);
+      return;
+    }
     this._rule = new CompiledRuleset(def);
     this._ruleId = id;
+    this._isExotic = false;
+    this._exoticType = null;
     // Inform the backend about the active neighborhood so it can
     // dispatch to the generic path for non-Moore neighborhoods.
     if (this.backend && this.backend.setNeighborhood) {
@@ -85,10 +99,16 @@ export class Simulation {
     if (mode === 'gpu') {
       const ruleId = CONFIG.ACTIVE_RULESET || 'conway';
       const def = getRuleset(ruleId);
-      const nbhdId = def && def.neighborhood ? def.neighborhood : 'moore';
-      if (nbhdId !== 'moore') {
-        Logger.info(`Sim backend: forced CPU due to non-Moore neighborhood "${nbhdId}".`);
+      // Exotic rules also require CPU path.
+      if (def && def._exoticType) {
+        Logger.info(`Sim backend: forced CPU due to exotic rule type "${def._exoticType}".`);
         mode = 'cpu';
+      } else {
+        const nbhdId = def && def.neighborhood ? def.neighborhood : 'moore';
+        if (nbhdId !== 'moore') {
+          Logger.info(`Sim backend: forced CPU due to non-Moore neighborhood "${nbhdId}".`);
+          mode = 'cpu';
+        }
       }
     }
     if (mode === 'gpu') {
@@ -130,6 +150,14 @@ export class Simulation {
     // Re-compile ruleset if it changed at runtime.
     if (this._ruleId !== (CONFIG.ACTIVE_RULESET || 'conway')) {
       this._compileActiveRuleset();
+    }
+    // Exotic rules: dispatch to the exotic engine. The exotic engine
+    // operates on a binary DEFENSE-only grid; we extract DEFENSE cells,
+    // run the exotic step, and reintegrate while preserving missiles,
+    // cities, and other cell types using vanilla game rules.
+    if (this._isExotic) {
+      this._tickExotic();
+      return;
     }
     const g = this.grid;
     const w = g.width;
@@ -389,6 +417,282 @@ export class Simulation {
     // Skip return-fire detection when enemies are frozen — frozen missile
     // cells aren't moving, so anything in the dead zone is stale state.
     if (!freezeEnemies) {
+      this._detectReturnFire(dzMinY, dzMaxY);
+      this._detectBreach();
+    }
+  }
+  /**
+   * Tick the simulation when an exotic rule is active.
+   *
+   * Strategy:
+   *   - Extract the binary DEFENSE-cell layer into a scratch buffer.
+   *   - Run the exotic engine (TCA / time-integrated / lightcone) one step
+   *     to produce the next defense layer.
+   *   - Run vanilla Life on the MISSILE layer using a standard Conway
+   *     ruleset (exotic rules apply only to friendly evolution).
+   *   - Resolve collisions (missile vs defense, missile vs city) and
+   *     apply aging / cascades exactly as in the standard tick.
+   *
+   * This keeps gameplay coherent (enemies still behave predictably) while
+   * letting the player's defenses evolve under the chosen exotic rule.
+   */
+  _tickExotic() {
+    const g = this.grid;
+    const w = g.width;
+    const h = g.height;
+    const cells = g.cells;
+    const age = g.cellAge;
+    const color = g.cellColor;
+    const next = this.next;
+    const nextAge = this.nextAge;
+    const nextColor = this.nextColor;
+    const nextDir = this.nextDir;
+    next.fill(0);
+    nextAge.fill(0);
+    nextColor.fill(0);
+    nextDir.fill(0);
+    const n = w * h;
+    // Scratch defense layer (binary: 1 = DEFENSE present, 0 = absent).
+    if (!this._exoticDefIn || this._exoticDefIn.length !== n) {
+      this._exoticDefIn = new Uint8Array(n);
+      this._exoticDefOut = new Uint8Array(n);
+    }
+    const defIn = this._exoticDefIn;
+    const defOut = this._exoticDefOut;
+    for (let i = 0; i < n; i++) {
+      defIn[i] = cells[i] === CELL_TYPE.DEFENSE ? 1 : 0;
+    }
+    const freezeDefenses = !!this.freezeDefenses;
+    if (!freezeDefenses) {
+      runExoticStep(this._rule, defIn, defOut, w, h);
+    } else {
+      defOut.set(defIn);
+    }
+    // Run standard Life for missile cells (always under Conway).
+    // We compute neighbor counts on the missile-only layer using the
+    // backend's CPU path.
+    this.backend.computeNeighborCounts(
+      cells,
+      w,
+      h,
+      this._lifeNbr,
+      this._missileNbr,
+      this._defenseNbr
+    );
+    const missileNbr = this._missileNbr;
+    const lifeNbr = this._lifeNbr;
+    // Collision detection (missile↔defense, missile↔city).
+    const annihilated = this._annihilated;
+    annihilated.fill(0);
+    const hardcore = CONFIG.HARDCORE_MODE;
+    const freezeEnemies = !!this.freezeEnemies;
+    for (let y = 0; y < h; y++) {
+      const rowBase = y * w;
+      for (let x = 0; x < w; x++) {
+        const i = rowBase + x;
+        const t = cells[i];
+        if (t === CELL_TYPE.MISSILE) {
+          if (freezeEnemies) continue;
+          // Check against NEW defense layer for collisions.
+          let defAdjacent = 0;
+          for (let dy = -1; dy <= 1; dy++) {
+            const ny = y + dy;
+            if (ny < 0 || ny >= h) continue;
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = (((x + dx) % w) + w) % w;
+              if (defIn[ny * w + nx]) defAdjacent++;
+            }
+          }
+          if (defAdjacent > 0) {
+            annihilated[i] = 1;
+            this._annihilateNeighborsOfType(x, y, CELL_TYPE.DEFENSE, 1);
+            if (this.onMissileDestroyed) this.onMissileDestroyed();
+            if (this.onAnnihilation) this.onAnnihilation(x, y);
+          }
+          if (this._countCityNeighbors(x, y) > 0) {
+            annihilated[i] = 1;
+            this._annihilateNeighborsOfType(x, y, CELL_TYPE.CITY, 2, 'missile');
+          }
+        } else if (t === CELL_TYPE.DEFENSE && hardcore) {
+          if (freezeDefenses) continue;
+          if (this._countCityNeighbors(x, y) > 0) {
+            annihilated[i] = 1;
+            this._annihilateNeighborsOfType(x, y, CELL_TYPE.CITY, 2, 'defense');
+          }
+        }
+      }
+    }
+    // Age-based missile despawn.
+    const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
+    const missileMaxAge = CONFIG.MISSILE_MAX_AGE_TICKS;
+    const dzMinYBoundary = g.drawZoneMinY();
+    const ageDespawn = this._ageDespawn;
+    ageDespawn.fill(0);
+    if (!freezeEnemies && missileMaxAge < UNLIMITED) {
+      for (let i = 0; i < n; i++) {
+        if (cells[i] === CELL_TYPE.MISSILE) {
+          const y = (i / w) | 0;
+          const inFriendly = y >= dzMinYBoundary;
+          const limit = inFriendly ? CONFIG.MISSILE_AGE_FRIENDLY : CONFIG.MISSILE_AGE_ENEMY;
+          const eff = limit < UNLIMITED ? limit : missileMaxAge;
+          if (eff < UNLIMITED && age[i] >= eff) {
+            ageDespawn[i] = 1;
+          }
+        }
+      }
+    }
+    const defenseVariants = CONFIG.COLORS.DEFENSE_VARIANTS.length;
+    const missileVariants = CONFIG.COLORS.MISSILE_VARIANTS.length;
+    // Build the next-state grid by combining:
+    //   - Cities pass through (or explode if hit).
+    //   - Explosions decay.
+    //   - Missiles follow vanilla Conway.
+    //   - Defenses follow the exotic rule (already computed in defOut).
+    for (let y = 0; y < h; y++) {
+      const rowBase = y * w;
+      for (let x = 0; x < w; x++) {
+        const i = rowBase + x;
+        const t = cells[i];
+        // City logic.
+        if (t === CELL_TYPE.CITY) {
+          if (annihilated[i] === 2) {
+            next[i] = CELL_TYPE.EXPLOSION;
+            g.explosionTimers[i] = 6;
+            if (this.onCityDestroyed) this.onCityDestroyed(x, y);
+          } else {
+            next[i] = CELL_TYPE.CITY;
+          }
+          continue;
+        }
+        if (t === CELL_TYPE.EXPLOSION) {
+          if (g.explosionTimers[i] > 0) {
+            g.explosionTimers[i]--;
+            next[i] = CELL_TYPE.EXPLOSION;
+          } else {
+            next[i] = CELL_TYPE.EMPTY;
+          }
+          continue;
+        }
+        if (annihilated[i]) {
+          next[i] = CELL_TYPE.EXPLOSION;
+          g.explosionTimers[i] = 4;
+          continue;
+        }
+        if (ageDespawn[i]) {
+          next[i] = CELL_TYPE.EMPTY;
+          nextAge[i] = 0;
+          if (this.onMissileDestroyed) this.onMissileDestroyed();
+          continue;
+        }
+        // Frozen state passes through.
+        if (t === CELL_TYPE.MISSILE && freezeEnemies) {
+          next[i] = CELL_TYPE.MISSILE;
+          nextAge[i] = age[i];
+          nextColor[i] = color[i];
+          nextDir[i] = g.cellDir[i];
+          continue;
+        }
+        // Missile evolution (vanilla Conway).
+        if (t === CELL_TYPE.MISSILE) {
+          const ln = lifeNbr[i];
+          // Use Conway rules for missile lifecycle in exotic mode.
+          // (Player's exotic choice only affects friendly defenses.)
+          const alive = ln === 2 || ln === 3;
+          if (alive) {
+            const inFriendly = y >= dzMinYBoundary;
+            const regionLimit = inFriendly ? CONFIG.MISSILE_AGE_FRIENDLY : CONFIG.MISSILE_AGE_ENEMY;
+            const eff = regionLimit < UNLIMITED ? regionLimit : missileMaxAge;
+            const ageUnlimited = eff >= UNLIMITED;
+            const currentAge = age[i];
+            if (ageUnlimited || currentAge < eff) {
+              next[i] = CELL_TYPE.MISSILE;
+              nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;
+              nextColor[i] = color[i];
+              nextDir[i] = g.cellDir[i];
+            } else {
+              next[i] = CELL_TYPE.EMPTY;
+              nextAge[i] = 0;
+            }
+          } else {
+            next[i] = CELL_TYPE.EMPTY;
+            nextAge[i] = 0;
+          }
+          continue;
+        }
+        // Empty cells: check missile birth (Conway) and defense from exotic.
+        if (t === CELL_TYPE.EMPTY) {
+          // Missile birth (only if dominated by missile neighbors).
+          if (missileNbr[i] === 3 && !freezeEnemies) {
+            next[i] = CELL_TYPE.MISSILE;
+            nextColor[i] = (Math.random() * missileVariants) | 0;
+            nextDir[i] = 1;
+            nextAge[i] = 1;
+            continue;
+          }
+          // Defense birth from exotic engine output.
+          if (defOut[i]) {
+            next[i] = CELL_TYPE.DEFENSE;
+            nextColor[i] = (Math.random() * defenseVariants) | 0;
+            nextDir[i] = 0;
+            nextAge[i] = 1;
+            continue;
+          }
+          next[i] = CELL_TYPE.EMPTY;
+          continue;
+        }
+        // Defense cells: use exotic engine output.
+        if (t === CELL_TYPE.DEFENSE) {
+          if (freezeDefenses) {
+            next[i] = CELL_TYPE.DEFENSE;
+            nextAge[i] = age[i];
+            nextColor[i] = color[i];
+            nextDir[i] = g.cellDir[i];
+            continue;
+          }
+          if (defOut[i]) {
+            // Survives.
+            const inFriendly = y >= dzMinYBoundary;
+            const defenseMaxAge = CONFIG.CELL_MAX_AGE_TICKS;
+            const regionLimit = inFriendly ? CONFIG.DEFENSE_AGE_FRIENDLY : CONFIG.DEFENSE_AGE_ENEMY;
+            const eff = regionLimit < UNLIMITED ? regionLimit : defenseMaxAge;
+            const ageUnlimited = eff >= UNLIMITED;
+            const currentAge = age[i];
+            if (ageUnlimited || currentAge < eff) {
+              next[i] = CELL_TYPE.DEFENSE;
+              nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;
+              nextColor[i] = color[i];
+              nextDir[i] = 0;
+            } else {
+              next[i] = CELL_TYPE.EMPTY;
+              nextAge[i] = 0;
+            }
+          } else {
+            next[i] = CELL_TYPE.EMPTY;
+            nextAge[i] = 0;
+          }
+          continue;
+        }
+      }
+    }
+    // Swap buffers.
+    const tmp = g.cells;
+    g.cells = next;
+    this.next = tmp;
+    const tmpAge = g.cellAge;
+    g.cellAge = this.nextAge;
+    this.nextAge = tmpAge;
+    const tmpColor = g.cellColor;
+    g.cellColor = this.nextColor;
+    this.nextColor = tmpColor;
+    const tmpDir = g.cellDir;
+    g.cellDir = this.nextDir;
+    this.nextDir = tmpDir;
+    this.tickCount++;
+    // Return-fire / breach detection unchanged.
+    if (!freezeEnemies) {
+      const dzMinY = Math.max(0, CONFIG.RETURN_FIRE_ZONE_MIN_Y | 0);
+      const dzMaxY = Math.min(h - 1, CONFIG.RETURN_FIRE_ZONE_MAX_Y | 0);
       this._detectReturnFire(dzMinY, dzMaxY);
       this._detectBreach();
     }

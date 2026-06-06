@@ -3,7 +3,7 @@
  * Strategy: Cache-first for static assets, network-first for markdown docs.
  */
 
-   const CACHE_NAME = 'arcade-of-life-v6';
+    const CACHE_NAME = 'arcade-of-life-v7';
 // Resolve the scope path so cache keys are relative to wherever the SW
 // is registered (root or subdirectory).
 const SCOPE_PATH = new URL(self.registration ? self.registration.scope : './', self.location).pathname;

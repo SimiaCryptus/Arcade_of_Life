@@ -490,6 +490,22 @@ export class SettingsPanel {
     // Also update the neighborhood info label.
     const nbhdLabel = document.getElementById('setting-ruleset-nbhd');
     if (nbhdLabel && def) {
+      // Exotic rule? Show type info instead of neighborhood.
+      if (def._exoticType && def._exoticCompiled) {
+        const c = def._exoticCompiled;
+        let info = '';
+        if (def._exoticType === 'tca') {
+          info = `TCA: ${c.proposals.length} proposals, lookahead=${c.lookahead}, objective="${c.objectiveName}"`;
+        } else if (def._exoticType === 'time_integrated') {
+          info = `Time-Integrated: window=${c.windowSize}, threshold=${c.threshold}`;
+        } else if (def._exoticType === 'fractional_lightcone') {
+          info = `Fractional Lightcone: r=${c.spatialRadius}, α=${c.alpha}, β=${c.beta}, w=${c.windowSize}`;
+        }
+        nbhdLabel.textContent = info;
+        nbhdLabel.style.color = '#ff80ff';
+        return;
+      }
+      nbhdLabel.style.color = '#66ccff';
       const nbhdId = def.neighborhood || 'moore';
       const nbhd = getNeighborhood(nbhdId);
       if (nbhd) {

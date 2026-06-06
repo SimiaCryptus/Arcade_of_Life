@@ -40,6 +40,11 @@ export function registerRuleset(def) {
   if (!Array.isArray(def.birth) || !Array.isArray(def.survival)) {
     throw new Error(`Ruleset "${def.id}" must define birth and survival arrays.`);
   }
+  // Exotic rules use stub arrays; skip neighbor-count validation for them.
+  if (def._exoticType) {
+    REGISTRY.set(def.id, { ...def });
+    return;
+  }
   // Determine the maximum allowed neighbor count based on the
   // declared neighborhood. Moore = 8, but exotic neighborhoods
   // (Euclidean radii, anisotropic transforms) can have far more
