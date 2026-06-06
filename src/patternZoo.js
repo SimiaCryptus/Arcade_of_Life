@@ -318,6 +318,13 @@ export class PatternZoo {
     this.filterTag = 'all';
     this.filterSource = 'all'; // 'all' | 'builtin' | 'custom'
     this.searchQuery = '';
+    // Picker mode: when set, clicking "place" in a card invokes the
+    // callback instead of placing into the running game. Used by the
+    // level designer (and potentially other tools) to pick a pattern.
+    this._pickerMode = false;
+    this._pickerCallback = null;
+    this._pickerTitle = null;
+    this._pickerCloseHandler = null;
     // Per-card default speed (user-adjustable globally). Grid size is
     // computed per-pattern based on its bounding box.
     this.globalSpeed = ZOO_DEFAULTS.speed;
@@ -340,6 +347,59 @@ export class PatternZoo {
       if (this.visible) this._rebuildGrid();
     });
   }
+  /**
+   * Open the zoo as a modal pattern picker.
+   *
+   * @param {Object} opts
+   * @param {string} [opts.title]    Optional banner text shown to the user.
+   * @param {Function} opts.onPick   Called with the chosen pattern object,
+   *                                 or `null` if the user cancels.
+   * @param {Function} [opts.filter] Optional predicate to pre-filter patterns
+   *                                 shown in the picker (not yet enforced
+   *                                 by the filter UI — the user can still
+   *                                 navigate, but the filter is advisory).
+   */
+  pickPattern({ title = 'Select a pattern', onPick, filter } = {}) {
+    this._pickerMode = true;
+    this._pickerCallback = typeof onPick === 'function' ? onPick : null;
+    this._pickerTitle = title;
+    this._pickerFilter = typeof filter === 'function' ? filter : null;
+    this.show();
+    this._applyPickerUi();
+  }
+  _applyPickerUi() {
+    // Update the subtitle to reflect picker intent.
+    const sub = this.overlay.querySelector('#pattern-zoo-subtitle');
+    if (sub && this._pickerMode && this._pickerTitle) {
+      sub.textContent = `🎯 ${this._pickerTitle} — click "⊕ Use" on any pattern, or Close to cancel.`;
+      sub.style.color = '#ffcc44';
+    }
+  }
+  _restorePickerUi() {
+    const sub = this.overlay.querySelector('#pattern-zoo-subtitle');
+    if (sub) {
+      sub.textContent =
+        'Browse the library — click a pattern for details, or place it directly into the game.';
+      sub.style.color = '';
+    }
+  }
+  _finishPicker(pattern) {
+    const cb = this._pickerCallback;
+    this._pickerMode = false;
+    this._pickerCallback = null;
+    this._pickerTitle = null;
+    this._pickerFilter = null;
+    this._restorePickerUi();
+    this.hide();
+    if (cb) {
+      try {
+        cb(pattern || null);
+      } catch (e) {
+        Logger.error('[PatternZoo] pickPattern callback failed:', e);
+      }
+    }
+  }
+
   // Invalidate cached filtered/custom lists. Call whenever filters change
   // or the underlying custom-pattern store mutates.
   _invalidateCache() {
@@ -749,6 +809,21 @@ export class PatternZoo {
 
   hide() {
     if (!this.visible) return;
+    // If hiding while a picker was open and we didn't already finalize
+    // (e.g. user clicked the Close button), treat it as a cancel.
+    if (this._pickerMode && this._pickerCallback) {
+      const cb = this._pickerCallback;
+      this._pickerMode = false;
+      this._pickerCallback = null;
+      this._pickerTitle = null;
+      this._pickerFilter = null;
+      this._restorePickerUi();
+      try {
+        cb(null);
+      } catch (e) {
+        Logger.error('[PatternZoo] pickPattern cancel callback failed:', e);
+      }
+    }
     this.visible = false;
     this._closeDetail();
     this._stopLoop();
@@ -947,7 +1022,11 @@ export class PatternZoo {
     if (placeBtn) {
       placeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this._placeInGame(pattern);
+        if (this._pickerMode) {
+          this._finishPicker(pattern);
+        } else {
+          this._placeInGame(pattern);
+        }
       });
     }
     const editBtn = card.querySelector('.pz-card-edit');
@@ -1211,7 +1290,13 @@ export class PatternZoo {
     });
     const placeBtn = this.detailEl.querySelector('#pz-detail-place');
     if (placeBtn) {
-      placeBtn.addEventListener('click', () => this._placeInGame(pattern));
+      placeBtn.addEventListener('click', () => {
+        if (this._pickerMode) {
+          this._finishPicker(pattern);
+        } else {
+          this._placeInGame(pattern);
+        }
+      });
     }
     // Wire custom-pattern controls.
     const editCustomBtn = this.detailEl.querySelector('#pz-detail-edit-custom');

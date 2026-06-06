@@ -228,6 +228,34 @@ export class Missiles {
     // FX callbacks for bases (reuse target callbacks if present).
     this.onBaseSpawn = null;
     this.onBaseDestroyed = null;
+    // Custom level support: designer-placed bases and spawners.
+    // _customBases: [{patternId, name, x, y, width, height, cells:[[dx,dy],...]}]
+    // _customSpawners: same shape but emit missiles periodically
+    this._customBases = [];
+    this._customSpawners = [];
+    // Active "designed" bases (stamped from _customBases on startWave).
+    // Each: { patternId, name, x, y, w, h, cells, alive }
+    this._designedBases = [];
+    // Active "designed" spawners. Each:
+    //   { patternId, name, x, y, w, h, cells, interval, cooldown, alive }
+    this._designedSpawners = [];
+  }
+  /**
+   * Provide designer-placed base specs to be stamped at wave start.
+   * Each spec: {patternId, name, x, y, width, height, cells:[[dx,dy],...]}
+   */
+  setCustomBases(bases) {
+    this._customBases = Array.isArray(bases) ? bases.slice() : [];
+  }
+  /**
+   * Provide designer-placed spawner specs to be stamped at wave start.
+   * Each spec: {patternId, name, x, y, width, height, cells, interval}
+   */
+  setCustomSpawners(spawners) {
+    this._customSpawners = Array.isArray(spawners) ? spawners.slice() : [];
+  }
+  hasCustomContent() {
+    return this._customBases.length > 0 || this._customSpawners.length > 0;
   }
 
   startWave(waveNum) {
@@ -241,8 +269,114 @@ export class Missiles {
     this.recentSpawns = [];
     this.targets = [];
     this.bases = [];
-    // Spawn the wave's bases up front.
-    this._spawnBasesForWave(waveNum);
+    this._designedBases = [];
+    this._designedSpawners = [];
+    // Spawn designer-placed bases & spawners first (they override default).
+    this._spawnDesignedBases();
+    this._spawnDesignedSpawners();
+    // Spawn the wave's default bases up front (only if no custom content).
+    if (!this.hasCustomContent()) {
+      this._spawnBasesForWave(waveNum);
+    }
+  }
+  // Stamp designer-placed bases as persistent MISSILE-cell structures
+  // that re-imprint each tick. Destroying them is required to clear the wave.
+  _spawnDesignedBases() {
+    if (this._customBases.length === 0) return;
+    const g = this.grid;
+    const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
+    for (const spec of this._customBases) {
+      if (!Array.isArray(spec.cells) || spec.cells.length === 0) continue;
+      // First, clear the entire footprint area (including a 1-cell halo)
+      // so we don't have residual state interfering with our pattern.
+      for (let dy = -1; dy <= spec.height; dy++) {
+        for (let dx = -1; dx <= spec.width; dx++) {
+          const px = spec.x + dx;
+          const py = spec.y + dy;
+          if (!g.inBounds(px, py)) continue;
+          const i = py * g.width + g.wrapX(px);
+          // Don't clear cities.
+          if (g.cells[i] === CELL_TYPE.CITY) continue;
+          g.cells[i] = CELL_TYPE.EMPTY;
+          g.cellAge[i] = 0;
+          g.cellDir[i] = 0;
+        }
+      }
+      // Now stamp cells onto the grid.
+      for (const [dx, dy] of spec.cells) {
+        const px = spec.x + dx;
+        const py = spec.y + dy;
+        if (!g.inBounds(px, py)) continue;
+        g.set(px, py, CELL_TYPE.MISSILE);
+        const i = py * g.width + g.wrapX(px);
+        g.cellColor[i] = (i * 7) % variants;
+        g.cellDir[i] = 0; // stationary
+        g.cellAge[i] = 0;
+      }
+      const designed = {
+        patternId: spec.patternId,
+        name: spec.name || spec.patternId,
+        x: spec.x,
+        y: spec.y,
+        w: spec.width,
+        h: spec.height,
+        cells: spec.cells.map(([dx, dy]) => [dx, dy]),
+        alive: true,
+        _damage: 0,
+      };
+      this._designedBases.push(designed);
+      if (this.onBaseSpawn) {
+        this.onBaseSpawn(spec.x + spec.width / 2, spec.y + spec.height / 2, 'designed');
+      }
+    }
+  }
+  // Initialize designer-placed spawners. They will emit missiles based
+  // on their pattern at the configured interval.
+  _spawnDesignedSpawners() {
+    if (this._customSpawners.length === 0) return;
+    const g = this.grid;
+    const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
+    for (const spec of this._customSpawners) {
+      if (!Array.isArray(spec.cells) || spec.cells.length === 0) continue;
+      const interval = spec.interval > 0 ? spec.interval : 2000;
+      // Clear footprint + halo and stamp the pattern.
+      for (let dy = -1; dy <= spec.height; dy++) {
+        for (let dx = -1; dx <= spec.width; dx++) {
+          const px = spec.x + dx;
+          const py = spec.y + dy;
+          if (!g.inBounds(px, py)) continue;
+          const i = py * g.width + g.wrapX(px);
+          if (g.cells[i] === CELL_TYPE.CITY) continue;
+          g.cells[i] = CELL_TYPE.EMPTY;
+          g.cellAge[i] = 0;
+          g.cellDir[i] = 0;
+        }
+      }
+      for (const [dx, dy] of spec.cells) {
+        const px = spec.x + dx;
+        const py = spec.y + dy;
+        if (!g.inBounds(px, py)) continue;
+        g.set(px, py, CELL_TYPE.MISSILE);
+        const i = py * g.width + g.wrapX(px);
+        g.cellColor[i] = (i * 11) % variants;
+        g.cellDir[i] = 0;
+        g.cellAge[i] = 0;
+      }
+      this._designedSpawners.push({
+        patternId: spec.patternId,
+        name: spec.name || spec.patternId,
+        x: spec.x,
+        y: spec.y,
+        w: spec.width,
+        h: spec.height,
+        cells: spec.cells.map(([dx, dy]) => [dx, dy]),
+        interval,
+        // Stagger initial emissions so they don't all fire at once.
+        cooldown: 500 + Math.random() * interval,
+        alive: true,
+        _damage: 0,
+      });
+    }
   }
 
   _spawnBasesForWave(waveNum) {
@@ -377,6 +511,9 @@ export class Missiles {
     // Update bases similarly: static bases re-imprint + emit; cruisers
     // move horizontally.
     this._updateBases(deltaMs);
+    // Update designed (level-designer) bases and spawners.
+    this._updateDesignedBases(deltaMs);
+    this._updateDesignedSpawners(deltaMs);
     if (this.spawned >= this.toSpawn) return;
     this.spawnCooldown -= deltaMs;
     if (this.spawnCooldown <= 0) {
@@ -578,6 +715,250 @@ export class Missiles {
       this.onMissileSpawn(baseX + 1.5, baseY + 1.5, 3, 3);
     }
   }
+  // Tick designer-placed bases: re-imprint and check for destruction.
+  _updateDesignedBases(_deltaMs) {
+    if (this._designedBases.length === 0) return;
+    const g = this.grid;
+    const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
+    for (let i = this._designedBases.length - 1; i >= 0; i--) {
+      const b = this._designedBases[i];
+      if (!b.alive) continue;
+      // Count cells in the footprint that were damaged by player defenses
+      // (i.e., became EMPTY or EXPLOSION). We track damage via b._damage
+      // counter rather than relying on cell state, because Life evolution
+      // around the base can constantly mutate cells in ways unrelated
+      // to player damage.
+      if (b._damage === undefined) b._damage = 0;
+      // Check for direct damage: any footprint cell adjacent to a DEFENSE
+      // cell counts as a damage tick. This makes the player's defenses
+      // actually destroy bases rather than just colliding with neighbors.
+      let damageThisTick = 0;
+      for (const [dx, dy] of b.cells) {
+        const px = b.x + dx;
+        const py = b.y + dy;
+        if (!g.inBounds(px, py)) continue;
+        // Count adjacent defense cells.
+        for (let ddy = -1; ddy <= 1; ddy++) {
+          for (let ddx = -1; ddx <= 1; ddx++) {
+            if (ddx === 0 && ddy === 0) continue;
+            const nx = (((px + ddx) % g.width) + g.width) % g.width;
+            const ny = py + ddy;
+            if (ny < 0 || ny >= g.height) continue;
+            if (g.cells[ny * g.width + nx] === CELL_TYPE.DEFENSE) {
+              damageThisTick++;
+            }
+          }
+        }
+      }
+      // Each tick of contact deals 1 damage unit. Threshold is roughly
+      // half the footprint size — making bases reasonably durable but
+      // not impossible.
+      b._damage += damageThisTick * 0.1;
+      const threshold = Math.max(3, Math.ceil(b.cells.length * 0.4));
+      if (b._damage >= threshold) {
+        b.alive = false;
+        // Explode remaining cells.
+        for (const [dx, dy] of b.cells) {
+          const px = b.x + dx;
+          const py = b.y + dy;
+          if (g.inBounds(px, py)) {
+            const idx = py * g.width + g.wrapX(px);
+            g.cells[idx] = CELL_TYPE.EXPLOSION;
+            g.explosionTimers[idx] = 8;
+          }
+        }
+        if (this.onBaseDestroyed) {
+          this.onBaseDestroyed(b.x + b.w / 2, b.y + b.h / 2, 'designed');
+        }
+        this._designedBases.splice(i, 1);
+        continue;
+      }
+      // Hard re-imprint: force every footprint cell to MISSILE, regardless
+      // of what Life rules tried to do this tick. This makes designed bases
+      // immutable structures (until destroyed by player damage).
+      for (const [dx, dy] of b.cells) {
+        const px = b.x + dx;
+        const py = b.y + dy;
+        if (g.inBounds(px, py)) {
+          const idx = py * g.width + g.wrapX(px);
+          // Don't overwrite cities or active explosions.
+          if (g.cells[idx] === CELL_TYPE.CITY) continue;
+          if (g.cells[idx] === CELL_TYPE.EXPLOSION && g.explosionTimers[idx] > 0) continue;
+          const wasEmpty = g.cells[idx] !== CELL_TYPE.MISSILE;
+          g.cells[idx] = CELL_TYPE.MISSILE;
+          g.cellAge[idx] = 0;
+          if (wasEmpty) {
+            g.cellColor[idx] = (idx * 7) % variants;
+          }
+          g.cellDir[idx] = 0;
+        }
+      }
+      // Also clear any orphaned MISSILE cells in a small halo around
+      // the base that aren't part of the footprint. This prevents Life
+      // rules from "growing" the base into nearby spawners.
+      const footprintSet = new Set(b.cells.map(([dx, dy]) => `${b.x + dx},${b.y + dy}`));
+      for (let dy = -1; dy <= b.h; dy++) {
+        for (let dx = -1; dx <= b.w; dx++) {
+          const px = b.x + dx;
+          const py = b.y + dy;
+          if (!g.inBounds(px, py)) continue;
+          const key = `${px},${py}`;
+          if (footprintSet.has(key)) continue;
+          const idx = py * g.width + g.wrapX(px);
+          // Only clear MISSILE cells that have very high age (likely
+          // Life-spawned debris, not freshly-spawned gliders).
+          if (g.cells[idx] === CELL_TYPE.MISSILE && g.cellAge[idx] > 5 && g.cellDir[idx] === 0) {
+            g.cells[idx] = CELL_TYPE.EMPTY;
+            g.cellAge[idx] = 0;
+          }
+        }
+      }
+    }
+  }
+  // Tick designer-placed spawners: re-imprint and emit missiles on cooldown.
+  _updateDesignedSpawners(deltaMs) {
+    if (this._designedSpawners.length === 0) return;
+    const g = this.grid;
+    const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
+    for (let i = this._designedSpawners.length - 1; i >= 0; i--) {
+      const s = this._designedSpawners[i];
+      if (!s.alive) continue;
+      // Damage tracking same as bases.
+      if (s._damage === undefined) s._damage = 0;
+      let damageThisTick = 0;
+      for (const [dx, dy] of s.cells) {
+        const px = s.x + dx;
+        const py = s.y + dy;
+        if (!g.inBounds(px, py)) continue;
+        for (let ddy = -1; ddy <= 1; ddy++) {
+          for (let ddx = -1; ddx <= 1; ddx++) {
+            if (ddx === 0 && ddy === 0) continue;
+            const nx = (((px + ddx) % g.width) + g.width) % g.width;
+            const ny = py + ddy;
+            if (ny < 0 || ny >= g.height) continue;
+            if (g.cells[ny * g.width + nx] === CELL_TYPE.DEFENSE) {
+              damageThisTick++;
+            }
+          }
+        }
+      }
+      s._damage += damageThisTick * 0.1;
+      const threshold = Math.max(3, Math.ceil(s.cells.length * 0.4));
+      if (s._damage >= threshold) {
+        s.alive = false;
+        for (const [dx, dy] of s.cells) {
+          const px = s.x + dx;
+          const py = s.y + dy;
+          if (g.inBounds(px, py)) {
+            const idx = py * g.width + g.wrapX(px);
+            g.cells[idx] = CELL_TYPE.EXPLOSION;
+            g.explosionTimers[idx] = 8;
+          }
+        }
+        if (this.onBaseDestroyed) {
+          this.onBaseDestroyed(s.x + s.w / 2, s.y + s.h / 2, 'spawner');
+        }
+        this._designedSpawners.splice(i, 1);
+        continue;
+      }
+      // Hard re-imprint, same as bases.
+      for (const [dx, dy] of s.cells) {
+        const px = s.x + dx;
+        const py = s.y + dy;
+        if (g.inBounds(px, py)) {
+          const idx = py * g.width + g.wrapX(px);
+          if (g.cells[idx] === CELL_TYPE.CITY) continue;
+          if (g.cells[idx] === CELL_TYPE.EXPLOSION && g.explosionTimers[idx] > 0) continue;
+          const wasNotMissile = g.cells[idx] !== CELL_TYPE.MISSILE;
+          g.cells[idx] = CELL_TYPE.MISSILE;
+          g.cellAge[idx] = 0;
+          if (wasNotMissile) {
+            g.cellColor[idx] = (idx * 11) % variants;
+          }
+          g.cellDir[idx] = 0;
+        }
+      }
+      // Clear halo of Life-spawned debris around spawner.
+      const footprintSet = new Set(s.cells.map(([dx, dy]) => `${s.x + dx},${s.y + dy}`));
+      for (let dy = -1; dy <= s.h; dy++) {
+        for (let dx = -1; dx <= s.w; dx++) {
+          const px = s.x + dx;
+          const py = s.y + dy;
+          if (!g.inBounds(px, py)) continue;
+          const key = `${px},${py}`;
+          if (footprintSet.has(key)) continue;
+          const idx = py * g.width + g.wrapX(px);
+          if (g.cells[idx] === CELL_TYPE.MISSILE && g.cellAge[idx] > 5 && g.cellDir[idx] === 0) {
+            g.cells[idx] = CELL_TYPE.EMPTY;
+            g.cellAge[idx] = 0;
+          }
+        }
+      }
+      // Tick emission cooldown.
+      s.cooldown -= deltaMs;
+      if (s.cooldown <= 0) {
+        this._spawnerEmit(s);
+        s.cooldown = s.interval;
+      }
+    }
+  }
+  // Emit a glider from a designed spawner. Tries SE then SW. Emits below
+  // the spawner footprint with enough buffer to clear the pattern.
+  _spawnerEmit(s) {
+    const g = this.grid;
+    const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
+    const patterns = [SE_GLIDER, SW_GLIDER];
+    const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+    // Compute glider bounding box.
+    let pw = 0,
+      ph = 0;
+    for (const [dx, dy] of pattern) {
+      if (dx + 1 > pw) pw = dx + 1;
+      if (dy + 1 > ph) ph = dy + 1;
+    }
+    // Spawn the glider well below the spawner's footprint, with a buffer
+    // so the new glider doesn't collide with the spawner's own cells
+    // (which would cause Life chaos and erode the spawner).
+    const buffer = 3;
+    const baseX = s.x + Math.max(0, Math.floor((s.w - pw) / 2));
+    const baseY = s.y + s.h + buffer;
+    // Bail if spawn would go off-grid.
+    if (baseY + ph >= g.height) return;
+    // Check spawn area is clear.
+    for (const [dx, dy] of pattern) {
+      const px = baseX + dx;
+      const py = baseY + dy;
+      if (!g.inBounds(px, py)) return;
+      if (g.get(px, py) !== CELL_TYPE.EMPTY) return;
+    }
+    // Also check a 1-cell halo around the spawn area is clear so the
+    // new glider has room to start moving without immediate collisions.
+    for (let dy = -1; dy <= ph; dy++) {
+      for (let dx = -1; dx <= pw; dx++) {
+        const px = baseX + dx;
+        const py = baseY + dy;
+        if (!g.inBounds(px, py)) continue;
+        const t = g.get(px, py);
+        if (t === CELL_TYPE.MISSILE || t === CELL_TYPE.DEFENSE) return;
+      }
+    }
+    let placed = 0;
+    for (const [dx, dy] of pattern) {
+      const px = baseX + dx;
+      const py = baseY + dy;
+      if (g.inBounds(px, py) && g.get(px, py) === CELL_TYPE.EMPTY) {
+        g.set(px, py, CELL_TYPE.MISSILE);
+        const wx = g.wrapX(px);
+        const i = py * g.width + wx;
+        g.cellColor[i] = (Math.random() * variants) | 0;
+        g.cellDir[i] = DIR_DOWN;
+        placed++;
+      }
+    }
+    if (placed > 0 && this.onMissileSpawn) {
+      this.onMissileSpawn(baseX + pw / 2, baseY + ph / 2, pw, ph);
+    }
+  }
 
   _targetEmitGlider(t) {
     // Drop an SE or SW glider just below the target.
@@ -761,6 +1142,10 @@ export class Missiles {
     if (this.targets.some((t) => t.alive)) return false;
     // Bases must all be destroyed for wave to complete.
     if (this.bases.some((b) => b.alive)) return false;
+    // Designed bases must be destroyed too.
+    if (this._designedBases.some((b) => b.alive)) return false;
+    // Designed spawners must be destroyed too.
+    if (this._designedSpawners.some((s) => s.alive)) return false;
     const cells = this.grid.cells;
     for (let i = 0; i < cells.length; i++) {
       if (cells[i] === CELL_TYPE.MISSILE) return false;

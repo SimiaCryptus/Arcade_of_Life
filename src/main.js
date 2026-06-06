@@ -20,6 +20,8 @@ import './rules/index.js';
 import { FreeplayAbilityManager } from './abilities.js';
 import { PatternCapture } from './patternCapture.js';
 import { PatternZoo } from './patternZoo.js';
+import { LevelDesigner } from './levelDesigner.js';
+import { getLevel } from './levels.js';
 import {
   registerServiceWorker,
   initInstallPrompt,
@@ -56,6 +58,8 @@ class Game {
     this.fullscreenButton = document.getElementById('fullscreen-button');
     this.patternZooButton = document.getElementById('pattern-zoo-button');
     this.patternZooIngameButton = document.getElementById('pattern-zoo-ingame-button');
+    this.levelDesignerButton = document.getElementById('level-designer-button');
+    this.levelDesignerIngameButton = document.getElementById('level-designer-ingame-button');
 
     this._buildWorld();
 
@@ -154,6 +158,10 @@ class Game {
     this.drawTools.patternCapture = this.patternCapture;
     // Pattern Zoo — browse the pattern library with live previews.
     this.patternZoo = new PatternZoo({ game: this });
+    // Level Designer — craft custom scenarios.
+    this.levelDesigner = new LevelDesigner({ game: this });
+    // Currently-loaded custom level (null = standard game).
+    this._activeCustomLevel = null;
     // Auto-pause when pattern editor overlay opens; restore on close.
     this._editorPauseSpeed = null;
     this.drawTools.onEditorOpen = () => {
@@ -215,6 +223,12 @@ class Game {
     }
     if (this.patternZooIngameButton) {
       this.patternZooIngameButton.addEventListener('click', () => this.openPatternZoo());
+    }
+    if (this.levelDesignerButton) {
+      this.levelDesignerButton.addEventListener('click', () => this.openLevelDesigner());
+    }
+    if (this.levelDesignerIngameButton) {
+      this.levelDesignerIngameButton.addEventListener('click', () => this.openLevelDesigner());
     }
     if (this.ingameSettingsButton) {
       this.ingameSettingsButton.addEventListener('click', () => this.openIngameSettings());
@@ -1313,6 +1327,13 @@ class Game {
           return;
         }
       }
+      // D: Toggle the level designer (when not actively playing).
+      if (e.key === 'd' || e.key === 'D') {
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+        e.preventDefault();
+        this.levelDesigner.toggle();
+        return;
+      }
       // S: Open in-play settings (when enabled).
       if (e.key === 's' || e.key === 'S') {
         if (
@@ -1475,6 +1496,135 @@ class Game {
       }
     };
     this.patternZoo.show();
+  }
+  openLevelDesigner() {
+    if (!this.levelDesigner) return;
+    this.levelDesigner.show();
+  }
+  /**
+   * Start a game using a saved custom level. Applies the level's
+   * grid size, ruleset, wave config, cities, defenses, and bases,
+   * then begins playing.
+   * @param {string} levelName
+   */
+  startCustomLevel(levelName) {
+    const level = getLevel(levelName);
+    if (!level) {
+      Logger.warn(`[Game] Custom level "${levelName}" not found.`);
+      return false;
+    }
+    Logger.info(`[Game] Starting custom level "${levelName}".`);
+    this._activeCustomLevel = level;
+    // Apply full settings snapshot first (if present) so that downstream
+    // overrides like waveConfig and ruleset still take precedence.
+    if (level.settings && typeof level.settings === 'object') {
+      for (const [k, v] of Object.entries(level.settings)) {
+        // Only copy known CONFIG keys to avoid pollution.
+        if (k in CONFIG) CONFIG[k] = v;
+      }
+      Logger.info(`[Game] Applied ${Object.keys(level.settings).length} setting overrides.`);
+    }
+    // Apply level config overrides.
+    CONFIG.GRID_WIDTH = level.gridWidth || CONFIG.GRID_WIDTH;
+    CONFIG.GRID_HEIGHT = level.gridHeight || CONFIG.GRID_HEIGHT;
+    if (level.ruleset) CONFIG.ACTIVE_RULESET = level.ruleset;
+    if (level.waveConfig) {
+      const wc = level.waveConfig;
+      if (wc.missilesPerWaveBase != null) CONFIG.MISSILES_PER_WAVE_BASE = wc.missilesPerWaveBase;
+      if (wc.missilesPerWaveInc != null) CONFIG.MISSILES_PER_WAVE_INC = wc.missilesPerWaveInc;
+      if (wc.spawnInterval != null) CONFIG.MISSILE_SPAWN_INTERVAL = wc.spawnInterval;
+      if (wc.gliderTypes) {
+        CONFIG.GLIDER_SE = !!wc.gliderTypes.se;
+        CONFIG.GLIDER_SW = !!wc.gliderTypes.sw;
+        CONFIG.GLIDER_HEAVY = !!wc.gliderTypes.heavy;
+        CONFIG.GLIDER_LWSS = !!wc.gliderTypes.lwss;
+        CONFIG.GLIDER_MWSS = !!wc.gliderTypes.mwss;
+        CONFIG.GLIDER_TWIN = !!wc.gliderTypes.twin;
+        CONFIG.GLIDER_GUN = !!wc.gliderTypes.gun;
+      }
+    }
+    // Custom levels use ONLY the designed bases & spawners. Disable the
+    // default per-wave base spawning and default missile spawning if the
+    // level has its own. The presence of designed spawners completely
+    // replaces the default glider waves; the presence of designed bases
+    // replaces the default base spawning.
+    const hasCustomBases = Array.isArray(level.bases) && level.bases.length > 0;
+    const hasCustomSpawners = Array.isArray(level.spawners) && level.spawners.length > 0;
+    if (hasCustomBases || hasCustomSpawners) {
+      // Disable default base spawning — designed bases take over.
+      CONFIG.BASE_SPAWN_ENABLED = false;
+    }
+    if (hasCustomSpawners) {
+      // Disable default missile spawning — designed spawners take over.
+      CONFIG.MISSILES_PER_WAVE_BASE = 0;
+      CONFIG.MISSILES_PER_WAVE_INC = 0;
+    }
+    // Acquire wake lock.
+    requestWakeLock();
+    // Rebuild world for new grid size.
+    this._fitCellSize();
+    this._buildWorld();
+    this.renderer.setGrid(this.grid);
+    this._initSpeedControls();
+    this.defenses.maxInk = CONFIG.MAX_INK;
+    this.defenses.reset();
+    this.hud.reset();
+    // Clear grid.
+    this.grid.cells.fill(0);
+    this.grid.pending.fill(0);
+    this.grid.pendingDry.fill(0);
+    this.grid.explosionTimers.fill(0);
+    this.grid.cellAge.fill(0);
+    this.grid.cellColor.fill(0);
+    this.grid.cellDir.fill(0);
+    if (this.simulation.returnFireFired) this.simulation.returnFireFired.fill(0);
+    // Place custom cities (override default placement).
+    this.cities.cities = [];
+    this.grid.clearPending();
+    for (const c of level.cities || []) {
+      const city = { x: c.x, y: c.y, width: c.width, height: c.height, alive: true };
+      this.cities.cities.push(city);
+      for (let dy = 0; dy < city.height; dy++) {
+        for (let dx = 0; dx < city.width; dx++) {
+          this.grid.set(city.x + dx, city.y + dy, CELL_TYPE.CITY);
+        }
+      }
+    }
+    // Place custom defense cells.
+    const defenseVariants = CONFIG.COLORS.DEFENSE_VARIANTS.length;
+    for (const [x, y] of level.defenses || []) {
+      if (this.grid.inBounds(x, y) && this.grid.get(x, y) === CELL_TYPE.EMPTY) {
+        this.grid.set(x, y, CELL_TYPE.DEFENSE);
+        const i = y * this.grid.width + this.grid.wrapX(x);
+        this.grid.cellAge[i] = 1;
+        this.grid.cellColor[i] = (Math.random() * defenseVariants) | 0;
+      }
+    }
+    // Inject custom-designed bases & spawners into the missiles module.
+    this.missiles.setCustomBases(level.bases || []);
+    this.missiles.setCustomSpawners(level.spawners || []);
+    // Start wave 0. If the level has custom spawners, no default gliders
+    // will spawn; otherwise default wave behavior takes over.
+    this.missiles.startWave(0);
+    this.gameState.set(STATE.PLAYING);
+    this.hideOverlay();
+    // Show a banner indicating custom level is active.
+    if (this.renderer && this.grid) {
+      this.renderer.addBigFloater(
+        Math.floor(this.grid.width / 2),
+        Math.floor(this.grid.height / 3),
+        `🛠 LEVEL: ${level.name}`,
+        '#ffcc44',
+        1.6
+      );
+    }
+    // Install/uninstall abilities.
+    if (this.freeplayAbilities) {
+      this.freeplayAbilities.uninstall();
+      this.freeplayAbilities.install();
+    }
+    Sfx.waveStart();
+    return true;
   }
 
   // Open settings from within a running game. Pauses the simulation
