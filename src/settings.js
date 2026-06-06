@@ -62,8 +62,10 @@ export const SETTING_DEFS = [
   // Region-specific age settings (matrix layout).
   { key: 'DEFENSE_AGE_FRIENDLY', id: 'setting-def-age-friendly', format: (v) => v },
   { key: 'DEFENSE_AGE_ENEMY', id: 'setting-def-age-enemy', format: (v) => v },
+  { key: 'DEFENSE_AGE_NEUTRAL', id: 'setting-def-age-neutral', format: (v) => v },
   { key: 'MISSILE_AGE_FRIENDLY', id: 'setting-miss-age-friendly', format: (v) => v },
   { key: 'MISSILE_AGE_ENEMY', id: 'setting-miss-age-enemy', format: (v) => v },
+  { key: 'MISSILE_AGE_NEUTRAL', id: 'setting-miss-age-neutral', format: (v) => v },
   { key: 'MISSILE_CASCADE_TICKS', id: 'setting-cascade-ticks', format: (v) => v },
   { key: 'AGE_CONTAGION_AMOUNT', id: 'setting-age-contagion', format: (v) => v },
   { key: 'CLEAR_REFUND_FRACTION', id: 'setting-clear-refund', format: (v) => v.toFixed(2) },
@@ -132,8 +134,10 @@ DEFAULTS.UNLIMITED_MISSILE_CASCADE = false;
 // Unlimited flags for region-specific age settings.
 DEFAULTS.UNLIMITED_DEF_AGE_FRIENDLY = true;
 DEFAULTS.UNLIMITED_DEF_AGE_ENEMY = true;
+DEFAULTS.UNLIMITED_DEF_AGE_NEUTRAL = true;
 DEFAULTS.UNLIMITED_MISS_AGE_FRIENDLY = true;
 DEFAULTS.UNLIMITED_MISS_AGE_ENEMY = true;
+DEFAULTS.UNLIMITED_MISS_AGE_NEUTRAL = true;
 
 export class Settings {
   constructor() {
@@ -188,8 +192,10 @@ export class Settings {
       if (this.values.UNLIMITED_MISSILE_CASCADE) CONFIG.MISSILE_CASCADE_TICKS = 999999;
       if (this.values.UNLIMITED_DEF_AGE_FRIENDLY) CONFIG.DEFENSE_AGE_FRIENDLY = 999999;
       if (this.values.UNLIMITED_DEF_AGE_ENEMY) CONFIG.DEFENSE_AGE_ENEMY = 999999;
+      if (this.values.UNLIMITED_DEF_AGE_NEUTRAL) CONFIG.DEFENSE_AGE_NEUTRAL = 999999;
       if (this.values.UNLIMITED_MISS_AGE_FRIENDLY) CONFIG.MISSILE_AGE_FRIENDLY = 999999;
       if (this.values.UNLIMITED_MISS_AGE_ENEMY) CONFIG.MISSILE_AGE_ENEMY = 999999;
+      if (this.values.UNLIMITED_MISS_AGE_NEUTRAL) CONFIG.MISSILE_AGE_NEUTRAL = 999999;
       // Apply resolution preset.
       const idx = Math.max(
         0,
@@ -869,6 +875,13 @@ export class SettingsPanel {
         label: '∞',
       },
       {
+        valueKey: 'UNLIMITED_DEF_AGE_NEUTRAL',
+        checkboxId: 'setting-unlimited-def-age-neutral',
+        sliderId: 'setting-def-age-neutral',
+        valueId: 'setting-def-age-neutral-value',
+        label: '∞',
+      },
+      {
         valueKey: 'UNLIMITED_MISS_AGE_FRIENDLY',
         checkboxId: 'setting-unlimited-miss-age-friendly',
         sliderId: 'setting-miss-age-friendly',
@@ -880,6 +893,13 @@ export class SettingsPanel {
         checkboxId: 'setting-unlimited-miss-age-enemy',
         sliderId: 'setting-miss-age-enemy',
         valueId: 'setting-miss-age-enemy-value',
+        label: '∞',
+      },
+      {
+        valueKey: 'UNLIMITED_MISS_AGE_NEUTRAL',
+        checkboxId: 'setting-unlimited-miss-age-neutral',
+        sliderId: 'setting-miss-age-neutral',
+        valueId: 'setting-miss-age-neutral-value',
         label: '∞',
       },
     ];

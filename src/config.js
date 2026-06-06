@@ -36,8 +36,10 @@ export const CONFIG = {
   //   MISSILE cells: MISSILE_AGE_F      MISSILE_AGE_E
   DEFENSE_AGE_FRIENDLY: 999999,
   DEFENSE_AGE_ENEMY: 999999,
+  DEFENSE_AGE_NEUTRAL: 999999,
   MISSILE_AGE_FRIENDLY: 999999,
   MISSILE_AGE_ENEMY: 999999,
+  MISSILE_AGE_NEUTRAL: 999999,
   MISSILE_CASCADE_TICKS: 20, // ~2 seconds at TICK_RATE=100ms
   // Death contagion: when a cell expires (from age or annihilation),
   // increment the age of each of its neighbors by this amount. Above 0
@@ -166,6 +168,8 @@ export const CONFIG = {
     CELL_MISSILE: '#ff00aa',
     CELL_CITY: '#ffff60',
     CELL_EXPLOSION: '#ff8800',
+    CELL_BARRIER: '#a0a0a0',
+    CELL_FIRE: '#ff6622',
     HUD_TEXT: '#e0e0ff',
     INK_BAR: '#00ffff',
     INK_BAR_BG: '#1a1a3a',
@@ -223,6 +227,7 @@ export const CELL_TYPE = {
   EXPLOSION: 4,
   PENDING: 5,
   BARRIER: 6,
+  FIRE: 7,
 };
 /**
  * Preset game modes. Each entry patches a subset of CONFIG keys.

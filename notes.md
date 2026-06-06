@@ -4,3 +4,5 @@
 - add a "restart level" button to the game, with confirmation
 - in hex mode, annihilation visuals are shown in the wrong location
 - level designer colors settings do not effect the actual game
+
+- pattern

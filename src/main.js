@@ -1852,8 +1852,10 @@ class Game {
       UNLIMITED_MISSILE_CASCADE: ['MISSILE_CASCADE_TICKS'],
       UNLIMITED_DEF_AGE_FRIENDLY: ['DEFENSE_AGE_FRIENDLY'],
       UNLIMITED_DEF_AGE_ENEMY: ['DEFENSE_AGE_ENEMY'],
+      UNLIMITED_DEF_AGE_NEUTRAL: ['DEFENSE_AGE_NEUTRAL'],
       UNLIMITED_MISS_AGE_FRIENDLY: ['MISSILE_AGE_FRIENDLY'],
       UNLIMITED_MISS_AGE_ENEMY: ['MISSILE_AGE_ENEMY'],
+      UNLIMITED_MISS_AGE_NEUTRAL: ['MISSILE_AGE_NEUTRAL'],
     };
     if (level.settings) {
       const regionKeys = [
@@ -1869,8 +1871,10 @@ class Game {
         const regionFlags = [
           ['UNLIMITED_DEF_AGE_FRIENDLY', 'DEFENSE_AGE_FRIENDLY'],
           ['UNLIMITED_DEF_AGE_ENEMY', 'DEFENSE_AGE_ENEMY'],
+          ['UNLIMITED_DEF_AGE_NEUTRAL', 'DEFENSE_AGE_NEUTRAL'],
           ['UNLIMITED_MISS_AGE_FRIENDLY', 'MISSILE_AGE_FRIENDLY'],
           ['UNLIMITED_MISS_AGE_ENEMY', 'MISSILE_AGE_ENEMY'],
+          ['UNLIMITED_MISS_AGE_NEUTRAL', 'MISSILE_AGE_NEUTRAL'],
         ];
         // If no region unlimited flag is set, propagate ∞ to all.
         const anyRegionUnlimited = regionFlags.some(([flag]) => level.settings[flag]);
@@ -2035,6 +2039,17 @@ class Game {
     for (const [x, y] of level.barriers || []) {
       if (this.grid.inBounds(x, y) && this.grid.get(x, y) === CELL_TYPE.EMPTY) {
         this.grid.set(x, y, CELL_TYPE.BARRIER);
+        const i = y * this.grid.width + this.grid.wrapX(x);
+        this.grid.cellAge[i] = 0;
+        this.grid.cellColor[i] = 0;
+      }
+    }
+    // Place custom FIRE cells (static activated tiles — act as live
+    // neighbors for Life rules, destroy missiles on contact, persist
+    // forever).
+    for (const [x, y] of level.fire || []) {
+      if (this.grid.inBounds(x, y) && this.grid.get(x, y) === CELL_TYPE.EMPTY) {
+        this.grid.set(x, y, CELL_TYPE.FIRE);
         const i = y * this.grid.width + this.grid.wrapX(x);
         this.grid.cellAge[i] = 0;
         this.grid.cellColor[i] = 0;

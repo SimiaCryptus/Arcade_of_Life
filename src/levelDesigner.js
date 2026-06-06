@@ -68,8 +68,10 @@ export class LevelDesigner {
     this.cities = []; // {x, y, width, height}
     this.defenseCells = new Set(); // "x,y" keys
     this.barrierCells = new Set(); // "x,y" keys — static barrier tiles
+    this.fireCells = new Set(); // "x,y" keys — static fire tiles
     // Paint target for freehand / line / fill tools.
-    // 'defense' paints into defenseCells; 'barrier' paints into barrierCells.
+    // 'defense' paints into defenseCells; 'barrier' paints into
+    // barrierCells; 'fire' paints into fireCells.
     this.paintTarget = 'defense';
     // Wrap settings.
     this.wrapVerticalShift = 0;
@@ -160,6 +162,13 @@ export class LevelDesigner {
                        <span class="ld-target-desc">Static walls</span>
                      </span>
                    </button>
+                  <button class="ld-target-btn" data-target="fire" title="Paint static FIRE tiles (orange) — never change, destroy missiles, act as live neighbors for Life rules">
+                    <span class="ld-target-icon">🔥</span>
+                    <span class="ld-target-label">
+                      <span class="ld-target-name">Fire</span>
+                      <span class="ld-target-desc">Active static</span>
+                    </span>
+                  </button>
                  </div>
                </div>
                <div class="ld-tool-group" id="ld-pattern-selector" style="display:none;">
@@ -284,6 +293,7 @@ export class LevelDesigner {
                     <div>Cities: <strong id="ld-stat-cities">0</strong></div>
                     <div>Defense cells: <strong id="ld-stat-defense">0</strong></div>
                      <div>Barriers: <strong id="ld-stat-barriers">0</strong></div>
+                      <div>Fire: <strong id="ld-stat-fire">0</strong></div>
                     <div>Bases: <strong id="ld-stat-bases">0</strong></div>
                     <div>Spawners: <strong id="ld-stat-spawners">0</strong></div>
                   </div>
@@ -632,10 +642,11 @@ export class LevelDesigner {
     }
     // Clear all.
     ov.querySelector('#ld-clear-btn').addEventListener('click', () => {
-      if (!confirm('Clear all cities, defenses, barriers, and bases?')) return;
+      if (!confirm('Clear all cities, defenses, barriers, fire, and bases?')) return;
       this.cities = [];
       this.defenseCells.clear();
       this.barrierCells.clear();
+      this.fireCells.clear();
       this.bases = [];
       this.spawners = [];
       this._draw();
@@ -651,23 +662,43 @@ export class LevelDesigner {
     window.addEventListener('pointerup', () => {
       // Commit line / fill on release.
       if (this._lineStart && this._linePreview) {
-        const targetSet = this.paintTarget === 'barrier' ? this.barrierCells : this.defenseCells;
-        const otherSet = this.paintTarget === 'barrier' ? this.defenseCells : this.barrierCells;
+        const targetSet =
+          this.paintTarget === 'barrier'
+            ? this.barrierCells
+            : this.paintTarget === 'fire'
+              ? this.fireCells
+              : this.defenseCells;
+        const otherSets =
+          this.paintTarget === 'barrier'
+            ? [this.defenseCells, this.fireCells]
+            : this.paintTarget === 'fire'
+              ? [this.defenseCells, this.barrierCells]
+              : [this.barrierCells, this.fireCells];
         for (const [x, y] of this._linePreview) {
           const key = `${x},${y}`;
           targetSet.add(key);
-          otherSet.delete(key);
+          for (const s of otherSets) s.delete(key);
         }
         this._lineStart = null;
         this._linePreview = null;
       }
       if (this._fillStart && this._fillPreview) {
-        const targetSet = this.paintTarget === 'barrier' ? this.barrierCells : this.defenseCells;
-        const otherSet = this.paintTarget === 'barrier' ? this.defenseCells : this.barrierCells;
+        const targetSet =
+          this.paintTarget === 'barrier'
+            ? this.barrierCells
+            : this.paintTarget === 'fire'
+              ? this.fireCells
+              : this.defenseCells;
+        const otherSets =
+          this.paintTarget === 'barrier'
+            ? [this.defenseCells, this.fireCells]
+            : this.paintTarget === 'fire'
+              ? [this.defenseCells, this.barrierCells]
+              : [this.barrierCells, this.fireCells];
         for (const [x, y] of this._fillPreview) {
           const key = `${x},${y}`;
           targetSet.add(key);
-          otherSet.delete(key);
+          for (const s of otherSets) s.delete(key);
         }
         this._fillStart = null;
         this._fillPreview = null;
@@ -938,8 +969,18 @@ export class LevelDesigner {
   }
 
   _paintBrush(x, y, add) {
-    const targetSet = this.paintTarget === 'barrier' ? this.barrierCells : this.defenseCells;
-    const otherSet = this.paintTarget === 'barrier' ? this.defenseCells : this.barrierCells;
+    const targetSet =
+      this.paintTarget === 'barrier'
+        ? this.barrierCells
+        : this.paintTarget === 'fire'
+          ? this.fireCells
+          : this.defenseCells;
+    const otherSets =
+      this.paintTarget === 'barrier'
+        ? [this.defenseCells, this.fireCells]
+        : this.paintTarget === 'fire'
+          ? [this.defenseCells, this.barrierCells]
+          : [this.barrierCells, this.fireCells];
     const r = Math.floor(this.brushSize / 2);
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
@@ -949,8 +990,8 @@ export class LevelDesigner {
         const key = `${px},${py}`;
         if (add) {
           targetSet.add(key);
-          // Defense and Barrier are mutually exclusive at the same cell.
-          otherSet.delete(key);
+          // Defense, Barrier, and Fire are mutually exclusive at the same cell.
+          for (const s of otherSets) s.delete(key);
         } else {
           targetSet.delete(key);
         }
@@ -1251,6 +1292,7 @@ export class LevelDesigner {
       for (let dx = -r; dx <= r; dx++) {
         this.defenseCells.delete(`${x + dx},${y + dy}`);
         this.barrierCells.delete(`${x + dx},${y + dy}`);
+        this.fireCells.delete(`${x + dx},${y + dy}`);
       }
     }
     // Remove cities under cursor.
@@ -1283,6 +1325,12 @@ export class LevelDesigner {
       if (x < this.gridWidth && y < this.gridHeight) newBarriers.add(key);
     }
     this.barrierCells = newBarriers;
+    const newFire = new Set();
+    for (const key of this.fireCells) {
+      const [x, y] = key.split(',').map(Number);
+      if (x < this.gridWidth && y < this.gridHeight) newFire.add(key);
+    }
+    this.fireCells = newFire;
     this.bases = this.bases.filter(
       (pb) => pb.x + pb.width <= this.gridWidth && pb.y + pb.height <= this.gridHeight
     );
@@ -1444,6 +1492,15 @@ export class LevelDesigner {
       const [x, y] = key.split(',').map(Number);
       this._fillCell(ctx, x, y, barrierColor);
     }
+    // Fire — static glowing tiles. Animated subtle glow.
+    const fireColor = (this.colorTheme && this.colorTheme.CELL_FIRE) || '#ff6622';
+    ctx.shadowColor = fireColor;
+    ctx.shadowBlur = 5;
+    for (const key of this.fireCells) {
+      const [x, y] = key.split(',').map(Number);
+      this._fillCell(ctx, x, y, fireColor);
+    }
+    ctx.shadowBlur = 0;
     // Defense cells.
     ctx.fillStyle = '#00ff88';
     for (const key of this.defenseCells) {
@@ -1608,11 +1665,17 @@ export class LevelDesigner {
     const hover = this._hoverCell;
     const pulse = 0.55 + 0.15 * Math.sin(performance.now() / 200);
     // Pick a preview color tuple based on the active paint target.
-    // Cyan-ish for defense, neutral gray for barrier.
+    // Cyan-ish for defense, neutral gray for barrier, orange for fire.
     const previewRgbDefense = '0, 255, 200';
     const previewRgbBarrier = '180, 180, 180';
+    const previewRgbFire = '255, 120, 40';
     const isBarrier = this.paintTarget === 'barrier';
-    const cellPreviewRgb = isBarrier ? previewRgbBarrier : previewRgbDefense;
+    const isFire = this.paintTarget === 'fire';
+    const cellPreviewRgb = isBarrier
+      ? previewRgbBarrier
+      : isFire
+        ? previewRgbFire
+        : previewRgbDefense;
     // Line preview (during drag).
     if (this.mode === DESIGNER_MODE.LINE && this._linePreview && this._linePreview.length > 0) {
       for (const [x, y] of this._linePreview) {
@@ -1730,7 +1793,7 @@ export class LevelDesigner {
     // Defense brush preview (freehand mode).
     if (this.mode === DESIGNER_MODE.DEFENSE) {
       const r = Math.floor(this.brushSize / 2);
-      const brushRgb = isBarrier ? '180, 180, 180' : '0, 255, 136';
+      const brushRgb = isBarrier ? '180, 180, 180' : isFire ? '255, 120, 40' : '0, 255, 136';
       if (this.topologyId === 'square') {
         ctx.strokeStyle = `rgba(${brushRgb}, ${pulse * 0.6})`;
         ctx.lineWidth = 1;
@@ -1758,6 +1821,8 @@ export class LevelDesigner {
     if (spEl) spEl.textContent = String(this.spawners.length);
     const baEl = ov.querySelector('#ld-stat-barriers');
     if (baEl) baEl.textContent = String(this.barrierCells.size);
+    const fiEl = ov.querySelector('#ld-stat-fire');
+    if (fiEl) fiEl.textContent = String(this.fireCells.size);
   }
 
   // ── Save / Load / Export ──────────────────────────────────────
@@ -1770,6 +1835,7 @@ export class LevelDesigner {
       cities: this.cities.map((c) => ({ ...c })),
       defenses: Array.from(this.defenseCells).map((k) => k.split(',').map(Number)),
       barriers: Array.from(this.barrierCells).map((k) => k.split(',').map(Number)),
+      fire: Array.from(this.fireCells).map((k) => k.split(',').map(Number)),
       bases: this.bases.map((pb) => ({
         patternId: pb.patternId,
         name: pb.name,
@@ -1822,6 +1888,7 @@ export class LevelDesigner {
     this.cities = (level.cities || []).map((c) => ({ ...c }));
     this.defenseCells = new Set((level.defenses || []).map(([x, y]) => `${x},${y}`));
     this.barrierCells = new Set((level.barriers || []).map(([x, y]) => `${x},${y}`));
+    this.fireCells = new Set((level.fire || []).map(([x, y]) => `${x},${y}`));
     // Migration: accept both new "bases" (zoo-pattern shape) and old
     // legacy "patternBases" key; the old "bases" with {kind, x, y} are
     // no longer supported and skipped.
@@ -2334,6 +2401,7 @@ export class LevelDesigner {
       { key: 'MIDLINE', label: 'Draw-zone midline', default: '#2a2a5a' },
       { key: 'CELL_CITY', label: 'City cells', default: '#ffff60' },
       { key: 'CELL_EXPLOSION', label: 'Explosion cells', default: '#ff8800' },
+      { key: 'CELL_FIRE', label: 'Fire cells', default: '#ff6622' },
       { key: 'HUD_TEXT', label: 'HUD text', default: '#e0e0ff' },
       { key: 'INK_BAR', label: 'Ink bar', default: '#00ffff' },
       { key: 'INK_BAR_BG', label: 'Ink bar bg', default: '#1a1a3a' },
@@ -2464,8 +2532,10 @@ export class LevelDesigner {
         title: '⏳ Region-Specific Aging',
         keys: [
           'DEFENSE_AGE_FRIENDLY',
+          'DEFENSE_AGE_NEUTRAL',
           'DEFENSE_AGE_ENEMY',
           'MISSILE_AGE_FRIENDLY',
+          'MISSILE_AGE_NEUTRAL',
           'MISSILE_AGE_ENEMY',
         ],
       },
@@ -2767,8 +2837,10 @@ export class LevelDesigner {
       MISSILE_SPAWN_MIN: { min: 100, max: 2000, step: 50 },
       DEFENSE_AGE_FRIENDLY: { min: 100, max: 10000, step: 100 },
       DEFENSE_AGE_ENEMY: { min: 100, max: 10000, step: 100 },
+      DEFENSE_AGE_NEUTRAL: { min: 100, max: 10000, step: 100 },
       MISSILE_AGE_FRIENDLY: { min: 100, max: 10000, step: 100 },
       MISSILE_AGE_ENEMY: { min: 100, max: 10000, step: 100 },
+      MISSILE_AGE_NEUTRAL: { min: 100, max: 10000, step: 100 },
       MISSILE_CASCADE_TICKS: { min: 0, max: 200, step: 1 },
       AGE_CONTAGION_AMOUNT: { min: 0, max: 200, step: 1 },
       CLEAR_REFUND_FRACTION: { min: 0, max: 1, step: 0.05 },
@@ -2816,8 +2888,10 @@ export class LevelDesigner {
       INK_REGEN_RATE: 0.5,
       DEFENSE_AGE_FRIENDLY: 200,
       DEFENSE_AGE_ENEMY: 200,
+      DEFENSE_AGE_NEUTRAL: 200,
       MISSILE_AGE_FRIENDLY: 200,
       MISSILE_AGE_ENEMY: 200,
+      MISSILE_AGE_NEUTRAL: 200,
       MISSILE_CASCADE_TICKS: 20,
     };
     if (defaults[key] != null) return defaults[key];
@@ -2841,8 +2915,10 @@ export class LevelDesigner {
       MISSILE_CASCADE_TICKS: 'UNLIMITED_MISSILE_CASCADE',
       DEFENSE_AGE_FRIENDLY: 'UNLIMITED_DEF_AGE_FRIENDLY',
       DEFENSE_AGE_ENEMY: 'UNLIMITED_DEF_AGE_ENEMY',
+      DEFENSE_AGE_NEUTRAL: 'UNLIMITED_DEF_AGE_NEUTRAL',
       MISSILE_AGE_FRIENDLY: 'UNLIMITED_MISS_AGE_FRIENDLY',
       MISSILE_AGE_ENEMY: 'UNLIMITED_MISS_AGE_ENEMY',
+      MISSILE_AGE_NEUTRAL: 'UNLIMITED_MISS_AGE_NEUTRAL',
     };
     return map[key] || null;
   }

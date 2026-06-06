@@ -244,9 +244,16 @@ export class Simulation {
     const clampAge = (v) => (v >= UNLIMITED ? v : Math.min(v | 0, 255));
     const defAgeF = clampAge(CONFIG.DEFENSE_AGE_FRIENDLY);
     const defAgeE = clampAge(CONFIG.DEFENSE_AGE_ENEMY);
+    const defAgeN = clampAge(CONFIG.DEFENSE_AGE_NEUTRAL);
     const missAgeF = clampAge(CONFIG.MISSILE_AGE_FRIENDLY);
     const missAgeE = clampAge(CONFIG.MISSILE_AGE_ENEMY);
+    const missAgeN = clampAge(CONFIG.MISSILE_AGE_NEUTRAL);
     const dzMinYBoundary = g.drawZoneMinY();
+    // Enemy region = base zone (top dead zone + base zone rows).
+    // Neutral region = between base zone bottom and draw zone top.
+    const topDeadMax = Math.min(h - 1, CONFIG.RETURN_FIRE_ZONE_MAX_Y | 0);
+    const baseZoneH = Math.max(0, CONFIG.BASE_ZONE_HEIGHT | 0);
+    const enemyRegionMaxY = Math.min(h - 1, topDeadMax + baseZoneH);
     const cascadeTicks = CONFIG.MISSILE_CASCADE_TICKS;
     const defenseVariants = CONFIG.COLORS.DEFENSE_VARIANTS.length;
     const missileVariants = CONFIG.COLORS.MISSILE_VARIANTS.length;
@@ -271,6 +278,14 @@ export class Simulation {
     const lifeNbr = this._lifeNbr;
     const missileNbr = this._missileNbr;
     const defenseNbr = this._defenseNbr;
+    // FIRE cells participate as "live defense" neighbors but the
+    // backend's fast path only counts DEFENSE/MISSILE. Patch the
+    // counts here: any cell adjacent to a FIRE gets +1 lifeNbr only.
+    // FIRE is "activated" for both friendly (defense) and enemy
+    // (missile) births/survivals, so it must NOT bias defenseNbr
+    // (which would cause missiles to annihilate on contact and would
+    // bias empty-cell births toward defense).
+    this._addFireNeighborCounts(cells, w, h, lifeNbr, defenseNbr, missileNbr);
 
     // --- Step 2: Collision detection (missile↔defense, missile↔city). ---
     const annihilated = this._annihilated;
@@ -319,8 +334,10 @@ export class Simulation {
       for (let i = 0; i < cells.length; i++) {
         if (cells[i] === CELL_TYPE.MISSILE) {
           const y = (i / w) | 0;
-          const inFriendly = y >= dzMinYBoundary;
-          const effectiveLimit = inFriendly ? missAgeF : missAgeE;
+          let effectiveLimit;
+          if (y >= dzMinYBoundary) effectiveLimit = missAgeF;
+          else if (y <= enemyRegionMaxY) effectiveLimit = missAgeE;
+          else effectiveLimit = missAgeN;
           if (effectiveLimit < UNLIMITED && age[i] >= effectiveLimit) {
             ageDespawn[i] = 1;
           }
@@ -329,11 +346,12 @@ export class Simulation {
       // Cascade: any missile within cascadeTicks of expiry adjacent to an
       // already-despawning missile also despawns. Iterate until stable.
       // Use a worklist approach for efficiency on large grids.
-      // Use the larger of the two region limits as the reference for
+      // Use the largest region limit as the reference for
       // cascade threshold (cells nearing expiry in either region cascade).
       const maxRegionLimit = Math.max(
         missAgeF < UNLIMITED ? missAgeF : 0,
-        missAgeE < UNLIMITED ? missAgeE : 0
+        missAgeE < UNLIMITED ? missAgeE : 0,
+        missAgeN < UNLIMITED ? missAgeN : 0
       );
       const cascadeThreshold = maxRegionLimit - cascadeTicks;
       const worklist = [];
@@ -415,6 +433,14 @@ export class Simulation {
           next[i] = CELL_TYPE.BARRIER;
           continue;
         }
+        // Fire: static activated tile. Persists forever. Counted as
+        // a live cell by the neighbor-counting pass (see backend), so
+        // it influences births/survives in nearby cells without
+        // itself being subject to Life rules.
+        if (t === CELL_TYPE.FIRE) {
+          next[i] = CELL_TYPE.FIRE;
+          continue;
+        }
 
         // Explosion fade-out.
         if (t === CELL_TYPE.EXPLOSION) {
@@ -458,14 +484,17 @@ export class Simulation {
         const ln = lifeNbr[i];
         if (t === CELL_TYPE.DEFENSE || t === CELL_TYPE.MISSILE) {
           const currentAge = age[i];
-          const inFriendly = y >= dzMinYBoundary;
           let maxForType;
           let ageUnlimited;
           if (t === CELL_TYPE.MISSILE) {
-            maxForType = inFriendly ? missAgeF : missAgeE;
+            if (y >= dzMinYBoundary) maxForType = missAgeF;
+            else if (y <= enemyRegionMaxY) maxForType = missAgeE;
+            else maxForType = missAgeN;
             ageUnlimited = maxForType >= UNLIMITED;
           } else {
-            maxForType = inFriendly ? defAgeF : defAgeE;
+            if (y >= dzMinYBoundary) maxForType = defAgeF;
+            else if (y <= enemyRegionMaxY) maxForType = defAgeE;
+            else maxForType = defAgeN;
             ageUnlimited = maxForType >= UNLIMITED;
           }
           if (this._rule.shouldSurvive(ln) && (ageUnlimited || currentAge < maxForType)) {
@@ -566,7 +595,7 @@ export class Simulation {
     const defIn = this._exoticDefIn;
     const defOut = this._exoticDefOut;
     for (let i = 0; i < n; i++) {
-      defIn[i] = cells[i] === CELL_TYPE.DEFENSE ? 1 : 0;
+      defIn[i] = cells[i] === CELL_TYPE.DEFENSE || cells[i] === CELL_TYPE.FIRE ? 1 : 0;
     }
     const freezeDefenses = !!this.freezeDefenses;
     if (!freezeDefenses) {
@@ -585,8 +614,12 @@ export class Simulation {
       this._missileNbr,
       this._defenseNbr
     );
-    const missileNbr = this._missileNbr;
+    let missileNbr = this._missileNbr;
     const lifeNbr = this._lifeNbr;
+    // FIRE participates as a live neighbor (for births/survivals) in
+    // exotic mode too, but does not bias birth type or trigger
+    // collisions. See _addFireNeighborCounts.
+    this._addFireNeighborCounts(cells, w, h, lifeNbr, this._defenseNbr, missileNbr);
     // Collision detection (missile↔defense, missile↔city).
     const annihilated = this._annihilated;
     annihilated.fill(0);
@@ -601,6 +634,10 @@ export class Simulation {
         if (t === CELL_TYPE.MISSILE) {
           if (freezeEnemies) continue;
           // Check against NEW defense layer for collisions.
+          // Note: defIn includes FIRE tiles (they act as live neighbors
+          // for the exotic engine), but FIRE must not trigger missile
+          // annihilation — it's "activated" for both paints. Skip FIRE
+          // cells explicitly when counting collision-causing neighbors.
           let defAdjacent = 0;
           for (let dy = -1; dy <= 1; dy++) {
             for (let dx = -1; dx <= 1; dx++) {
@@ -613,7 +650,8 @@ export class Simulation {
               }
               nx = ((nx % w) + w) % w;
               if (ny < 0 || ny >= h) continue;
-              if (defIn[ny * w + nx]) defAdjacent++;
+              const ni = ny * w + nx;
+              if (defIn[ni] && cells[ni] !== CELL_TYPE.FIRE) defAdjacent++;
             }
           }
           if (defAdjacent > 0) {
@@ -644,14 +682,21 @@ export class Simulation {
     const clampAge = (v) => (v >= UNLIMITED ? v : Math.min(v | 0, 255));
     const missAgeF = clampAge(CONFIG.MISSILE_AGE_FRIENDLY);
     const missAgeE = clampAge(CONFIG.MISSILE_AGE_ENEMY);
+    const missAgeN = clampAge(CONFIG.MISSILE_AGE_NEUTRAL);
     const defAgeF = clampAge(CONFIG.DEFENSE_AGE_FRIENDLY);
     const defAgeE = clampAge(CONFIG.DEFENSE_AGE_ENEMY);
+    const defAgeN = clampAge(CONFIG.DEFENSE_AGE_NEUTRAL);
+    const topDeadMaxX = Math.min(h - 1, CONFIG.RETURN_FIRE_ZONE_MAX_Y | 0);
+    const baseZoneHX = Math.max(0, CONFIG.BASE_ZONE_HEIGHT | 0);
+    const enemyRegionMaxY = Math.min(h - 1, topDeadMaxX + baseZoneHX);
     if (!freezeEnemies) {
       for (let i = 0; i < n; i++) {
         if (cells[i] === CELL_TYPE.MISSILE) {
           const y = (i / w) | 0;
-          const inFriendly = y >= dzMinYBoundary;
-          const eff = inFriendly ? missAgeF : missAgeE;
+          let eff;
+          if (y >= dzMinYBoundary) eff = missAgeF;
+          else if (y <= enemyRegionMaxY) eff = missAgeE;
+          else eff = missAgeN;
           if (eff < UNLIMITED && age[i] >= eff) {
             ageDespawn[i] = 1;
           }
@@ -721,8 +766,10 @@ export class Simulation {
           // (Player's exotic choice only affects friendly defenses.)
           const alive = ln === 2 || ln === 3;
           if (alive) {
-            const inFriendly = y >= dzMinYBoundary;
-            const eff = inFriendly ? missAgeF : missAgeE;
+            let eff;
+            if (y >= dzMinYBoundary) eff = missAgeF;
+            else if (y <= enemyRegionMaxY) eff = missAgeE;
+            else eff = missAgeN;
             const ageUnlimited = eff >= UNLIMITED;
             const currentAge = age[i];
             if (ageUnlimited || currentAge < eff) {
@@ -772,8 +819,10 @@ export class Simulation {
           }
           if (defOut[i]) {
             // Survives.
-            const inFriendly = y >= dzMinYBoundary;
-            const eff = inFriendly ? defAgeF : defAgeE;
+            let eff;
+            if (y >= dzMinYBoundary) eff = defAgeF;
+            else if (y <= enemyRegionMaxY) eff = defAgeE;
+            else eff = defAgeN;
             const ageUnlimited = eff >= UNLIMITED;
             const currentAge = age[i];
             if (ageUnlimited || currentAge < eff) {
@@ -839,6 +888,59 @@ export class Simulation {
       }
     }
     return count;
+  }
+  // Augment neighbor-count arrays so FIRE cells act as live neighbors
+  // for Life-rule purposes (births and survivals) without being
+  // treated as defenses. FIRE is "activated" for both friendly and
+  // enemy paints: it should help patterns of either type live/grow
+  // nearby, but it should NOT:
+  //   - cause missiles to annihilate (which checks defenseNbr > 0)
+  //   - bias empty-cell births toward DEFENSE (which compares
+  //     missileNbr vs defenseNbr)
+  // Therefore we only increment lifeNbr here. The defenseNbr param is
+  // retained for signature compatibility but intentionally unused.
+  _addFireNeighborCounts(cells, w, h, lifeNbr, defenseNbr, missileNbr) {
+    void defenseNbr;
+    const shift = this.grid.wrapVerticalShift | 0;
+    const n = cells.length;
+    // Determine enemy region bounds (same logic as in tick()).
+    const topDeadMax = Math.min(h - 1, CONFIG.RETURN_FIRE_ZONE_MAX_Y | 0);
+    const baseZoneH = Math.max(0, CONFIG.BASE_ZONE_HEIGHT | 0);
+    const enemyRegionMaxY = Math.min(h - 1, topDeadMax + baseZoneH);
+    for (let i = 0; i < n; i++) {
+      if (cells[i] !== CELL_TYPE.FIRE) continue;
+      const y = (i / w) | 0;
+      const x = i - y * w;
+      // FIRE tiles in enemy territory bias births toward MISSILE so the
+      // enemy can spawn new attacker cells nearby. FIRE in friendly or
+      // neutral territory remains neutral (only contributes to lifeNbr)
+      // to avoid causing missile self-annihilation against friendly FIRE.
+      const inEnemyRegion = y <= enemyRegionMaxY;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          let nx = x + dx;
+          let ny = y + dy;
+          if (shift !== 0) {
+            if (nx < 0) ny += shift;
+            else if (nx >= w) ny -= shift;
+          }
+          nx = ((nx % w) + w) % w;
+          if (ny < 0 || ny >= h) continue;
+          const ni = ny * w + nx;
+          lifeNbr[ni]++;
+          if (inEnemyRegion && missileNbr) {
+            missileNbr[ni]++;
+          }
+          if (inEnemyRegion) {
+            // Bias empty-cell births toward MISSILE in enemy territory.
+            // We use a scratch missileNbr array — look it up via the
+            // simulation's stored buffer.
+            this._missileNbr[ni]++;
+          }
+        }
+      }
+    }
   }
   // Generic neighbor counter for a specific cell type. Used by barrier
   // collision (and reusable for any other "any neighbor of this type?"

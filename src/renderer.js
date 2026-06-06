@@ -498,10 +498,14 @@ export class Renderer {
         const color = this._cellColorFor(t, cellColor[i], defenseVariants, missileVariants, colors);
         // Apply pan: display column = (x - panOffset) mod w
         const displayX = (((x - panOffset) % w) + w) % w;
-        if (t === CELL_TYPE.MISSILE && cs >= 4 && CONFIG.VFX_CELL_GLOW !== false) {
+        const useGlow =
+          (t === CELL_TYPE.MISSILE || t === CELL_TYPE.FIRE) &&
+          cs >= 4 &&
+          CONFIG.VFX_CELL_GLOW !== false;
+        if (useGlow) {
           ctx.save();
           ctx.shadowColor = color;
-          ctx.shadowBlur = Math.min(8, cs);
+          ctx.shadowBlur = t === CELL_TYPE.FIRE ? Math.min(10, cs * 1.2) : Math.min(8, cs);
           ctx.fillStyle = color;
           ctx.fillRect(displayX * cs, y * cs + gridYOffset, cs, cs);
           ctx.restore();
@@ -604,6 +608,10 @@ export class Renderer {
         return colors.CELL_CITY;
       case CELL_TYPE.EXPLOSION:
         return colors.CELL_EXPLOSION;
+      case CELL_TYPE.BARRIER:
+        return colors.CELL_BARRIER || '#a0a0a0';
+      case CELL_TYPE.FIRE:
+        return colors.CELL_FIRE || '#ff6622';
       default:
         return '#ffffff';
     }
