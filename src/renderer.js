@@ -1,5 +1,7 @@
 import { CONFIG, CELL_TYPE } from './config.js';
 import { Logger } from './logger.js';
+import { getTopology } from './topology.js';
+import { getRuleset } from './rules/ruleset.js';
 // VFX rate-limit configuration. Tuned to keep the renderer responsive
 // even under chaotic game modes (e.g. Chaos, Apocalypse) where dozens
 // of collisions can occur per tick.
@@ -389,7 +391,40 @@ export class Renderer {
       ctx.setLineDash([]);
     }
 
-    // Draw cells
+    // Draw cells — dispatch on topology.
+    const topologyId = this.grid.topologyId || 'square';
+    if (topologyId === 'hex') {
+      this._renderCellsHex(gridYOffset);
+    } else if (topologyId === 'tri') {
+      this._renderCellsTri(gridYOffset);
+    } else {
+      this._renderCellsSquare(gridYOffset);
+    }
+
+    // Draw pending cells (translucent, with drying progress shading)
+    const pendingDry = this.grid.pendingDry;
+    const dryMax = Math.max(1, CONFIG.INK_DRY_TICKS | 0);
+    this._renderPendingCells(gridYOffset, pendingDry, dryMax);
+    // Draw preview overlay (pattern stamp hover / line drag preview).
+    this._renderPreview(gridYOffset);
+    // Render particles & shockwaves over cells but under floaters.
+    if (CONFIG.VFX_SHOCKWAVES !== false) this._renderShockwaves();
+    if (CONFIG.VFX_PARTICLES !== false) this._renderParticles();
+    // Update + draw floaters (rising, fading text effects).
+    if (CONFIG.VFX_FLOATERS !== false) this._renderFloaters();
+    else this._tickFloatersOnly(); // still age them out even if not drawn
+    ctx.restore();
+
+    // Draw HUD
+    this._renderHUD(hud);
+  }
+
+  _renderCellsSquare(gridYOffset) {
+    const ctx = this.ctx;
+    const cs = CONFIG.CELL_SIZE;
+    const colors = CONFIG.COLORS;
+    const defenseVariants = colors.DEFENSE_VARIANTS;
+    const missileVariants = colors.MISSILE_VARIANTS;
     const cells = this.grid.cells;
     const cellColor = this.grid.cellColor;
     for (let y = 0; y < this.grid.height; y++) {
@@ -397,25 +432,7 @@ export class Renderer {
         const i = y * this.grid.width + x;
         const t = cells[i];
         if (t === CELL_TYPE.EMPTY) continue;
-        let color;
-        switch (t) {
-          case CELL_TYPE.DEFENSE:
-            color = defenseVariants[cellColor[i] % defenseVariants.length];
-            break;
-          case CELL_TYPE.MISSILE:
-            color = missileVariants[cellColor[i] % missileVariants.length];
-            break;
-          case CELL_TYPE.CITY:
-            color = colors.CELL_CITY;
-            break;
-          case CELL_TYPE.EXPLOSION:
-            color = colors.CELL_EXPLOSION;
-            break;
-          default:
-            color = '#ffffff';
-        }
-        // For missile cells, add a subtle glow to maximize contrast
-        // against defenses & background.
+        const color = this._cellColorFor(t, cellColor[i], defenseVariants, missileVariants, colors);
         if (t === CELL_TYPE.MISSILE && cs >= 4 && CONFIG.VFX_CELL_GLOW !== false) {
           ctx.save();
           ctx.shadowColor = color;
@@ -429,41 +446,170 @@ export class Renderer {
         }
       }
     }
+  }
 
-    // Draw pending cells (translucent, with drying progress shading)
-    const pendingDry = this.grid.pendingDry;
-    const dryMax = Math.max(1, CONFIG.INK_DRY_TICKS | 0);
+  _renderCellsHex(gridYOffset) {
+    const ctx = this.ctx;
+    const cs = CONFIG.CELL_SIZE;
+    const colors = CONFIG.COLORS;
+    const defenseVariants = colors.DEFENSE_VARIANTS;
+    const missileVariants = colors.MISSILE_VARIANTS;
+    const cells = this.grid.cells;
+    const cellColor = this.grid.cellColor;
+    const topology = getTopology('hex');
+    const w = this.grid.width;
+    for (let r = 0; r < this.grid.height; r++) {
+      for (let q = 0; q < w; q++) {
+        const i = r * w + q;
+        const t = cells[i];
+        if (t === CELL_TYPE.EMPTY) continue;
+        const color = this._cellColorFor(t, cellColor[i], defenseVariants, missileVariants, colors);
+        const verts = topology.cellPolygon(q, r, cs);
+        const useGlow = t === CELL_TYPE.MISSILE && cs >= 4 && CONFIG.VFX_CELL_GLOW !== false;
+        if (useGlow) {
+          ctx.save();
+          ctx.shadowColor = color;
+          ctx.shadowBlur = Math.min(8, cs);
+        }
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+        for (let v = 1; v < verts.length; v++) {
+          ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+        }
+        ctx.closePath();
+        ctx.fill();
+        if (useGlow) ctx.restore();
+      }
+    }
+  }
+
+  _renderCellsTri(gridYOffset) {
+    const ctx = this.ctx;
+    const cs = CONFIG.CELL_SIZE;
+    const colors = CONFIG.COLORS;
+    const defenseVariants = colors.DEFENSE_VARIANTS;
+    const missileVariants = colors.MISSILE_VARIANTS;
+    const cells = this.grid.cells;
+    const cellColor = this.grid.cellColor;
+    const topology = getTopology('tri');
+    const w = this.grid.width;
+    const stride = 2 * w;
     for (let y = 0; y < this.grid.height; y++) {
-      for (let x = 0; x < this.grid.width; x++) {
-        const i = y * this.grid.width + x;
-        if (this.grid.pending[i]) {
-          const dryRemain = pendingDry[i];
-          let alpha;
-          if (dryRemain === 0) {
-            // Not yet drying (still being drawn). Show as wet ink.
-            alpha = 0.35;
-          } else {
-            // Drying in progress: 0 = fully dry, 1 = freshly started.
-            const progress = 1 - dryRemain / dryMax;
-            alpha = 0.35 + progress * 0.45;
+      for (let x = 0; x < w; x++) {
+        for (let o = 0; o < 2; o++) {
+          const i = y * stride + 2 * x + o;
+          const t = cells[i];
+          if (t === CELL_TYPE.EMPTY) continue;
+          const color = this._cellColorFor(
+            t,
+            cellColor[i],
+            defenseVariants,
+            missileVariants,
+            colors
+          );
+          const verts = topology.cellPolygon(x, y, cs, o);
+          const useGlow = t === CELL_TYPE.MISSILE && cs >= 4 && CONFIG.VFX_CELL_GLOW !== false;
+          if (useGlow) {
+            ctx.save();
+            ctx.shadowColor = color;
+            ctx.shadowBlur = Math.min(8, cs);
           }
-          ctx.fillStyle = `rgba(0, 255, 136, ${alpha})`;
-          ctx.fillRect(x * cs, y * cs + gridYOffset, cs, cs);
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+          for (let v = 1; v < verts.length; v++) {
+            ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+          }
+          ctx.closePath();
+          ctx.fill();
+          if (useGlow) ctx.restore();
         }
       }
     }
-    // Draw preview overlay (pattern stamp hover / line drag preview).
-    this._renderPreview(gridYOffset);
-    // Render particles & shockwaves over cells but under floaters.
-    if (CONFIG.VFX_SHOCKWAVES !== false) this._renderShockwaves();
-    if (CONFIG.VFX_PARTICLES !== false) this._renderParticles();
-    // Update + draw floaters (rising, fading text effects).
-    if (CONFIG.VFX_FLOATERS !== false) this._renderFloaters();
-    else this._tickFloatersOnly(); // still age them out even if not drawn
-    ctx.restore();
+  }
 
-    // Draw HUD
-    this._renderHUD(hud);
+  _cellColorFor(t, colorIdx, defenseVariants, missileVariants, colors) {
+    switch (t) {
+      case CELL_TYPE.DEFENSE:
+        return defenseVariants[colorIdx % defenseVariants.length];
+      case CELL_TYPE.MISSILE:
+        return missileVariants[colorIdx % missileVariants.length];
+      case CELL_TYPE.CITY:
+        return colors.CELL_CITY;
+      case CELL_TYPE.EXPLOSION:
+        return colors.CELL_EXPLOSION;
+      default:
+        return '#ffffff';
+    }
+  }
+
+  _renderPendingCells(gridYOffset, pendingDry, dryMax) {
+    const ctx = this.ctx;
+    const cs = CONFIG.CELL_SIZE;
+    const topologyId = this.grid.topologyId || 'square';
+    const w = this.grid.width;
+    const pending = this.grid.pending;
+    const computeAlpha = (i) => {
+      const dryRemain = pendingDry[i];
+      if (dryRemain === 0) return 0.35;
+      const progress = 1 - dryRemain / dryMax;
+      return 0.35 + progress * 0.45;
+    };
+    if (topologyId === 'square') {
+      for (let y = 0; y < this.grid.height; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = y * w + x;
+          if (pending[i]) {
+            ctx.fillStyle = `rgba(0, 255, 136, ${computeAlpha(i)})`;
+            ctx.fillRect(x * cs, y * cs + gridYOffset, cs, cs);
+          }
+        }
+      }
+      return;
+    }
+    if (topologyId === 'hex') {
+      const topology = getTopology('hex');
+      for (let r = 0; r < this.grid.height; r++) {
+        for (let q = 0; q < w; q++) {
+          const i = r * w + q;
+          if (pending[i]) {
+            ctx.fillStyle = `rgba(0, 255, 136, ${computeAlpha(i)})`;
+            const verts = topology.cellPolygon(q, r, cs);
+            ctx.beginPath();
+            ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+            for (let v = 1; v < verts.length; v++) {
+              ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+            }
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+      }
+      return;
+    }
+    if (topologyId === 'tri') {
+      const topology = getTopology('tri');
+      const stride = 2 * w;
+      for (let y = 0; y < this.grid.height; y++) {
+        for (let x = 0; x < w; x++) {
+          for (let o = 0; o < 2; o++) {
+            const i = y * stride + 2 * x + o;
+            if (pending[i]) {
+              ctx.fillStyle = `rgba(0, 255, 136, ${computeAlpha(i)})`;
+              const verts = topology.cellPolygon(x, y, cs, o);
+              ctx.beginPath();
+              ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+              for (let v = 1; v < verts.length; v++) {
+                ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+              }
+              ctx.closePath();
+              ctx.fill();
+            }
+          }
+        }
+      }
+    }
   }
 
   _renderPreview(gridYOffset) {

@@ -1,5 +1,6 @@
 import { CONFIG, CELL_TYPE } from './config.js';
 import { Logger } from './logger.js';
+import { getTopology } from './topology.js';
 
 export const DRAW_MODE = {
   FREEHAND: 'freehand',
@@ -242,9 +243,21 @@ export class InputManager {
     const rect = this.canvas.getBoundingClientRect();
     const x = (e.clientX || 0) - rect.left;
     const y = (e.clientY || 0) - rect.top - CONFIG.HUD_HEIGHT;
-    const gx = Math.floor(x / cs);
-    const gy = Math.floor(y / cs);
-    return { gx, gy };
+    const topologyId = this.grid && this.grid.topologyId ? this.grid.topologyId : 'square';
+    if (topologyId === 'square') {
+      const gx = Math.floor(x / cs);
+      const gy = Math.floor(y / cs);
+      return { gx, gy };
+    }
+    // Hex / Tri: use topology helper.
+    const topology = getTopology(topologyId);
+    const result = topology.pixelToCell(x, y, cs);
+    if (topologyId === 'tri') {
+      // For tri, we encode (x, y, orient) into gx/gy by packing orient
+      // into the low bit of gx*2.
+      return { gx: result.x, gy: result.y, orient: result.orient };
+    }
+    return { gx: result.x, gy: result.y };
   }
 
   _isDrawZone(gy) {

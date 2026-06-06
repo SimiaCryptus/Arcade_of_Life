@@ -1,30 +1,42 @@
 import { CONFIG, CELL_TYPE } from './config.js';
+import { getTopology } from './topology.js';
 
 /**
  * Grid manages a 2D array of cells with type information.
  * Each cell is an integer from CELL_TYPE.
+ *
+ * Supports multiple topologies: 'square' (default), 'hex' (HexLife),
+ * and 'tri' (TriLife). For triangular grids, the underlying buffer
+ * holds 2 cells per (x, y) — upward and downward triangles.
  */
 export class Grid {
-  constructor(width, height) {
+  constructor(width, height, topologyId = 'square') {
     this.width = width;
     this.height = height;
-    this.cells = new Uint8Array(width * height);
-    this.pending = new Uint8Array(width * height); // separate layer for pending cells (1 = pending)
+    this.topologyId = topologyId;
+    this.topology = getTopology(topologyId);
+    const arrSize = this.topology.arraySize(width, height);
+    this.arraySize = arrSize;
+    this.cells = new Uint8Array(arrSize);
+    this.pending = new Uint8Array(arrSize); // separate layer for pending cells (1 = pending)
     // Remaining "dry" ticks for each pending cell. Counts down to 0 before commit.
-    this.pendingDry = new Uint8Array(width * height);
+    this.pendingDry = new Uint8Array(arrSize);
     // Explosion timers (for fading explosions)
-    this.explosionTimers = new Uint8Array(width * height);
+    this.explosionTimers = new Uint8Array(arrSize);
     // Age of each cell in ticks (saturates at 255). Used to retire stale cells.
-    this.cellAge = new Uint8Array(width * height);
+    this.cellAge = new Uint8Array(arrSize);
     // Color variant index for each cell (0..255). Lets renderer pick from a palette.
-    this.cellColor = new Uint8Array(width * height);
+    this.cellColor = new Uint8Array(arrSize);
     // Direction tracking: for MISSILE cells, the dominant vertical direction of their
     // recent movement. 0 = unknown, 1 = downward, 2 = upward (reflected / "return fire").
     // Used to detect missile cells that have been turned back upward by defenses.
-    this.cellDir = new Uint8Array(width * height);
+    this.cellDir = new Uint8Array(arrSize);
   }
 
-  idx(x, y) {
+  idx(x, y, orient = 0) {
+    if (this.topologyId === 'tri') {
+      return y * (2 * this.width) + 2 * x + orient;
+    }
     return y * this.width + x;
   }
 

@@ -14,5 +14,6 @@ import './patterns/inferMetadata.test.js';
 import './patterns/parsers.test.js';
 import './sim/simulation.test.js';
 import './grid.test.js';
+import './topology.test.js';
 
 console.log('\nAll test suites loaded.');

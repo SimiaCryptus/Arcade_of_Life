@@ -1,4 +1,5 @@
 import { CELL_TYPE } from '../config.js';
+import { getTopology } from '../topology.js';
 
 /**
  * CPU simulation backend.
@@ -15,6 +16,9 @@ import { CELL_TYPE } from '../config.js';
  * For non-Moore neighborhoods (Euclidean radii, anisotropic transforms),
  * the fast column-sum path is bypassed in favor of a general per-cell
  * scan over the neighborhood's offset list.
+ *
+ * For hex and triangular topologies, dedicated generic paths handle
+ * the topology-specific neighbor lookup.
  */
 export class CpuSimBackend {
   constructor(width, height) {
@@ -26,6 +30,7 @@ export class CpuSimBackend {
     this._colDefense = new Uint8Array(width);
     // Active neighborhood for generic path. null = use fast Moore path.
     this._neighborhood = null;
+    this._topologyId = 'square';
   }
   /**
    * Set the active neighborhood. Pass null to use the fast Moore path.
@@ -33,6 +38,7 @@ export class CpuSimBackend {
    */
   setNeighborhood(neighborhood) {
     this._neighborhood = neighborhood;
+    this._topologyId = neighborhood && neighborhood.topology ? neighborhood.topology : 'square';
   }
 
   /**
@@ -47,6 +53,15 @@ export class CpuSimBackend {
    * @param {Uint8Array} defOut  - neighbor counts for DEFENSE
    */
   computeNeighborCounts(cells, w, h, lifeOut, missOut, defOut) {
+    // Topology-specific paths for hex / tri grids.
+    if (this._topologyId === 'hex') {
+      this._computeNeighborCountsHex(cells, w, h, lifeOut, missOut, defOut);
+      return;
+    }
+    if (this._topologyId === 'tri') {
+      this._computeNeighborCountsTri(cells, w, h, lifeOut, missOut, defOut);
+      return;
+    }
     // Generic path for non-Moore neighborhoods.
     if (this._neighborhood && this._neighborhood.id !== 'moore') {
       this._computeNeighborCountsGeneric(cells, w, h, lifeOut, missOut, defOut);
@@ -169,6 +184,111 @@ export class CpuSimBackend {
         lifeOut[rowBase + x] = life;
         missOut[rowBase + x] = miss;
         defOut[rowBase + x] = def;
+      }
+    }
+  }
+  /**
+   * Hex-topology neighbor counting. Uses axial (q, r) coordinates
+   * stored as (x, y). Offsets from this._neighborhood.offsets are
+   * (dq, dr) pairs that work uniformly on all cells regardless of
+   * orientation.
+   *
+   * Horizontal wrap is on the q-axis; r-axis (rows) is hard boundary.
+   */
+  _computeNeighborCountsHex(cells, w, h, lifeOut, missOut, defOut) {
+    lifeOut.fill(0);
+    missOut.fill(0);
+    defOut.fill(0);
+    const offsets = this._neighborhood.offsets;
+    const nOff = offsets.length;
+    for (let r = 0; r < h; r++) {
+      const rowBase = r * w;
+      for (let q = 0; q < w; q++) {
+        let life = 0,
+          miss = 0,
+          def = 0;
+        for (let k = 0; k < nOff; k++) {
+          const dq = offsets[k][0];
+          const dr = offsets[k][1];
+          const nr = r + dr;
+          if (nr < 0 || nr >= h) continue;
+          let nq = q + dq;
+          if (nq < 0) nq = ((nq % w) + w) % w;
+          else if (nq >= w) nq = nq % w;
+          const t = cells[nr * w + nq];
+          if (t === CELL_TYPE.MISSILE) {
+            life++;
+            miss++;
+          } else if (t === CELL_TYPE.DEFENSE) {
+            life++;
+            def++;
+          }
+        }
+        lifeOut[rowBase + q] = life;
+        missOut[rowBase + q] = miss;
+        defOut[rowBase + q] = def;
+      }
+    }
+  }
+  /**
+   * Triangular-topology neighbor counting.
+   *
+   * The cell array is laid out with 2 logical cells per (x, y) position:
+   *   cells[y * (2*w) + 2*x + orient], where orient ∈ {0, 1}.
+   *   orient=0 → upward △, orient=1 → downward ▽.
+   *
+   * Neighbor offsets are orientation-dependent and obtained from the
+   * topology module. The width passed in is the LOGICAL width (number
+   * of (x, y) cells); actual array stride is 2*w.
+   *
+   * The lifeOut/missOut/defOut arrays use the same 2-per-cell layout.
+   */
+  _computeNeighborCountsTri(cells, w, h, lifeOut, missOut, defOut) {
+    lifeOut.fill(0);
+    missOut.fill(0);
+    defOut.fill(0);
+    const topology = getTopology('tri');
+    const stride = 2 * w;
+    // Choose the offset list based on neighborhood size:
+    //   3 = edge only, 12 = full.
+    // We use the topology helper functions which return orientation-specific
+    // 3-tuples [dx, dy, dOrient].
+    const useEdgeOnly = this._neighborhood && this._neighborhood.size === 3;
+    const getOffsets = useEdgeOnly ? topology.getEdgeOffsetsForCell : topology.getOffsetsForCell;
+    // Precompute both orientations.
+    const offsetsUp = getOffsets(0);
+    const offsetsDown = getOffsets(1);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        for (let o = 0; o < 2; o++) {
+          const i = y * stride + 2 * x + o;
+          const offsets = o === 0 ? offsetsUp : offsetsDown;
+          let life = 0,
+            miss = 0,
+            def = 0;
+          for (let k = 0; k < offsets.length; k++) {
+            const dx = offsets[k][0];
+            const dy = offsets[k][1];
+            const dOrient = offsets[k][2];
+            const ny = y + dy;
+            if (ny < 0 || ny >= h) continue;
+            let nx = x + dx;
+            if (nx < 0) nx = ((nx % w) + w) % w;
+            else if (nx >= w) nx = nx % w;
+            const ni = ny * stride + 2 * nx + dOrient;
+            const t = cells[ni];
+            if (t === CELL_TYPE.MISSILE) {
+              life++;
+              miss++;
+            } else if (t === CELL_TYPE.DEFENSE) {
+              life++;
+              def++;
+            }
+          }
+          lifeOut[i] = life;
+          missOut[i] = miss;
+          defOut[i] = def;
+        }
       }
     }
   }

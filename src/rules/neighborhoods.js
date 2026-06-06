@@ -5,11 +5,17 @@
  * supports:
  *   - Fractional Euclidean-radius neighborhoods (isotropic, circular)
  *   - Anisotropic transformed neighborhoods (elliptical, sheared, rotated)
+ *   - Hexagonal neighborhoods (6 or 18 cells; pointy-top axial coords)
+ *   - Triangular neighborhoods (3 or 12 cells; orientation-dependent)
  *
  * A neighborhood is represented as a list of [dx, dy] offsets relative
  * to a cell, excluding (0, 0). The maximum live count is len(offsets),
  * which may exceed 8 for larger radii.
+ *
+ * Each neighborhood also carries a `topology` field identifying the
+ * underlying grid tessellation ('square', 'hex', 'tri').
  */
+import { SQUARE_TOPOLOGY, HEX_TOPOLOGY, TRI_TOPOLOGY } from '../topology.js';
 
 /**
  * Generate offsets for a Euclidean neighborhood with the given radius.
@@ -155,14 +161,16 @@ export class Neighborhood {
    * @param {string} [opts.description]
    * @param {number} [opts.radius]
    * @param {number[][]} [opts.transform]
+   * @param {string} [opts.topology]  'square' | 'hex' | 'tri' (default 'square')
    */
-  constructor({ id, name, offsets, description, radius, transform }) {
+  constructor({ id, name, offsets, description, radius, transform, topology }) {
     this.id = id;
     this.name = name;
     this.offsets = offsets;
     this.description = description || '';
     this.radius = radius != null ? radius : null;
     this.transform = transform || null;
+    this.topology = topology || 'square';
     this.size = offsets.length;
     // Bounding box for efficient iteration.
     let minX = 0,
@@ -197,6 +205,7 @@ export const MOORE_NEIGHBORHOOD = new Neighborhood({
   ],
   description: 'Standard 8-cell Moore neighborhood. The classic Life topology.',
   radius: Math.SQRT2,
+  topology: 'square',
 });
 
 /**
@@ -353,6 +362,109 @@ register(
     description: 'Ellipse rotated 30°. Asymmetric flow with subtle directional bias.',
     radius: 2.5,
     transform: rotatedScaleMatrix(Math.PI / 6, 0.5, 1.0),
+  })
+);
+// ── Hexagonal neighborhoods ─────────────────────────────────────────
+register(
+  new Neighborhood({
+    id: 'hex_6',
+    name: 'Hex (6-cell edge)',
+    offsets: [
+      [+1, 0],
+      [-1, 0],
+      [0, +1],
+      [0, -1],
+      [+1, -1],
+      [-1, +1],
+    ],
+    description:
+      'Hexagonal grid, 6 edge neighbors. Isotropic; no diagonal bias. ' +
+      'Standard HexLife neighborhood.',
+    topology: 'hex',
+  })
+);
+register(
+  new Neighborhood({
+    id: 'hex_18',
+    name: 'Hex (18-cell, 2 rings)',
+    offsets: [
+      // Ring 1
+      [+1, 0],
+      [-1, 0],
+      [0, +1],
+      [0, -1],
+      [+1, -1],
+      [-1, +1],
+      // Ring 2
+      [+2, 0],
+      [-2, 0],
+      [0, +2],
+      [0, -2],
+      [+2, -1],
+      [-2, +1],
+      [+1, +1],
+      [-1, -1],
+      [+1, -2],
+      [-1, +2],
+      [+2, -2],
+      [-2, +2],
+    ],
+    description:
+      'Extended hex neighborhood: 6 edge + 12 second-ring = 18 cells. ' +
+      'Enables richer rule space beyond standard HexLife.',
+    topology: 'hex',
+  })
+);
+// ── Triangular neighborhoods ────────────────────────────────────────
+// Note: triangular offsets are orientation-dependent (△ vs ▽), so we
+// store a "canonical" upward-triangle offset list here. The CPU
+// backend looks up the correct offsets per cell via the topology
+// module's getOffsetsForCell() function.
+//
+// We store the upward-orientation offsets as 3-tuples [dx, dy, dOrient]
+// flattened into pairs for compatibility with offset-list interfaces,
+// BUT the simulation engine MUST recognize these as triangular by the
+// topology field and dispatch accordingly.
+register(
+  new Neighborhood({
+    id: 'tri_3',
+    name: 'Tri (3-cell edge)',
+    // Placeholder offsets — actual offsets are orientation-dependent
+    // and resolved by TRI_TOPOLOGY.getEdgeOffsetsForCell at simulation time.
+    offsets: [
+      [-1, 0],
+      [+1, 0],
+      [0, +1], // upward-triangle edge neighbors
+    ],
+    description: 'Triangular grid, 3 edge neighbors. Very sparse — rules die out quickly.',
+    topology: 'tri',
+  })
+);
+register(
+  new Neighborhood({
+    id: 'tri_12',
+    name: 'Tri (12-cell vertex+edge)',
+    // Placeholder — full 12-tuple resolved at sim time.
+    offsets: [
+      // Edge: 3
+      [-1, 0],
+      [+1, 0],
+      [0, +1],
+      // Vertex: 9 more — listed in canonical upward orientation.
+      [-1, -1],
+      [0, -1],
+      [0, -1],
+      [+1, -1],
+      [-2, 0],
+      [-1, 0],
+      [+1, 0],
+      [+2, 0],
+      [-1, +1],
+    ],
+    description:
+      '12-cell triangular neighborhood: 3 edge + 9 vertex neighbors. ' +
+      'High connectivity — rich, fluid-like dynamics. The standard TriLife.',
+    topology: 'tri',
   })
 );
 

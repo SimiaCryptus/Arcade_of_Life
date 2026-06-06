@@ -198,6 +198,8 @@ export class CompiledRuleset {
     // Resolve neighborhood (defaults to Moore for backwards compat).
     const nbhdId = def.neighborhood || 'moore';
     this.neighborhood = getNeighborhood(nbhdId) || MOORE_NEIGHBORHOOD;
+    // Carry topology forward for the simulation engine.
+    this.topology = this.neighborhood.topology || 'square';
     const tableSize = this.neighborhood.size + 1;
     this.birthTable = new Uint8Array(tableSize);
     this.survivalTable = new Uint8Array(tableSize);

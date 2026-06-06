@@ -463,15 +463,7 @@ export class SettingsPanel {
   _initRulesetSelect() {
     this.rulesetSelect = document.getElementById('setting-ruleset');
     if (!this.rulesetSelect) return;
-    // Populate options from the registry.
-    this.rulesetSelect.innerHTML = '';
-    for (const def of listRulesets()) {
-      const opt = document.createElement('option');
-      opt.value = def.id;
-      opt.textContent = `${def.name} (${def.notation})`;
-      opt.title = def.description;
-      this.rulesetSelect.appendChild(opt);
-    }
+    this._populateRulesetSelect();
     this.rulesetSelect.value = this.settings.values.ACTIVE_RULESET || 'conway';
     this._syncRulesetDescription();
     this.rulesetSelect.addEventListener('change', () => {
@@ -481,6 +473,63 @@ export class SettingsPanel {
     });
     // Wire the exotic neighborhood builder.
     this._initNeighborhoodBuilder();
+  }
+  _populateRulesetSelect() {
+    if (!this.rulesetSelect) return;
+    this.rulesetSelect.innerHTML = '';
+    // Group rulesets by type for clarity.
+    const standard = [];
+    const hex = [];
+    const tri = [];
+    const exoticEucl = [];
+    const exoticAniso = [];
+    const tca = [];
+    const timeInt = [];
+    const lightcone = [];
+    const custom = [];
+    for (const def of listRulesets()) {
+      if (def._exoticType === 'tca') {
+        tca.push(def);
+      } else if (def._exoticType === 'time_integrated') {
+        timeInt.push(def);
+      } else if (def._exoticType === 'fractional_lightcone') {
+        lightcone.push(def);
+      } else if (def.id && def.id.startsWith('custom_')) {
+        custom.push(def);
+      } else if (def.neighborhood && def.neighborhood.startsWith('hex')) {
+        hex.push(def);
+      } else if (def.neighborhood && def.neighborhood.startsWith('tri')) {
+        tri.push(def);
+      } else if (def.neighborhood && def.neighborhood.startsWith('eucl_')) {
+        exoticEucl.push(def);
+      } else if (def.neighborhood && def.neighborhood.startsWith('aniso_')) {
+        exoticAniso.push(def);
+      } else {
+        standard.push(def);
+      }
+    }
+    const addGroup = (label, items) => {
+      if (items.length === 0) return;
+      const group = document.createElement('optgroup');
+      group.label = label;
+      for (const def of items) {
+        const opt = document.createElement('option');
+        opt.value = def.id;
+        opt.textContent = `${def.name} (${def.notation})`;
+        opt.title = def.description || '';
+        group.appendChild(opt);
+      }
+      this.rulesetSelect.appendChild(group);
+    };
+    addGroup('━━ Standard (Square Grid) ━━', standard);
+    addGroup('━━ Hexagonal Grid ━━', hex);
+    addGroup('━━ Triangular Grid ━━', tri);
+    addGroup('━━ Exotic: Euclidean Radius ━━', exoticEucl);
+    addGroup('━━ Exotic: Anisotropic ━━', exoticAniso);
+    addGroup('━━ 🧠 Teleological CA (TCA) ━━', tca);
+    addGroup('━━ ⏳ Time-Integrated ━━', timeInt);
+    addGroup('━━ 🌌 Fractional Lightcone ━━', lightcone);
+    addGroup('━━ Custom (user-built) ━━', custom);
   }
   _syncRulesetDescription() {
     const descEl = document.getElementById('setting-ruleset-desc');
@@ -558,15 +607,7 @@ export class SettingsPanel {
         if (!result) return;
         this._setNbhdStatus(`✓ Created "${result.ruleName}" — selecting it now.`, 'ok');
         // Refresh ruleset dropdown.
-        const cur = this.rulesetSelect.value;
-        this.rulesetSelect.innerHTML = '';
-        for (const def of listRulesets()) {
-          const opt = document.createElement('option');
-          opt.value = def.id;
-          opt.textContent = `${def.name} (${def.notation})`;
-          opt.title = def.description;
-          this.rulesetSelect.appendChild(opt);
-        }
+        this._populateRulesetSelect();
         this.rulesetSelect.value = result.ruleId;
         this.settings.set('ACTIVE_RULESET', result.ruleId);
         this.settings.save();

@@ -31,6 +31,7 @@ import {
   releaseWakeLock,
   toggleFullscreen,
 } from './pwa.js';
+import { getRuleset, getNeighborhood } from './rules/index.js';
 
 class Game {
   constructor() {
@@ -72,6 +73,20 @@ class Game {
       onClose: () => {
         if (this.gameState.is(STATE.MENU) || this.gameState.is(STATE.GAME_OVER)) {
           this.overlay.classList.remove('hidden');
+        }
+        // If topology changed, rebuild world.
+        try {
+          const ruleDef = getRuleset(CONFIG.ACTIVE_RULESET || 'conway');
+          const newNbhd =
+            ruleDef && ruleDef.neighborhood ? getNeighborhood(ruleDef.neighborhood) : null;
+          const newTopology = newNbhd && newNbhd.topology ? newNbhd.topology : 'square';
+          if (newTopology !== (this.grid.topologyId || 'square')) {
+            Logger.info(`Topology changed to "${newTopology}"; rebuilding world.`);
+            this._buildWorld();
+            this.renderer.setGrid(this.grid);
+          }
+        } catch (e) {
+          Logger.warn('Topology check failed on settings close', e);
         }
       },
       onResolutionChange: () => {
@@ -718,7 +733,16 @@ class Game {
 
   // (Re)construct grid + entities for current CONFIG resolution.
   _buildWorld() {
-    this.grid = new Grid(CONFIG.GRID_WIDTH, CONFIG.GRID_HEIGHT);
+    // Determine topology from the active ruleset's neighborhood.
+    let topologyId = 'square';
+    try {
+      const ruleDef = getRuleset(CONFIG.ACTIVE_RULESET || 'conway');
+      const nbhd = ruleDef && ruleDef.neighborhood ? getNeighborhood(ruleDef.neighborhood) : null;
+      if (nbhd && nbhd.topology) topologyId = nbhd.topology;
+    } catch (e) {
+      Logger.warn('Failed to determine topology; defaulting to square.', e);
+    }
+    this.grid = new Grid(CONFIG.GRID_WIDTH, CONFIG.GRID_HEIGHT, topologyId);
     this.simulation = new Simulation(this.grid);
     this.cities = new Cities(this.grid);
     this.missiles = new Missiles(this.grid);
@@ -805,7 +829,7 @@ class Game {
     this.simulation.onCityDestroyed = (x, y) => {
       try {
         Logger.debug(`City cell destroyed at (${x},${y}).`);
-      } catch (_e) {
+      } catch {
         /* swallow */
       }
     };

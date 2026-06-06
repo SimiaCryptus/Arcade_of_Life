@@ -177,3 +177,160 @@ registerRuleset(FLOCK);
 registerRuleset(GNARL);
 registerRuleset(LONG_LIFE);
 registerRuleset(MORLEY);
+// ── HexLife rulesets (6-neighbor hexagonal) ─────────────────────────
+/**
+ * Classic HexLife: B2/S34.
+ * Discovered by Carter Bays. Sustains gliders and oscillators on hex grid.
+ */
+export const HEXLIFE = {
+  id: 'hexlife',
+  name: 'HexLife (B2/S34)',
+  notation: 'B2/S34 hex',
+  description:
+    "Carter Bays' canonical HexLife rule on the 6-neighbor hexagonal " +
+    'grid. Birth on 2 neighbors, survival on 3 or 4. Supports gliders ' +
+    'and complex emergent dynamics on the isotropic hex lattice.',
+  birth: [2],
+  survival: [3, 4],
+  neighborhood: 'hex_6',
+};
+/**
+ * HexLife variant: B24/S35.
+ */
+export const HEX_24_35 = {
+  id: 'hex_24_35',
+  name: 'Hex B24/S35',
+  notation: 'B24/S35 hex',
+  description:
+    'Hexagonal variant with broader birth/survival. Produces more ' +
+    'persistent, ferromagnet-like dynamics with slow domain growth.',
+  birth: [2, 4],
+  survival: [3, 5],
+  neighborhood: 'hex_6',
+};
+/**
+ * Hex Replicator: B135/S135.
+ */
+export const HEX_REPLICATOR = {
+  id: 'hex_replicator',
+  name: 'Hex Replicator',
+  notation: 'B135/S135 hex',
+  description:
+    "Hex analogue of Fredkin's replicator. Patterns replicate themselves " +
+    'across the hex lattice in fractal-like cascades.',
+  birth: [1, 3, 5],
+  survival: [1, 3, 5],
+  neighborhood: 'hex_6',
+};
+/**
+ * Hex Snowflakes: B23/S2.
+ * Forms intricate dendritic patterns reminiscent of snowflakes.
+ */
+export const HEX_SNOWFLAKES = {
+  id: 'hex_snowflakes',
+  name: 'Hex Snowflakes',
+  notation: 'B23/S2 hex',
+  description:
+    'Forms dendritic, snowflake-like growth patterns. Cells need ' +
+    'exactly 2 neighbors to survive, creating delicate filaments.',
+  birth: [2, 3],
+  survival: [2],
+  neighborhood: 'hex_6',
+};
+/**
+ * Hex Maze: B25/S1234.
+ */
+export const HEX_MAZE = {
+  id: 'hex_maze',
+  name: 'Hex Maze',
+  notation: 'B25/S1234 hex',
+  description:
+    'Hexagonal maze rule. Builds long, winding corridors with ' +
+    'tri-junction intersections unique to hex topology.',
+  birth: [2, 5],
+  survival: [1, 2, 3, 4],
+  neighborhood: 'hex_6',
+};
+// ── TriLife rulesets (12-neighbor triangular) ───────────────────────
+/**
+ * Classic TriLife: B45/S456.
+ * One of the canonical rules on the 12-neighbor triangular grid.
+ */
+export const TRILIFE = {
+  id: 'trilife',
+  name: 'TriLife (B45/S456)',
+  notation: 'B45/S456 tri',
+  description:
+    'Canonical TriLife on the 12-neighbor triangular grid. ' +
+    'Birth on 4-5 neighbors; survive on 4-6. Sustains gliders and ' +
+    'oscillators with fluid-like emergent flow patterns.',
+  birth: [4, 5],
+  survival: [4, 5, 6],
+  neighborhood: 'tri_12',
+};
+/**
+ * TriLife variant: B4/S345.
+ */
+export const TRI_4_345 = {
+  id: 'tri_4_345',
+  name: 'Tri B4/S345',
+  notation: 'B4/S345 tri',
+  description:
+    'Sparser triangular variant. Patterns form lacy crystalline ' +
+    'structures that propagate slowly.',
+  birth: [4],
+  survival: [3, 4, 5],
+  neighborhood: 'tri_12',
+};
+/**
+ * Tri Mazectric: B35/S2345.
+ */
+export const TRI_MAZE = {
+  id: 'tri_maze',
+  name: 'Tri Maze',
+  notation: 'B35/S2345 tri',
+  description:
+    'Maze-building rule on the triangular grid. Forms intricate ' +
+    'three-way junction networks impossible on square grids.',
+  birth: [3, 5],
+  survival: [2, 3, 4, 5],
+  neighborhood: 'tri_12',
+};
+/**
+ * Tri Coral: B5/S567.
+ */
+export const TRI_CORAL = {
+  id: 'tri_coral',
+  name: 'Tri Coral',
+  notation: 'B5/S567 tri',
+  description:
+    'Slow-growing coral-like accretion on the triangular grid. ' +
+    'Produces dense, branching fractal structures.',
+  birth: [5],
+  survival: [5, 6, 7],
+  neighborhood: 'tri_12',
+};
+/**
+ * Tri 3-Edge Life: B2/S12 on edge-only neighborhood.
+ */
+export const TRI_EDGE = {
+  id: 'tri_edge',
+  name: 'Tri Edge (B2/S12)',
+  notation: 'B2/S12 tri-edge',
+  description:
+    'Triangular grid with only 3 edge neighbors. Sparse dynamics ' +
+    'producing flowing, dendritic patterns.',
+  birth: [2],
+  survival: [1, 2],
+  neighborhood: 'tri_3',
+};
+registerRuleset(HEXLIFE);
+registerRuleset(HEX_24_35);
+registerRuleset(HEX_REPLICATOR);
+registerRuleset(HEX_SNOWFLAKES);
+registerRuleset(HEX_MAZE);
+registerRuleset(TRILIFE);
+registerRuleset(TRI_4_345);
+registerRuleset(TRI_MAZE);
+registerRuleset(TRI_CORAL);
+registerRuleset(TRI_EDGE);

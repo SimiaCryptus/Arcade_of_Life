@@ -9,6 +9,7 @@
     "test:simulation": "node test/patterns/simulation.test.js",
     "test:sim-engine": "node test/sim/simulation.test.js",
     "test:grid": "node test/grid.test.js",
+     "test:topology": "node test/topology.test.js",
     "test:parsers": "node test/patterns/parsers.test.js",
     "test:infer": "node test/patterns/inferMetadata.test.js",
     "test:all": "node test/run-all.js",
