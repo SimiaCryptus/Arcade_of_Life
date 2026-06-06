@@ -13,6 +13,8 @@ import './patterns/simulation.test.js';
 import './patterns/inferMetadata.test.js';
 import './patterns/parsers.test.js';
 import './sim/simulation.test.js';
+import './sim/wrapShift.test.js';
+import './sim/wrapShiftIntegration.test.js';
 import './grid.test.js';
 import './topology.test.js';
 

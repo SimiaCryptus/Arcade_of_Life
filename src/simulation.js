@@ -87,12 +87,26 @@ export class Simulation {
     const w = this.grid.width;
     const h = this.grid.height;
     const cells = w * h;
+    const gridShift = this.grid ? this.grid.wrapVerticalShift | 0 : 0;
+    Logger.info(
+      `[Sim] _initBackend() called: grid=${w}x${h}, gridShift=${gridShift}, ` +
+        `current backend=${this.backend ? this.backend.constructor.name : 'none'}`
+    );
     // Selection policy:
     //   CONFIG.SIM_BACKEND='cpu'|'gpu'|'auto' (default auto)
     //   auto: GPU if grid >= 200x200 AND WebGL2 available; else CPU.
     let mode = (CONFIG.SIM_BACKEND || 'auto').toLowerCase();
     if (mode === 'auto') {
       mode = cells >= 40000 ? 'gpu' : 'cpu';
+    }
+    // GPU backend's Moore fast path does not currently honor
+    // wrapVerticalShift (Klein-bottle-style wrap). Force CPU when the
+    // grid has a non-zero shift so neighbor lookups stay correct.
+    if (mode === 'gpu' && gridShift !== 0) {
+      Logger.info(
+        `[Sim] Forcing CPU backend: wrapVerticalShift=${gridShift} ` + `is unsupported on GPU.`
+      );
+      mode = 'cpu';
     }
     // GPU backend currently only supports the Moore neighborhood.
     // Force CPU when an exotic neighborhood is active.
@@ -115,13 +129,43 @@ export class Simulation {
       try {
         this.backend = new GpuSimBackend(w, h);
         Logger.info(`Sim backend: GPU (WebGL2) for ${w}x${h} grid.`);
+        this._syncWrapShiftToBackend();
         return;
       } catch (e) {
         Logger.warn('GPU backend unavailable; falling back to CPU.', e);
       }
     }
     this.backend = new CpuSimBackend(w, h);
-    Logger.info(`Sim backend: CPU (bitpacked) for ${w}x${h} grid.`);
+    Logger.info(
+      `Sim backend: CPU (bitpacked) for ${w}x${h} grid ` + `(wrapVerticalShift=${gridShift}).`
+    );
+    this._syncWrapShiftToBackend();
+  }
+  // Push the grid's wrapVerticalShift into the backend. Backends that
+  // don't implement a setter ignore this silently.
+  _syncWrapShiftToBackend() {
+    if (!this.backend) return;
+    const shift = this.grid ? this.grid.wrapVerticalShift | 0 : 0;
+    if (typeof this.backend.setWrapVerticalShift === 'function') {
+      this.backend.setWrapVerticalShift(shift);
+    }
+    // Also expose as a public field for backends/paths that read it directly.
+    this.backend.wrapVerticalShift = shift;
+    // Keep the legacy underscored name in sync for older code paths.
+    this.backend._wrapVerticalShift = shift;
+    // Always log when shift is non-zero so we can verify it propagated.
+    if (shift !== 0) {
+      // Throttle to once per second to avoid log spam.
+      const now = performance.now();
+      if (!this._lastShiftLog || now - this._lastShiftLog > 1000) {
+        Logger.info(
+          `[Sim] wrap shift active: shift=${shift}, ` +
+            `backend=${this.backend.constructor.name}, ` +
+            `tickCount=${this.tickCount}`
+        );
+        this._lastShiftLog = now;
+      }
+    }
   }
 
   // Resize internal buffers if the grid was rebuilt (e.g. resolution change).
@@ -151,9 +195,23 @@ export class Simulation {
     if (this._ruleId !== (CONFIG.ACTIVE_RULESET || 'conway')) {
       this._compileActiveRuleset();
     }
-    // Sync wrap vertical shift to backend so generic path can apply it.
-    if (this.backend) {
-      this.backend._wrapVerticalShift = this.grid.wrapVerticalShift | 0;
+    // Sync wrap vertical shift to backend each tick — the grid's value
+    // may have changed (e.g. when loading a custom level). If we're
+    // currently on GPU and the shift becomes non-zero, switch to CPU
+    // since the GPU Moore fast path does not honor wrap shift.
+    const desiredShift = this.grid ? this.grid.wrapVerticalShift | 0 : 0;
+    const currentBackendIsGpu =
+      this.backend && this.backend.constructor && this.backend.constructor.name === 'GpuSimBackend';
+    if (currentBackendIsGpu && desiredShift !== 0) {
+      Logger.info(
+        `[Sim] tick(): switching GPU→CPU because ` +
+          `wrapVerticalShift=${desiredShift} is unsupported on GPU. ` +
+          `(tickCount=${this.tickCount})`
+      );
+      this._initBackend();
+      this._syncWrapShiftToBackend();
+    } else {
+      this._syncWrapShiftToBackend();
     }
     // Exotic rules: dispatch to the exotic engine. The exotic engine
     // operates on a binary DEFENSE-only grid; we extract DEFENSE cells,
@@ -490,6 +548,7 @@ export class Simulation {
     annihilated.fill(0);
     const hardcore = CONFIG.HARDCORE_MODE;
     const freezeEnemies = !!this.freezeEnemies;
+    const shift = g.wrapVerticalShift | 0;
     for (let y = 0; y < h; y++) {
       const rowBase = y * w;
       for (let x = 0; x < w; x++) {
@@ -500,11 +559,16 @@ export class Simulation {
           // Check against NEW defense layer for collisions.
           let defAdjacent = 0;
           for (let dy = -1; dy <= 1; dy++) {
-            const ny = y + dy;
-            if (ny < 0 || ny >= h) continue;
             for (let dx = -1; dx <= 1; dx++) {
               if (dx === 0 && dy === 0) continue;
-              const nx = (((x + dx) % w) + w) % w;
+              let nx = x + dx;
+              let ny = y + dy;
+              if (shift !== 0) {
+                if (nx < 0) ny += shift;
+                else if (nx >= w) ny -= shift;
+              }
+              nx = ((nx % w) + w) % w;
+              if (ny < 0 || ny >= h) continue;
               if (defIn[ny * w + nx]) defAdjacent++;
             }
           }
@@ -707,13 +771,20 @@ export class Simulation {
     const w = g.width;
     const h = g.height;
     const cells = g.cells;
+    const shift = g.wrapVerticalShift | 0;
     let count = 0;
     for (let dy = -1; dy <= 1; dy++) {
-      const ny = y + dy;
-      if (ny < 0 || ny >= h) continue;
       for (let dx = -1; dx <= 1; dx++) {
         if (dx === 0 && dy === 0) continue;
-        const nx = (((x + dx) % w) + w) % w;
+        let nx = x + dx;
+        let ny = y + dy;
+        // Apply vertical shift when wrapping horizontally (Klein-bottle style).
+        if (shift !== 0) {
+          if (nx < 0) ny += shift;
+          else if (nx >= w) ny -= shift;
+        }
+        nx = ((nx % w) + w) % w;
+        if (ny < 0 || ny >= h) continue;
         if (cells[ny * w + nx] === CELL_TYPE.CITY) count++;
       }
     }
@@ -726,12 +797,18 @@ export class Simulation {
     const h = g.height;
     const cells = g.cells;
     const annihilated = this._annihilated;
+    const shift = g.wrapVerticalShift | 0;
     for (let dy = -1; dy <= 1; dy++) {
-      const ny = y + dy;
-      if (ny < 0 || ny >= h) continue;
       for (let dx = -1; dx <= 1; dx++) {
         if (dx === 0 && dy === 0) continue;
-        const nx = (((x + dx) % w) + w) % w;
+        let nx = x + dx;
+        let ny = y + dy;
+        if (shift !== 0) {
+          if (nx < 0) ny += shift;
+          else if (nx >= w) ny -= shift;
+        }
+        nx = ((nx % w) + w) % w;
+        if (ny < 0 || ny >= h) continue;
         const ni = ny * w + nx;
         if (cells[ni] === type) {
           annihilated[ni] = marker;

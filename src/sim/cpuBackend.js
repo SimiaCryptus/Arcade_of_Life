@@ -31,6 +31,19 @@ export class CpuSimBackend {
     // Active neighborhood for generic path. null = use fast Moore path.
     this._neighborhood = null;
     this._topologyId = 'square';
+    // Vertical shift applied when wrapping horizontally (Klein-bottle).
+    // Set via setWrapVerticalShift() or directly written by simulation.js.
+    this._wrapVerticalShift = 0;
+  }
+  /**
+   * Set the vertical row shift applied during horizontal wrap-around.
+   * Non-zero values force the generic per-cell path even for Moore
+   * neighborhoods, since the fast column-sum path assumes strict row
+   * alignment.
+   * @param {number} shift
+   */
+  setWrapVerticalShift(shift) {
+    this._wrapVerticalShift = shift | 0;
   }
   /**
    * Set the active neighborhood. Pass null to use the fast Moore path.

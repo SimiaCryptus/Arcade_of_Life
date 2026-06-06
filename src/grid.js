@@ -80,10 +80,14 @@ export class Grid {
       if (x >= w) {
         const wraps = Math.floor(x / w);
         nx = x - wraps * w;
+        // Positive shift moves wrapping cells UP (decreasing y) when going east,
+        // matching the CPU backend's neighbor lookup and the level designer's
+        // visual indicator.
         ny = y - wraps * shift;
       } else if (x < 0) {
         const wraps = Math.ceil(-x / w);
         nx = x + wraps * w;
+        // Going west: opposite direction.
         ny = y + wraps * shift;
       }
     } else {
@@ -158,21 +162,48 @@ export class Grid {
   }
 
   get(x, y) {
+    // Apply toroidal wrap with vertical shift on x-overflow.
+    const shift = this.wrapVerticalShift | 0;
+    if (shift !== 0 && (x < 0 || x >= this.width)) {
+      const wrapped = this.wrapXY(x, y);
+      if (wrapped.y < 0 || wrapped.y >= this.height) return CELL_TYPE.EMPTY;
+      return this.cells[this.idx(this.wrapX(wrapped.x), wrapped.y)];
+    }
     if (y < 0 || y >= this.height) return CELL_TYPE.EMPTY;
     return this.cells[this.idx(this.wrapX(x), y)];
   }
 
   set(x, y, type) {
+    const shift = this.wrapVerticalShift | 0;
+    if (shift !== 0 && (x < 0 || x >= this.width)) {
+      const wrapped = this.wrapXY(x, y);
+      if (wrapped.y < 0 || wrapped.y >= this.height) return;
+      this.cells[this.idx(this.wrapX(wrapped.x), wrapped.y)] = type;
+      return;
+    }
     if (y < 0 || y >= this.height) return;
     this.cells[this.idx(this.wrapX(x), y)] = type;
   }
 
   getPending(x, y) {
+    const shift = this.wrapVerticalShift | 0;
+    if (shift !== 0 && (x < 0 || x >= this.width)) {
+      const wrapped = this.wrapXY(x, y);
+      if (wrapped.y < 0 || wrapped.y >= this.height) return 0;
+      return this.pending[this.idx(this.wrapX(wrapped.x), wrapped.y)];
+    }
     if (y < 0 || y >= this.height) return 0;
     return this.pending[this.idx(this.wrapX(x), y)];
   }
 
   setPending(x, y, val) {
+    const shift = this.wrapVerticalShift | 0;
+    if (shift !== 0 && (x < 0 || x >= this.width)) {
+      const wrapped = this.wrapXY(x, y);
+      if (wrapped.y < 0 || wrapped.y >= this.height) return;
+      this.pending[this.idx(this.wrapX(wrapped.x), wrapped.y)] = val;
+      return;
+    }
     if (y < 0 || y >= this.height) return;
     this.pending[this.idx(this.wrapX(x), y)] = val;
   }

@@ -4,6 +4,7 @@
  */
 
 import { Logger } from './logger.js';
+import { importLevelJSON, getLevel } from './levels.js';
 // Compute base path so the app works whether served from the domain root
 // or from a subdirectory (e.g. http://host/Arcade_of_Life/).
 // Strips the trailing filename (if any) from the current pathname.
@@ -165,6 +166,186 @@ export function checkAutoStart(startGameFn) {
     // Wait one tick so the game is fully initialised.
     setTimeout(startGameFn, 100);
   }
+}
+// ── Load level from URL param (?level=<encoded-url>) ────────────────────────
+/**
+ * Check for a ?level=<url> query parameter. If present, fetch the JSON
+ * from that URL, import it as a custom level, and invoke the callback
+ * with the level name so the caller can start it.
+ *
+ * Supports two forms:
+ *   ?level=https%3A%2F%2Fexample.com%2Fmylevel.json   (URL-encoded URL)
+ *   ?level=https://example.com/mylevel.json           (raw URL)
+ *
+ * Only https:// URLs are accepted for security. The fetched JSON must
+ * conform to the level schema (see levels.js).
+ *
+ * @param {Function} startLevelFn  Callback invoked with the imported
+ *                                 level's name on success.
+ */
+export function checkLevelUrlParam(startLevelFn) {
+  const params = new URLSearchParams(window.location.search);
+  const levelUrl = params.get('level');
+  if (!levelUrl) return;
+  // Decode (URLSearchParams already decodes once, but be defensive
+  // against double-encoding).
+  let url = levelUrl;
+  try {
+    // If the value still looks encoded, decode it.
+    if (url.startsWith('https%3A') || url.includes('%2F')) {
+      url = decodeURIComponent(url);
+    }
+  } catch (e) {
+    Logger.warn('[PWA] Failed to decode level URL param:', e);
+    showLevelLoadError('Invalid level URL encoding.');
+    return;
+  }
+  // If the URL is relative (no scheme), resolve it against the current
+  // document location so users can write ?level=levels/invaders.json.
+  try {
+    const resolved = new URL(url, window.location.href);
+    url = resolved.href;
+  } catch (e) {
+    Logger.warn('[PWA] Failed to resolve level URL:', e);
+    showLevelLoadError('Invalid level URL.');
+    return;
+  }
+  Logger.info(`[PWA] Loading level from URL: ${url}`);
+  showLevelLoadingBanner(url);
+  // Fetch + import.
+  loadLevelFromUrl(url)
+    .then((levelName) => {
+      hideLevelLoadingBanner();
+      Logger.info(`[PWA] Level "${levelName}" loaded from URL; auto-starting.`);
+      // Wait one tick so the game is fully initialised.
+      setTimeout(() => startLevelFn(levelName), 200);
+    })
+    .catch((err) => {
+      hideLevelLoadingBanner();
+      Logger.error('[PWA] Failed to load level from URL:', err);
+      showLevelLoadError(err.message || 'Unknown error loading level.');
+    });
+}
+/**
+ * Fetch and import a level JSON from a URL.
+ * @param {string} url
+ * @returns {Promise<string>}  Resolves with the imported level's name.
+ */
+async function loadLevelFromUrl(url) {
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'default',
+    });
+  } catch (e) {
+    throw new Error(`Network error: ${e.message}`);
+  }
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ${response.statusText}`);
+  }
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('json') && !contentType.includes('text')) {
+    Logger.warn(`[PWA] Unexpected content-type for level: ${contentType}`);
+  }
+  const text = await response.text();
+  if (!text || text.trim().length === 0) {
+    throw new Error('Empty response body.');
+  }
+  // Size sanity check: 5MB cap on level JSON.
+  if (text.length > 5 * 1024 * 1024) {
+    throw new Error('Level file too large (>5MB).');
+  }
+  const result = importLevelJSON(text);
+  if (!result.ok) {
+    throw new Error(`Invalid level JSON: ${result.error}`);
+  }
+  // Verify the level actually got saved.
+  const saved = getLevel(result.name);
+  if (!saved) {
+    throw new Error('Level was imported but could not be retrieved.');
+  }
+  return result.name;
+}
+function showLevelLoadingBanner(url) {
+  hideLevelLoadingBanner();
+  const banner = document.createElement('div');
+  banner.id = 'level-loading-banner';
+  banner.style.cssText = `
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(5, 5, 20, 0.96);
+    border: 2px solid #ffcc44;
+    border-radius: 6px;
+    padding: 12px 22px;
+    color: #ffcc44;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: bold;
+    z-index: 10000;
+    box-shadow: 0 0 20px rgba(255, 204, 68, 0.5);
+    text-align: center;
+    min-width: 280px;
+  `;
+  banner.innerHTML = `
+    <div style="margin-bottom:6px;">⬇ Loading level from URL...</div>
+    <div style="font-size:10px;color:#a0a0c0;font-weight:normal;
+                word-break:break-all;max-width:600px;">${escapeHtml(url)}</div>
+  `;
+  document.body.appendChild(banner);
+}
+function hideLevelLoadingBanner() {
+  const banner = document.getElementById('level-loading-banner');
+  if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+}
+function showLevelLoadError(msg) {
+  hideLevelLoadingBanner();
+  const banner = document.createElement('div');
+  banner.id = 'level-error-banner';
+  banner.style.cssText = `
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(5, 5, 20, 0.96);
+    border: 2px solid #ff6666;
+    border-radius: 6px;
+    padding: 12px 22px;
+    color: #ff6666;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: bold;
+    z-index: 10000;
+    box-shadow: 0 0 20px rgba(255, 102, 102, 0.5);
+    text-align: center;
+    max-width: 600px;
+    cursor: pointer;
+  `;
+  banner.innerHTML = `
+    <div style="margin-bottom:6px;">⚠ Failed to load level</div>
+    <div style="font-size:11px;color:#ffaaaa;font-weight:normal;">${escapeHtml(msg)}</div>
+    <div style="font-size:10px;color:#8080a0;font-weight:normal;margin-top:6px;font-style:italic;">
+      Click to dismiss
+    </div>
+  `;
+  banner.addEventListener('click', () => {
+    if (banner.parentNode) banner.parentNode.removeChild(banner);
+  });
+  document.body.appendChild(banner);
+  // Auto-dismiss after 10s.
+  setTimeout(() => {
+    if (banner.parentNode) banner.parentNode.removeChild(banner);
+  }, 10000);
+}
+function escapeHtml(s) {
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  );
 }
 
 // ── Fullscreen helper ──────────────────────────────────────────────────────

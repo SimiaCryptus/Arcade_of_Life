@@ -27,6 +27,7 @@ import {
   initInstallPrompt,
   initNetworkIndicator,
   checkAutoStart,
+  checkLevelUrlParam,
   requestWakeLock,
   releaseWakeLock,
   toggleFullscreen,
@@ -755,6 +756,16 @@ class Game {
     }
     Logger.info(`[Game] Building world with topology: ${topologyId}`);
     this.grid = new Grid(CONFIG.GRID_WIDTH, CONFIG.GRID_HEIGHT, topologyId);
+    // Apply any pre-staged wrap vertical shift BEFORE constructing the
+    // simulation, so the backend selection (CPU vs GPU) sees it.
+    if (this._pendingWrapVerticalShift) {
+      this.grid.wrapVerticalShift = this._pendingWrapVerticalShift | 0;
+      Logger.info(
+        `[Game] _buildWorld: applied pre-staged wrapVerticalShift=` +
+          `${this.grid.wrapVerticalShift} to grid before Simulation init.`
+      );
+      this._pendingWrapVerticalShift = null;
+    }
     this.simulation = new Simulation(this.grid);
     this.cities = new Cities(this.grid);
     this.missiles = new Missiles(this.grid);
@@ -1734,6 +1745,13 @@ class Game {
       return false;
     }
     Logger.info(`[Game] Starting custom level "${levelName}".`);
+    Logger.info(
+      `[Game] Level fields: wrapVerticalShift=${level.wrapVerticalShift} ` +
+        `(type=${typeof level.wrapVerticalShift}), ` +
+        `gridWidth=${level.gridWidth}, gridHeight=${level.gridHeight}, ` +
+        `ruleset=${level.ruleset}, ` +
+        `keys=[${Object.keys(level).join(', ')}]`
+    );
     this._activeCustomLevel = level;
     this._customVictoryShown = false;
     // Apply full settings snapshot first (if present) so that downstream
@@ -1802,10 +1820,47 @@ class Game {
     requestWakeLock();
     // Rebuild world for new grid size.
     this._fitCellSize();
+    // Pre-stage the wrap vertical shift so _buildWorld → _initBackend
+    // can see it during backend selection. We set it on a stash field
+    // that _buildWorld reads when constructing the grid.
+    this._pendingWrapVerticalShift =
+      typeof level.wrapVerticalShift === 'number' ? level.wrapVerticalShift | 0 : 0;
+    Logger.info(
+      `[Game] Pre-staged wrapVerticalShift=${this._pendingWrapVerticalShift} ` +
+        `before _buildWorld (level.wrapVerticalShift=${level.wrapVerticalShift}, ` +
+        `typeof=${typeof level.wrapVerticalShift}).`
+    );
     this._buildWorld();
     // Apply wrap vertical shift to the new grid.
     if (this.grid && typeof level.wrapVerticalShift === 'number') {
       this.grid.wrapVerticalShift = level.wrapVerticalShift | 0;
+      Logger.info(
+        `[Game] Applied wrapVerticalShift=${this.grid.wrapVerticalShift} to grid ` +
+          `(level.wrapVerticalShift=${level.wrapVerticalShift}, ` +
+          `grid.topologyId=${this.grid.topologyId}).`
+      );
+      // Force backend re-init now that wrap shift is set, so GPU→CPU
+      // switch happens up-front rather than on first tick.
+      if (this.simulation && this.simulation._initBackend) {
+        Logger.info(
+          `[Game] Forcing simulation backend re-init after wrap shift. ` +
+            `Current backend=${this.simulation.backend.constructor.name}, ` +
+            `grid.wrapVerticalShift=${this.grid.wrapVerticalShift}`
+        );
+        this.simulation._initBackend();
+        this.simulation._syncWrapShiftToBackend();
+        Logger.info(
+          `[Game] Re-init complete: ` +
+            `backend=${this.simulation.backend.constructor.name}, ` +
+            `backend._wrapVerticalShift=${this.simulation.backend._wrapVerticalShift}, ` +
+            `grid.wrapVerticalShift=${this.grid.wrapVerticalShift}`
+        );
+      }
+    } else {
+      Logger.info(
+        `[Game] No wrapVerticalShift in level (type=${typeof level.wrapVerticalShift}, ` +
+          `value=${level.wrapVerticalShift}).`
+      );
     }
     this.renderer.setGrid(this.grid);
     this._initSpeedControls();
@@ -2520,6 +2575,12 @@ window.addEventListener('DOMContentLoaded', () => {
     checkAutoStart(() => {
       const btn = document.getElementById('start-button');
       if (btn) btn.click();
+    });
+    // Load level from URL param (?level=<encoded-url>) if present.
+    checkLevelUrlParam((levelName) => {
+      if (window.game && window.game.startCustomLevel) {
+        window.game.startCustomLevel(levelName);
+      }
     });
   } catch (e) {
     Logger.error('Fatal error during Game construction.', e);

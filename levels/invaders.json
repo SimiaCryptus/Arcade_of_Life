@@ -1,0 +1,641 @@
+{
+  "name": "SpaceInvders",
+  "createdAt": 1780772770208,
+  "gridWidth": 300,
+  "gridHeight": 200,
+  "cities": [
+    {
+      "x": 26,
+      "y": 141,
+      "width": 5,
+      "height": 3
+    },
+    {
+      "x": 84,
+      "y": 141,
+      "width": 5,
+      "height": 3
+    },
+    {
+      "x": 147,
+      "y": 142,
+      "width": 5,
+      "height": 3
+    },
+    {
+      "x": 212,
+      "y": 142,
+      "width": 5,
+      "height": 3
+    },
+    {
+      "x": 271,
+      "y": 142,
+      "width": 5,
+      "height": 3
+    }
+  ],
+  "defenses": [
+    [
+      235,
+      62
+    ]
+  ],
+  "bases": [],
+  "spawners": [
+    {
+      "patternId": "hwss",
+      "name": "Heavyweight Spaceship (HWSS)",
+      "x": 281,
+      "y": 13,
+      "width": 7,
+      "height": 5,
+      "cells": [
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "interval": 2000,
+      "emitLimit": 10,
+      "initialDelay": 2000
+    },
+    {
+      "patternId": "hwss",
+      "name": "Heavyweight Spaceship (HWSS)",
+      "x": 253,
+      "y": 30,
+      "width": 7,
+      "height": 5,
+      "cells": [
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "interval": 2000,
+      "emitLimit": 10,
+      "initialDelay": 2000
+    },
+    {
+      "patternId": "hwss",
+      "name": "Heavyweight Spaceship (HWSS)",
+      "x": 242,
+      "y": 40,
+      "width": 7,
+      "height": 5,
+      "cells": [
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "interval": 2000,
+      "emitLimit": 10,
+      "initialDelay": 2000
+    },
+    {
+      "patternId": "hwss",
+      "name": "Heavyweight Spaceship (HWSS)",
+      "x": 232,
+      "y": 51,
+      "width": 7,
+      "height": 5,
+      "cells": [
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "interval": 2000,
+      "emitLimit": 10,
+      "initialDelay": 2000
+    },
+    {
+      "patternId": "hwss",
+      "name": "Heavyweight Spaceship (HWSS)",
+      "x": 222,
+      "y": 61,
+      "width": 7,
+      "height": 5,
+      "cells": [
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "interval": 2000,
+      "emitLimit": 10,
+      "initialDelay": 2000
+    },
+    {
+      "patternId": "hwss",
+      "name": "Heavyweight Spaceship (HWSS)",
+      "x": 212,
+      "y": 72,
+      "width": 7,
+      "height": 5,
+      "cells": [
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "interval": 2000,
+      "emitLimit": 10,
+      "initialDelay": 2000
+    },
+    {
+      "patternId": "hwss",
+      "name": "Heavyweight Spaceship (HWSS)",
+      "x": 202,
+      "y": 82,
+      "width": 7,
+      "height": 5,
+      "cells": [
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "interval": 2000,
+      "emitLimit": 10,
+      "initialDelay": 2000
+    },
+    {
+      "patternId": "hwss",
+      "name": "Heavyweight Spaceship (HWSS)",
+      "x": 192,
+      "y": 92,
+      "width": 7,
+      "height": 5,
+      "cells": [
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "interval": 2000,
+      "emitLimit": 10,
+      "initialDelay": 2000
+    }
+  ],
+  "ruleset": "conway",
+  "description": "",
+  "settings": {
+    "INITIAL_INK": 200,
+    "MAX_INK": 300,
+    "INK_REGEN_RATE": 0.5,
+    "TICK_RATE": 100,
+    "STARTING_SPEED": 4,
+    "DEFENDER_TICKS": 1,
+    "ATTACKER_TICKS": 2,
+    "MISSILES_PER_WAVE_BASE": 8,
+    "MISSILES_PER_WAVE_INC": 3,
+    "MISSILE_SPAWN_INTERVAL": 800,
+    "MISSILE_SPAWN_DECREMENT": 75,
+    "MISSILE_SPAWN_MIN": 300,
+    "CELL_MAX_AGE_TICKS": 200,
+    "MISSILE_MAX_AGE_TICKS": 200,
+    "DEFENSE_AGE_FRIENDLY": 200,
+    "DEFENSE_AGE_ENEMY": 200,
+    "MISSILE_AGE_FRIENDLY": 200,
+    "MISSILE_AGE_ENEMY": 200,
+    "MISSILE_CASCADE_TICKS": 29,
+    "CLEAR_REFUND_FRACTION": 0.5,
+    "INK_DRY_TICKS": 5,
+    "DRAW_ZONE_FRACTION": 0.3,
+    "REAR_DEAD_ZONE_HEIGHT": 2,
+    "BASE_ZONE_HEIGHT": 102,
+    "BASE_SPAWN_COUNT_BASE": 1,
+    "BASE_SPAWN_COUNT_INC": 0.5,
+    "BASE_SPAWN_MAX": 6,
+    "BASE_GLIDER_BUFFER": 4,
+    "GLIDER_SE": true,
+    "GLIDER_SW": true,
+    "GLIDER_HEAVY": false,
+    "GLIDER_LWSS": false,
+    "GLIDER_MWSS": false,
+    "GLIDER_TWIN": false,
+    "GLIDER_GUN": false,
+    "HARDCORE_MODE": false,
+    "SHOW_DRAW_ZONE": true,
+    "BASE_SPAWN_ENABLED": true,
+    "ABILITY_DOUBLE_SCORE": true,
+    "ABILITY_NO_DRY": true,
+    "ABILITY_WAVE_BONUS": true,
+    "ABILITY_SAFE_ZONE": true,
+    "ABILITY_SLOW_MISSILES": true,
+    "ABILITY_EMP_BURST": true,
+    "ABILITY_INK_SURGE": true,
+    "ABILITY_FREEZE": true,
+    "SIM_HASHLIFE_ENABLED": true,
+    "VFX_PARTICLES": true,
+    "VFX_SHOCKWAVES": true,
+    "VFX_FLOATERS": true,
+    "VFX_SCREEN_SHAKE": true,
+    "VFX_CELL_GLOW": true,
+    "VFX_DRAW_ZONE_TINT": true,
+    "UNLIMITED_MISSILE_AGE": true,
+    "UNLIMITED_CELL_AGE": true,
+    "UNLIMITED_DEF_AGE_FRIENDLY": true,
+    "UNLIMITED_DEF_AGE_ENEMY": true,
+    "UNLIMITED_MISS_AGE_FRIENDLY": false,
+    "UNLIMITED_MISS_AGE_ENEMY": false
+  },
+  "allowedTools": {
+    "freehand": false,
+    "line": false,
+    "pattern": true,
+    "fill": false
+  },
+  "allowedPatterns": [
+    "glider"
+  ],
+  "colorTheme": {},
+  "wrapVerticalShift": 15
+}

@@ -638,6 +638,19 @@ export class LevelDesigner {
     ov.querySelector('#ld-play-btn').addEventListener('click', () => this._saveAndPlay());
     ov.querySelector('#ld-export-btn').addEventListener('click', () => this._exportJSON());
     ov.querySelector('#ld-import-btn').addEventListener('click', () => this._importJSON());
+    // Add a "Copy Share URL" button dynamically next to export/import.
+    const exportBtn = ov.querySelector('#ld-export-btn');
+    if (exportBtn && !ov.querySelector('#ld-share-url-btn')) {
+      const shareBtn = document.createElement('button');
+      shareBtn.id = 'ld-share-url-btn';
+      shareBtn.className = 'ld-btn';
+      shareBtn.textContent = '🔗 Copy Share URL';
+      shareBtn.title =
+        'Copy a URL that loads this level when opened. ' +
+        'You must host the JSON yourself (e.g. GitHub Gist raw URL).';
+      shareBtn.addEventListener('click', () => this._promptShareUrl());
+      exportBtn.parentNode.insertBefore(shareBtn, exportBtn.nextSibling);
+    }
     ov.querySelector('#ld-close-btn').addEventListener('click', () => this.hide());
     ov.querySelector('#ld-load-btn').addEventListener('click', () => this._loadSelected());
     ov.querySelector('#ld-delete-btn').addEventListener('click', () => this._deleteSelected());
@@ -1852,6 +1865,58 @@ export class LevelDesigner {
       if (lvl) this._deserialize(lvl);
     } else {
       this._setStatus(`✗ Import failed: ${result.error}`, 'err');
+    }
+  }
+  /**
+   * Prompt the user for a publicly-hosted https:// URL that serves this
+   * level's JSON, then build & copy a shareable game URL like:
+   *   https://yoursite.com/?level=<encoded-url>
+   *
+   * The user is responsible for hosting the JSON (e.g. GitHub Gist raw,
+   * Pastebin raw, their own static site). This designer doesn't upload.
+   */
+  _promptShareUrl() {
+    const name = (this.overlay.querySelector('#ld-name').value || '').trim();
+    if (!name) {
+      this._setStatus('Please save the level first (give it a name).', 'err');
+      return;
+    }
+    const hostedUrl = window.prompt(
+      `Generate a shareable URL for "${name}".\n\n` +
+        `Step 1: Host this level's JSON somewhere public over HTTPS:\n` +
+        `  • GitHub Gist (raw URL)\n` +
+        `  • Your own static site\n` +
+        `  • Pastebin raw, etc.\n\n` +
+        `Step 2: Paste the public https:// URL of the JSON file below:\n` +
+        `(Use "Export JSON" first to get the JSON content to host.)`,
+      'https://'
+    );
+    if (!hostedUrl) return;
+    const trimmed = hostedUrl.trim();
+    if (!trimmed.startsWith('https://')) {
+      this._setStatus('URL must start with https://', 'err');
+      return;
+    }
+    // Build the share URL.
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    const shareUrl = `${baseUrl}?level=${encodeURIComponent(trimmed)}`;
+    // Copy to clipboard.
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard
+        .writeText(shareUrl)
+        .then(() => {
+          this._setStatus(`✓ Share URL copied to clipboard!`, 'ok');
+          // Also show in a dialog so the user can double-check.
+          window.alert(
+            `Share URL copied to clipboard:\n\n${shareUrl}\n\n` +
+              `Anyone who opens this URL will auto-load "${name}".`
+          );
+        })
+        .catch(() => {
+          window.prompt('Copy this URL:', shareUrl);
+        });
+    } else {
+      window.prompt('Copy this URL:', shareUrl);
     }
   }
 

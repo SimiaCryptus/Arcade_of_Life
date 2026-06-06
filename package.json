@@ -8,6 +8,7 @@
       "test:exotic": "node test/rules/exoticEngines.test.js",
     "test:simulation": "node test/patterns/simulation.test.js",
     "test:sim-engine": "node test/sim/simulation.test.js",
+    "test:wrap": "node test/sim/wrapShift.test.js",
     "test:grid": "node test/grid.test.js",
      "test:topology": "node test/topology.test.js",
     "test:parsers": "node test/patterns/parsers.test.js",
