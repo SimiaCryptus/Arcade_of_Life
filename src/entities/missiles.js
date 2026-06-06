@@ -523,6 +523,11 @@ export class Missiles {
     // allowed (the player may still need to mop them up, but the
     // structural threat is gone).
     if (this.hasCustomContent()) {
+      // CRITICAL: If we never had any designed threats to begin with,
+      // the wave is NOT auto-complete. This prevents the "random victory"
+      // bug where a custom level with no spawners/bases instantly wins.
+      const hadDesignedThreats = this._customSpawners.length > 0 || this._customBases.length > 0;
+      if (!hadDesignedThreats) return false;
       if (this._designedSpawners.some((s) => s.alive)) return false;
       if (this._designedBases.some((b) => b.alive)) return false;
       // All designed threats are eliminated. Wave is complete even if
@@ -985,45 +990,38 @@ export class Missiles {
       }
       if (b._lifeTicks === undefined) b._lifeTicks = 0;
       b._lifeTicks++;
-      // Track total missile cells in vicinity for spaceship detection.
-      // If the base has been moving, count cells in a wide window.
-      if (b._lifeTicks <= 60) {
-        // During initial period, scan a wide area around the anchor
-        // for any missile mass to track moving spaceships.
-        let nearbyCells = 0;
-        const scanRadius = Math.max(b.w, b.h) + 4;
-        const cx = b.x + b.w / 2;
-        const cy = b.y + b.h / 2;
-        for (
-          let sy = Math.max(0, Math.floor(cy - scanRadius));
-          sy < Math.min(g.height, Math.ceil(cy + scanRadius));
-          sy++
-        ) {
-          for (let sx = -scanRadius; sx <= scanRadius; sx++) {
-            const px = Math.floor(cx + sx);
-            if (!g.inBounds(px, sy)) continue;
-            const idx = sy * g.width + g.wrapX(px);
-            if (g.cells[idx] === CELL_TYPE.MISSILE) nearbyCells++;
-          }
-        }
+      // Track total missile cells in a SLIDING WINDOW that follows the
+      // pattern's center of mass. This correctly handles spaceships that
+      // move far from their spawn point — we follow them rather than
+      // scanning a fixed region around the original anchor.
+      if (b._lifeTicks % 5 === 0 || b._lastNearbyCellCount == null) {
+        const { nearbyCells, centroidX, centroidY } = this._scanPatternMass(
+          b._trackX != null ? b._trackX : b.x + b.w / 2,
+          b._trackY != null ? b._trackY : b.y + b.h / 2,
+          Math.max(b.w, b.h) + 6,
+          b.cells.length
+        );
         b._lastNearbyCellCount = nearbyCells;
+        // Update tracking point to follow the pattern.
+        if (nearbyCells > 0 && centroidX != null) {
+          b._trackX = centroidX;
+          b._trackY = centroidY;
+        }
       }
-      const aliveThreshold = Math.max(1, Math.ceil(b.cells.length / 3));
-      // Extended grace period: 90 ticks before checking decay-at-anchor.
-      // If the base has missile cells nearby (a spaceship moved away),
-      // require population to have dropped below threshold instead.
-      const graceTicks = 90;
       const totalCells = b.cells.length;
-      const massDropped =
-        b._lastNearbyCellCount != null &&
-        b._lastNearbyCellCount < Math.max(2, Math.ceil(totalCells / 2));
-      if (b._lifeTicks > graceTicks && liveCellCount < aliveThreshold && massDropped) {
+      // A base is considered destroyed when the total missile mass in
+      // its tracking region has dropped to less than 25% of its original
+      // cell count AND we're past the grace period. This is much more
+      // conservative than before to prevent false positives.
+      const massThreshold = Math.max(2, Math.ceil(totalCells * 0.25));
+      const graceTicks = 120;
+      if (b._lifeTicks > graceTicks && b._lastNearbyCellCount < massThreshold) {
         b.alive = false;
         if (this.onBaseDestroyed) {
           this.onBaseDestroyed(b.x + b.w / 2, b.y + b.h / 2, 'designed');
         }
         Logger.info(
-          `[Missiles] designed base "${b.name}" destroyed (${liveCellCount}/${b.cells.length} cells at anchor, ${b._lastNearbyCellCount} nearby) after ${b._lifeTicks} ticks.`
+          `[Missiles] designed base "${b.name}" destroyed (${b._lastNearbyCellCount} nearby cells < threshold ${massThreshold}) after ${b._lifeTicks} ticks.`
         );
         this._designedBases.splice(i, 1);
         continue;
@@ -1054,29 +1052,23 @@ export class Missiles {
         }
       }
 
-      // Track spawner aliveness the same way as bases: count how many
-      // originally-stamped cells still exist as MISSILE at the anchor.
-      // Once below a threshold (and past a grace period for moving
-      // spawners like spaceships), the spawner is destroyed.
-      let liveCellCount = 0;
-      for (const [dx, dy] of s.cells) {
-        const px = s.x + dx,
-          py = s.y + dy;
-        if (!g.inBounds(px, py)) continue;
-        const idx = py * g.width + g.wrapX(px);
-        if (g.cells[idx] === CELL_TYPE.MISSILE) liveCellCount++;
-      }
       if (s._lifeTicks === undefined) s._lifeTicks = 0;
       s._lifeTicks++;
-      // Track nearby missile mass for spawner detection (similar to bases).
-      if (s._lifeTicks <= 60) {
-        let nearbyCells = 0;
-        const scanRadius = Math.max(s.w, s.h) + 4;
+      // Track nearby missile mass using a sliding window centered on
+      // the pattern's last known centroid. Spawners typically don't
+      // move (they emit gliders) but we use the same approach as
+      // bases for consistency. Stays anchored to the spawn point.
+      if (s._lifeTicks % 5 === 0 || s._lastNearbyCellCount == null) {
         const cx = s.x + s.w / 2;
         const cy = s.y + s.h / 2;
+        // For spawners, only count cells within the original footprint
+        // PLUS a small halo — we don't want to count emitted gliders
+        // far away as "spawner mass".
+        const scanRadius = Math.max(s.w, s.h);
+        let nearbyCells = 0;
         for (
           let sy = Math.max(0, Math.floor(cy - scanRadius));
-          sy < Math.min(g.height, Math.ceil(cy + scanRadius));
+          sy < Math.min(g.height, Math.ceil(cy + scanRadius) + 1);
           sy++
         ) {
           for (let sx = -scanRadius; sx <= scanRadius; sx++) {
@@ -1088,19 +1080,18 @@ export class Missiles {
         }
         s._lastNearbyCellCount = nearbyCells;
       }
-      const aliveThreshold = Math.max(1, Math.ceil(s.cells.length / 3));
-      const graceTicks = 90;
       const totalCells = s.cells.length;
-      const massDropped =
-        s._lastNearbyCellCount != null &&
-        s._lastNearbyCellCount < Math.max(2, Math.ceil(totalCells / 2));
-      if (s._lifeTicks > graceTicks && liveCellCount < aliveThreshold && massDropped) {
+      // Spawner is destroyed when its tracked mass drops below 25% of
+      // its original cell count AND we're past the grace period.
+      const massThreshold = Math.max(2, Math.ceil(totalCells * 0.25));
+      const graceTicks = 120;
+      if (s._lifeTicks > graceTicks && s._lastNearbyCellCount < massThreshold) {
         s.alive = false;
         if (this.onBaseDestroyed) {
           this.onBaseDestroyed(s.x + s.w / 2, s.y + s.h / 2, 'spawner');
         }
         Logger.info(
-          `[Missiles] designed spawner "${s.name}" destroyed (${liveCellCount}/${s.cells.length} at anchor, ${s._lastNearbyCellCount} nearby) after emitting ${s.emitCount} glider(s).`
+          `[Missiles] designed spawner "${s.name}" destroyed (${s._lastNearbyCellCount} nearby < threshold ${massThreshold}) after emitting ${s.emitCount} glider(s).`
         );
         this._designedSpawners.splice(i, 1);
         continue;
@@ -1197,6 +1188,45 @@ export class Missiles {
   // ============================================================
   // UTILITY
   // ============================================================
+  /**
+   * Scan a region of the grid for missile cells, returning the count
+   * plus the centroid of those cells. Used by designed bases to track
+   * pattern mass even as the pattern (e.g. spaceship) moves.
+   *
+   * @param {number} cx   center x of scan region
+   * @param {number} cy   center y of scan region
+   * @param {number} radius   scan radius (orthogonal)
+   * @param {number} _expectedCount   hint for sizing (unused)
+   * @returns {{nearbyCells: number, centroidX: number|null, centroidY: number|null}}
+   */
+  _scanPatternMass(cx, cy, radius, _expectedCount) {
+    const g = this.grid;
+    let nearbyCells = 0;
+    let sumX = 0;
+    let sumY = 0;
+    const minY = Math.max(0, Math.floor(cy - radius));
+    const maxY = Math.min(g.height - 1, Math.ceil(cy + radius));
+    for (let sy = minY; sy <= maxY; sy++) {
+      for (let sx = -radius; sx <= radius; sx++) {
+        const px = Math.floor(cx + sx);
+        if (!g.inBounds(px, sy)) continue;
+        const idx = sy * g.width + g.wrapX(px);
+        if (g.cells[idx] === CELL_TYPE.MISSILE) {
+          nearbyCells++;
+          sumX += px;
+          sumY += sy;
+        }
+      }
+    }
+    if (nearbyCells > 0) {
+      return {
+        nearbyCells,
+        centroidX: sumX / nearbyCells,
+        centroidY: sumY / nearbyCells,
+      };
+    }
+    return { nearbyCells: 0, centroidX: null, centroidY: null };
+  }
 
   _isSpawnClear(x, y, pw, ph, clearance) {
     const g = this.grid;

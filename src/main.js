@@ -1858,18 +1858,51 @@ class Game {
       this.freeplayAbilities.install();
     }
     Sfx.waveStart();
-    // Apply starting speed (game always starts paused, but slider reflects
-    // the configured starting speed so resuming uses it).
+    // Apply starting speed from the level's settings snapshot. The level
+    // may have a STARTING_SPEED value baked into its settings snapshot.
+    // If absent, fall back to whatever CONFIG.STARTING_SPEED is (which
+    // was just set when level.settings was applied above).
+    let startSpeed = 1.0;
+    if (level.settings && typeof level.settings.STARTING_SPEED === 'number') {
+      startSpeed = level.settings.STARTING_SPEED;
+    } else if (typeof CONFIG.STARTING_SPEED === 'number') {
+      startSpeed = CONFIG.STARTING_SPEED;
+    }
+    // CRITICAL: write to CONFIG so the slider sync reads the correct value.
+    CONFIG.SPEED_MULTIPLIER = startSpeed;
+    Logger.info(
+      `[Game] Custom level "${level.name}" starting speed: ${startSpeed}x ` +
+        `(from ${level.settings && level.settings.STARTING_SPEED != null ? 'level' : 'fallback'})`
+    );
     if (this.speedSlider) {
-      // Always start paused.
-      const pausedIdx = 0;
-      this.speedSlider.value = String(pausedIdx);
-      this._applySpeedFromSlider();
-      // Remember the starting speed for when the player presses Space to resume.
-      const startSpeed = CONFIG.STARTING_SPEED || 1.0;
       const startIdx = SPEED_PRESETS.findIndex((p) => p.value === startSpeed);
-      this._prePauseIdx =
-        startIdx >= 0 ? startIdx : SPEED_PRESETS.findIndex((p) => p.value === 1.0);
+      // If exact speed not in presets, pick the closest one.
+      let idx;
+      if (startIdx >= 0) {
+        idx = startIdx;
+      } else {
+        // Find closest preset to startSpeed.
+        let bestIdx = SPEED_PRESETS.findIndex((p) => p.value === 1.0);
+        let bestDiff = Infinity;
+        SPEED_PRESETS.forEach((p, i) => {
+          const diff = Math.abs(p.value - startSpeed);
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            bestIdx = i;
+          }
+        });
+        idx = bestIdx;
+      }
+      this.speedSlider.value = String(idx);
+      this._applySpeedFromSlider();
+      // If starting paused, remember 1x so Space resumes to normal speed.
+      if (startSpeed === 0) {
+        this._prePauseIdx = SPEED_PRESETS.findIndex((p) => p.value === 1.0);
+      }
+      Logger.info(
+        `[Game] Speed slider set to idx=${idx}, label="${SPEED_PRESETS[idx].name}", ` +
+          `final CONFIG.SPEED_MULTIPLIER=${CONFIG.SPEED_MULTIPLIER}x`
+      );
     }
     return true;
   }
@@ -1980,6 +2013,24 @@ class Game {
   startGame() {
     Logger.info('Starting game.');
     Sfx.waveStart();
+    // Clear any active custom level state — default game mode is starting.
+    this._activeCustomLevel = null;
+    this._customVictoryShown = false;
+    // Restore default colors if a custom level had overridden them.
+    if (this._defaultColors) {
+      Object.assign(CONFIG.COLORS, this._defaultColors);
+      this._defaultColors = null;
+    }
+    // Clear level-imposed tool/pattern restrictions.
+    if (this.drawTools) {
+      this.drawTools.setLevelToolRestriction(null);
+      this.drawTools.setLevelPatternRestriction(null);
+    }
+    // Clear custom bases/spawners from missiles module.
+    if (this.missiles) {
+      this.missiles.setCustomBases([]);
+      this.missiles.setCustomSpawners([]);
+    }
     // Acquire wake lock so the screen stays on during gameplay.
     requestWakeLock();
     // Apply any pending settings (may have changed resolution / gliders).
@@ -2015,6 +2066,39 @@ class Game {
     this._announceWave(1);
     this.gameState.set(STATE.PLAYING);
     this.hideOverlay();
+    // Apply starting speed from CONFIG.STARTING_SPEED. This must happen AFTER
+    // settings.apply() above, so it picks up any user-configured starting speed.
+    const startSpeed = CONFIG.STARTING_SPEED != null ? CONFIG.STARTING_SPEED : 1.0;
+    CONFIG.SPEED_MULTIPLIER = startSpeed;
+    Logger.info(`[Game] Default game starting speed: ${startSpeed}x`);
+    if (this.speedSlider) {
+      const startIdx = SPEED_PRESETS.findIndex((p) => p.value === startSpeed);
+      let idx;
+      if (startIdx >= 0) {
+        idx = startIdx;
+      } else {
+        // Find closest preset.
+        let bestIdx = SPEED_PRESETS.findIndex((p) => p.value === 1.0);
+        let bestDiff = Infinity;
+        SPEED_PRESETS.forEach((p, i) => {
+          const diff = Math.abs(p.value - startSpeed);
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            bestIdx = i;
+          }
+        });
+        idx = bestIdx;
+      }
+      this.speedSlider.value = String(idx);
+      this._applySpeedFromSlider();
+      if (startSpeed === 0) {
+        this._prePauseIdx = SPEED_PRESETS.findIndex((p) => p.value === 1.0);
+      }
+      Logger.info(
+        `[Game] Speed slider set to idx=${idx} (${SPEED_PRESETS[idx].name}), ` +
+          `CONFIG.SPEED_MULTIPLIER=${CONFIG.SPEED_MULTIPLIER}x`
+      );
+    }
     // Install/uninstall free-play abilities based on mode.
     if (this.story && this.story.isActive()) {
       // Story mode owns the ability button; ensure free-play is uninstalled.
@@ -2129,6 +2213,10 @@ class Game {
     Logger.info(
       `Game over. Score=${this.hud.score}, wave=${this.hud.wave}, high=${this.hud.highScore}.`
     );
+    // If this was a custom level, override "Play Again" to replay the level
+    // rather than fall back to the default game mode.
+    const wasCustomLevel = this._activeCustomLevel;
+    const customLevelName = wasCustomLevel ? wasCustomLevel.name : null;
     this.showOverlay(
       'Game Over',
       `All cities destroyed!<br><br>
@@ -2137,6 +2225,15 @@ class Game {
                  High Score: ${this.hud.highScore}`,
       'Play Again'
     );
+    if (customLevelName) {
+      // Replace the start button handler temporarily to replay the level.
+      const btn = this.startButton;
+      const origHandler = btn.onclick;
+      btn.onclick = () => {
+        btn.onclick = origHandler;
+        this.startCustomLevel(customLevelName);
+      };
+    }
   }
 
   _loop(time) {
@@ -2302,6 +2399,7 @@ class Game {
     releaseWakeLock();
     this.gameState.set(STATE.GAME_OVER);
     const levelName = this._activeCustomLevel.name || 'Custom Level';
+    const customLevelToReplay = this._activeCustomLevel.name;
     this.showOverlay(
       '🏆 VICTORY!',
       `You completed <strong>${levelName}</strong>!<br><br>
@@ -2309,16 +2407,38 @@ class Game {
        Cities saved: <strong>${this.cities.aliveCount()}</strong><br>
        Final Score: <strong>${this.hud.score}</strong><br>
        High Score: ${this.hud.highScore}`,
-      'Back to Menu'
+      'Play Again'
     );
-    // Replace start button handler temporarily.
+    // Replace start button handler to replay the same custom level.
     const btn = this.startButton;
     const origHandler = btn.onclick;
     btn.onclick = () => {
       btn.onclick = origHandler;
       this._customVictoryShown = false;
-      this.exitToMenu();
+      if (customLevelToReplay) {
+        this.startCustomLevel(customLevelToReplay);
+      } else {
+        this.exitToMenu();
+      }
     };
+    // Add a secondary "Back to Menu" link in the overlay message.
+    setTimeout(() => {
+      const msg = this.overlayMessage;
+      if (msg && !msg.querySelector('.victory-menu-link')) {
+        const link = document.createElement('div');
+        link.className = 'victory-menu-link';
+        link.style.cssText = 'margin-top:16px;';
+        link.innerHTML =
+          '<a href="#" style="color:#88aaff;text-decoration:underline;font-size:13px;">← Back to Main Menu</a>';
+        link.querySelector('a').addEventListener('click', (e) => {
+          e.preventDefault();
+          btn.onclick = origHandler;
+          this._customVictoryShown = false;
+          this.exitToMenu();
+        });
+        msg.appendChild(link);
+      }
+    }, 0);
   }
 }
 

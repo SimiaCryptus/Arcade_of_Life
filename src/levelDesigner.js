@@ -1175,7 +1175,9 @@ export class LevelDesigner {
     if (this.wrapVerticalShift && this.wrapVerticalShift !== 0) {
       ctx.strokeStyle = 'rgba(255, 200, 80, 0.6)';
       ctx.setLineDash([2, 2]);
-      const shiftPx = this.wrapVerticalShift * cs;
+      // Display direction is inverted: when going off the east edge,
+      // positive shift values move the wrap target DOWN.
+      const shiftPx = -this.wrapVerticalShift * cs;
       // East edge arrow indicator.
       ctx.beginPath();
       ctx.moveTo(w - 4, (this.gridHeight * cs) / 2);
@@ -2028,14 +2030,7 @@ export class LevelDesigner {
     const sections = [
       {
         title: '🎮 Gameplay',
-        keys: [
-          'INITIAL_INK',
-          'MAX_INK',
-          'INK_REGEN_RATE',
-          'CLEAR_REFUND_FRACTION',
-          'HARDCORE_MODE',
-          'STARTING_SPEED',
-        ],
+        keys: ['HARDCORE_MODE', 'STARTING_SPEED'],
       },
       {
         title: '🚀 Enemy Pacing',
@@ -2046,8 +2041,12 @@ export class LevelDesigner {
         keys: ['BASE_ZONE_HEIGHT', 'BASE_GLIDER_BUFFER'],
       },
       {
-        title: '✏️ Drawing',
+        title: '✏️ Drawing & Ink',
         keys: [
+          'INITIAL_INK',
+          'MAX_INK',
+          'INK_REGEN_RATE',
+          'CLEAR_REFUND_FRACTION',
           'INK_DRY_TICKS',
           'DRAW_ZONE_FRACTION',
           'REAR_DEAD_ZONE_HEIGHT',
@@ -2162,9 +2161,17 @@ export class LevelDesigner {
     input.min = String(ranges.min);
     input.max = String(ranges.max);
     input.step = String(ranges.step);
+    const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
     const initialValue =
       this.levelSettings[def.key] != null ? this.levelSettings[def.key] : CONFIG[def.key];
-    input.value = String(initialValue);
+    // If the initial value is the unlimited sentinel, show a reasonable
+    // default on the slider (the slider value is irrelevant when the
+    // unlimited checkbox is checked, but it should still be visible).
+    const isInitiallyUnlimited = initialValue >= UNLIMITED;
+    const sliderDefault = isInitiallyUnlimited
+      ? this._getDefaultForKey(def.key, ranges)
+      : initialValue;
+    input.value = String(sliderDefault);
     controls.appendChild(input);
     // Numeric input for precise entry.
     const numInput = document.createElement('input');
@@ -2173,7 +2180,7 @@ export class LevelDesigner {
     numInput.min = String(ranges.min);
     numInput.max = String(ranges.max);
     numInput.step = String(ranges.step);
-    numInput.value = String(initialValue);
+    numInput.value = String(sliderDefault);
     controls.appendChild(numInput);
     // Optional infinity toggle for "max age" / "unlimited" style keys.
     const unlimitedKey = this._getUnlimitedKeyFor(def.key);
@@ -2184,7 +2191,20 @@ export class LevelDesigner {
       infLabel.title = 'Set to unlimited (∞)';
       infCheckbox = document.createElement('input');
       infCheckbox.type = 'checkbox';
-      infCheckbox.checked = !!this.levelSettings[unlimitedKey];
+      // Check the unlimited box if either the explicit flag is set OR
+      // the numeric value is at/above the sentinel.
+      const explicitUnlimited = !!this.levelSettings[unlimitedKey];
+      infCheckbox.checked = explicitUnlimited || isInitiallyUnlimited;
+      // Sync the flag back into levelSettings so save reflects reality.
+      if (isInitiallyUnlimited && !explicitUnlimited) {
+        this.levelSettings[unlimitedKey] = true;
+      }
+      // If we detected unlimited via sentinel value, also reset the
+      // actual setting to the slider default so the saved level doesn't
+      // carry the sentinel through both fields.
+      if (isInitiallyUnlimited) {
+        this.levelSettings[def.key] = sliderDefault;
+      }
       infLabel.appendChild(infCheckbox);
       const txt = document.createElement('span');
       txt.textContent = ' ∞';
@@ -2210,8 +2230,7 @@ export class LevelDesigner {
       }
     }
     row.appendChild(controls);
-    valueEl.textContent =
-      infCheckbox && infCheckbox.checked ? '∞' : def.format(parseFloat(input.value));
+    valueEl.textContent = infCheckbox && infCheckbox.checked ? '∞' : def.format(sliderDefault);
     row.appendChild(valueEl);
     // Sync handlers: slider ↔ numeric input.
     input.addEventListener('input', () => {
@@ -2311,8 +2330,8 @@ export class LevelDesigner {
   _guessSliderRange(key) {
     const ranges = {
       INITIAL_INK: { min: 50, max: 9999, step: 10 },
-      MAX_INK: { min: 100, max: 9999, step: 10 },
-      INK_REGEN_RATE: { min: 0, max: 10, step: 0.1 },
+      MAX_INK: { min: 100, max: 2000, step: 10 },
+      INK_REGEN_RATE: { min: 0, max: 20, step: 0.1 },
       INK_DRY_TICKS: { min: 0, max: 30, step: 1 },
       TICK_RATE: { min: 40, max: 300, step: 10 },
       STARTING_SPEED: { min: 0.25, max: 8.0, step: 0.25 },
@@ -2329,7 +2348,7 @@ export class LevelDesigner {
       DEFENSE_AGE_ENEMY: { min: 20, max: 2000, step: 10 },
       MISSILE_AGE_FRIENDLY: { min: 20, max: 2000, step: 10 },
       MISSILE_AGE_ENEMY: { min: 20, max: 2000, step: 10 },
-      MISSILE_CASCADE_TICKS: { min: 0, max: 100, step: 1 },
+      MISSILE_CASCADE_TICKS: { min: 0, max: 200, step: 1 },
       CLEAR_REFUND_FRACTION: { min: 0, max: 1, step: 0.05 },
       DRAW_ZONE_FRACTION: { min: 0.2, max: 0.8, step: 0.05 },
       REAR_DEAD_ZONE_HEIGHT: { min: 0, max: 10, step: 1 },
@@ -2366,6 +2385,25 @@ export class LevelDesigner {
     }
     return ranges[key] || { min: 0, max: 1000, step: 1 };
   }
+  // Get a sensible default slider value for a setting key. Used to populate
+  // the slider when the actual value is "unlimited" (sentinel) so the
+  // slider shows something meaningful when the user unchecks ∞.
+  _getDefaultForKey(key, ranges) {
+    const defaults = {
+      MAX_INK: 300,
+      INK_REGEN_RATE: 0.5,
+      CELL_MAX_AGE_TICKS: 200,
+      MISSILE_MAX_AGE_TICKS: 200,
+      DEFENSE_AGE_FRIENDLY: 200,
+      DEFENSE_AGE_ENEMY: 200,
+      MISSILE_AGE_FRIENDLY: 200,
+      MISSILE_AGE_ENEMY: 200,
+      MISSILE_CASCADE_TICKS: 20,
+    };
+    if (defaults[key] != null) return defaults[key];
+    // Fall back to midpoint of the slider range.
+    return Math.round((ranges.min + ranges.max) / 2);
+  }
   // Convert a CONFIG key like "MISSILES_PER_WAVE_BASE" → "Missiles Per Wave (Base)".
   _humanizeKey(key) {
     return key
@@ -2393,14 +2431,26 @@ export class LevelDesigner {
   // Push this.levelSettings into the UI.
   _syncSettingsPanelFromState() {
     if (!this._settingsInputs) return;
+    const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
     for (const [key, entry] of Object.entries(this._settingsInputs)) {
       const v = this.levelSettings[key] != null ? this.levelSettings[key] : CONFIG[key];
       if (entry.type === 'slider') {
-        entry.input.value = String(v);
-        if (entry.numInput) entry.numInput.value = String(v);
+        // If the value is at/above the unlimited sentinel, show a default
+        // on the slider instead of the sentinel value.
+        const isUnlimited = v >= UNLIMITED;
+        const ranges = this._guessSliderRange(key);
+        const displayValue = isUnlimited ? this._getDefaultForKey(key, ranges) : v;
+        entry.input.value = String(displayValue);
+        if (entry.numInput) entry.numInput.value = String(displayValue);
         if (entry.infCheckbox && entry.unlimitedKey) {
-          const inf = !!this.levelSettings[entry.unlimitedKey];
+          const explicitInf = !!this.levelSettings[entry.unlimitedKey];
+          const inf = explicitInf || isUnlimited;
           entry.infCheckbox.checked = inf;
+          // Sync the flag if we detected unlimited via sentinel.
+          if (isUnlimited && !explicitInf) {
+            this.levelSettings[entry.unlimitedKey] = true;
+            this.levelSettings[key] = displayValue;
+          }
           entry.input.disabled = inf;
           if (entry.numInput) entry.numInput.disabled = inf;
           entry.input.style.opacity = inf ? '0.35' : '';
@@ -2408,7 +2458,7 @@ export class LevelDesigner {
         }
         if (entry.valueEl && entry.def) {
           const inf = entry.infCheckbox && entry.infCheckbox.checked;
-          entry.valueEl.textContent = inf ? '∞' : entry.def.format(v);
+          entry.valueEl.textContent = inf ? '∞' : entry.def.format(displayValue);
         }
       } else if (entry.type === 'bool') {
         entry.input.checked = !!v;

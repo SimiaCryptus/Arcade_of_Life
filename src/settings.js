@@ -51,6 +51,7 @@ export const SETTING_DEFS = [
   { key: 'MAX_INK', id: 'setting-max-ink', format: (v) => v },
   { key: 'INK_REGEN_RATE', id: 'setting-ink-regen', format: (v) => v.toFixed(1) },
   { key: 'TICK_RATE', id: 'setting-tick-rate', format: (v) => v },
+  { key: 'STARTING_SPEED', id: 'setting-starting-speed', format: (v) => `${v.toFixed(2)}x` },
   { key: 'DEFENDER_TICKS', id: 'setting-defender-ticks', format: (v) => `${v}` },
   { key: 'ATTACKER_TICKS', id: 'setting-attacker-ticks', format: (v) => `${v}` },
   { key: 'MISSILES_PER_WAVE_BASE', id: 'setting-missiles-base', format: (v) => v },

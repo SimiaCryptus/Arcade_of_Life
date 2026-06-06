@@ -610,36 +610,6 @@
                 </div>
                 <span class="setting-value">&nbsp;</span>
               </div>
-              <div class="setting-row">
-                <label for="setting-ink">Starting Ink</label>
-                <input id="setting-ink" max="500" min="50" step="10" type="range" />
-                <span class="setting-value" id="setting-ink-value"></span>
-              </div>
-              <div class="setting-row">
-                <label for="setting-max-ink">Max Ink</label>
-                <div class="setting-slider-row">
-                  <input id="setting-max-ink" max="800" min="100" step="10" type="range" />
-                  <label class="unlimited-label" title="No ink cap">
-                    <input id="setting-unlimited-max-ink" type="checkbox" /> ∞
-                  </label>
-                </div>
-                <span class="setting-value" id="setting-max-ink-value"></span>
-              </div>
-              <div class="setting-row">
-                <label for="setting-ink-regen">Ink Regen / Tick</label>
-                <div class="setting-slider-row">
-                  <input id="setting-ink-regen" max="3" min="0" step="0.1" type="range" />
-                  <label class="unlimited-label" title="Infinite regen">
-                    <input id="setting-unlimited-ink-regen" type="checkbox" /> ∞
-                  </label>
-                </div>
-                <span class="setting-value" id="setting-ink-regen-value"></span>
-              </div>
-              <div class="setting-row">
-                <label for="setting-clear-refund">Clear Defenses Refund</label>
-                <input id="setting-clear-refund" max="1" min="0" step="0.05" type="range" />
-                <span class="setting-value" id="setting-clear-refund-value"></span>
-              </div>
               <div class="setting-row setting-row-checks">
                 <label>Friendly Fire</label>
                 <div class="setting-checkboxes">
@@ -768,6 +738,38 @@
 
             <!-- ===== DRAWING TAB ===== -->
             <div class="settings-tab-panel" data-panel="drawing">
+              <div class="setting-section-header">Ink Economy</div>
+              <div class="setting-row">
+                <label for="setting-ink">Starting Ink</label>
+                <input id="setting-ink" max="500" min="50" step="10" type="range" />
+                <span class="setting-value" id="setting-ink-value"></span>
+              </div>
+              <div class="setting-row">
+                <label for="setting-max-ink">Max Ink</label>
+                <div class="setting-slider-row">
+                  <input id="setting-max-ink" max="800" min="100" step="10" type="range" />
+                  <label class="unlimited-label" title="No ink cap">
+                    <input id="setting-unlimited-max-ink" type="checkbox" /> ∞
+                  </label>
+                </div>
+                <span class="setting-value" id="setting-max-ink-value"></span>
+              </div>
+              <div class="setting-row">
+                <label for="setting-ink-regen">Ink Regen / Tick</label>
+                <div class="setting-slider-row">
+                  <input id="setting-ink-regen" max="3" min="0" step="0.1" type="range" />
+                  <label class="unlimited-label" title="Infinite regen">
+                    <input id="setting-unlimited-ink-regen" type="checkbox" /> ∞
+                  </label>
+                </div>
+                <span class="setting-value" id="setting-ink-regen-value"></span>
+              </div>
+              <div class="setting-row">
+                <label for="setting-clear-refund">Clear Defenses Refund</label>
+                <input id="setting-clear-refund" max="1" min="0" step="0.05" type="range" />
+                <span class="setting-value" id="setting-clear-refund-value"></span>
+              </div>
+              <div class="setting-section-header">Drawing Mechanics</div>
               <div class="setting-row">
                 <label for="setting-ink-dry">Ink Drying Time (ticks)</label>
                 <input id="setting-ink-dry" max="30" min="0" step="1" type="range" />

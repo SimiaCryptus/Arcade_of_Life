@@ -199,10 +199,10 @@ export class CpuSimBackend {
           let ny = y + dy;
           if (vShift !== 0) {
             if (nx < 0) {
-              ny -= vShift;
+              ny += vShift;
               nx = ((nx % w) + w) % w;
             } else if (nx >= w) {
-              ny += vShift;
+              ny -= vShift;
               nx = nx % w;
             }
           } else {

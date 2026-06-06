@@ -80,11 +80,11 @@ export class Grid {
       if (x >= w) {
         const wraps = Math.floor(x / w);
         nx = x - wraps * w;
-        ny = y + wraps * shift;
+        ny = y - wraps * shift;
       } else if (x < 0) {
         const wraps = Math.ceil(-x / w);
         nx = x + wraps * w;
-        ny = y - wraps * shift;
+        ny = y + wraps * shift;
       }
     } else {
       nx = ((x % w) + w) % w;

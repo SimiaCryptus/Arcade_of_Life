@@ -405,6 +405,9 @@ export class InputManager {
 
   // Place a "brush" of given line width around (gx, gy).
   // The dash counter advances once per brush (not per painted cell).
+  // Ink is charged per brush stamp position rather than per painted cell,
+  // so a width-3 brush costs the same as width-1 for any given path.
+  // This makes thick brushes practical without burning through ink.
   _placeBrush(gx, gy) {
     const w = this.lineWidth;
     if (!this._dashEmit()) {
@@ -414,13 +417,35 @@ export class InputManager {
       this._placePending(gx, gy, false);
       return;
     }
-    // Square brush centered on cell.
+    // Square brush centered on cell. Ink is consumed only ONCE per
+    // brush position, not per cell painted, to keep thick brushes
+    // economical. We still place each cell as pending, but only
+    // charge ink for the first one that actually gets placed.
     const half = Math.floor(w / 2);
+    let firstPlaced = false;
     for (let dy = -half; dy <= half; dy++) {
       for (let dx = -half; dx <= half; dx++) {
-        this._placePending(gx + dx, gy + dy, false);
+        if (!firstPlaced) {
+          if (this._placePending(gx + dx, gy + dy, false)) {
+            firstPlaced = true;
+          }
+        } else {
+          this._placePendingNoCost(gx + dx, gy + dy);
+        }
       }
     }
+  }
+  // Place a single cell as pending WITHOUT charging ink. Used by brush
+  // expansion so thick brushes don't bankrupt the player. Still respects
+  // bounds, draw zone, and occupancy.
+  _placePendingNoCost(gx, gy) {
+    if (!this._isDrawZone(gy)) return false;
+    if (!this.grid.inBounds(gx, gy)) return false;
+    if (this.grid.getPending(gx, gy)) return false;
+    if (this.grid.get(gx, gy) !== CELL_TYPE.EMPTY) return false;
+    this.grid.setPending(gx, gy, 1);
+    this.placedThisDrag.push({ x: this.grid.wrapX(gx), y: gy });
+    return true;
   }
 
   // Returns true if the dash pattern says "emit a brush at this step".
