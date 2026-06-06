@@ -295,6 +295,12 @@ export class Simulation {
             annihilated[i] = 1;
             this._annihilateNeighborsOfType(x, y, CELL_TYPE.CITY, 2, 'missile');
           }
+          // Missiles hitting barriers are destroyed; the barrier stays.
+          if (this._countNeighborsOfType(x, y, CELL_TYPE.BARRIER) > 0) {
+            annihilated[i] = 1;
+            if (this.onMissileDestroyed) this.onMissileDestroyed();
+            if (this.onAnnihilation) this.onAnnihilation(x, y);
+          }
         } else if (t === CELL_TYPE.DEFENSE && hardcore) {
           if (freezeDefenses) continue;
           if (this._countCityNeighbors(x, y) > 0) {
@@ -401,6 +407,12 @@ export class Simulation {
           } else {
             next[i] = CELL_TYPE.CITY;
           }
+          continue;
+        }
+        // Barrier: static, immune to all rules. Persists forever and
+        // blocks missile cells from being birthed in its cell.
+        if (t === CELL_TYPE.BARRIER) {
+          next[i] = CELL_TYPE.BARRIER;
           continue;
         }
 
@@ -669,6 +681,11 @@ export class Simulation {
           }
           continue;
         }
+        // Barrier: static, immune.
+        if (t === CELL_TYPE.BARRIER) {
+          next[i] = CELL_TYPE.BARRIER;
+          continue;
+        }
         if (t === CELL_TYPE.EXPLOSION) {
           if (g.explosionTimers[i] > 0) {
             g.explosionTimers[i]--;
@@ -819,6 +836,32 @@ export class Simulation {
         nx = ((nx % w) + w) % w;
         if (ny < 0 || ny >= h) continue;
         if (cells[ny * w + nx] === CELL_TYPE.CITY) count++;
+      }
+    }
+    return count;
+  }
+  // Generic neighbor counter for a specific cell type. Used by barrier
+  // collision (and reusable for any other "any neighbor of this type?"
+  // check).
+  _countNeighborsOfType(x, y, type) {
+    const g = this.grid;
+    const w = g.width;
+    const h = g.height;
+    const cells = g.cells;
+    const shift = g.wrapVerticalShift | 0;
+    let count = 0;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        let nx = x + dx;
+        let ny = y + dy;
+        if (shift !== 0) {
+          if (nx < 0) ny += shift;
+          else if (nx >= w) ny -= shift;
+        }
+        nx = ((nx % w) + w) % w;
+        if (ny < 0 || ny >= h) continue;
+        if (cells[ny * w + nx] === type) count++;
       }
     }
     return count;

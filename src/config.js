@@ -222,6 +222,7 @@ export const CELL_TYPE = {
   CITY: 3,
   EXPLOSION: 4,
   PENDING: 5,
+  BARRIER: 6,
 };
 /**
  * Preset game modes. Each entry patches a subset of CONFIG keys.

@@ -2073,6 +2073,15 @@ class Game {
         this.grid.cellColor[i] = (Math.random() * defenseVariants) | 0;
       }
     }
+    // Place custom barrier cells (static tiles, immune to Life rules).
+    for (const [x, y] of level.barriers || []) {
+      if (this.grid.inBounds(x, y) && this.grid.get(x, y) === CELL_TYPE.EMPTY) {
+        this.grid.set(x, y, CELL_TYPE.BARRIER);
+        const i = y * this.grid.width + this.grid.wrapX(x);
+        this.grid.cellAge[i] = 0;
+        this.grid.cellColor[i] = 0;
+      }
+    }
     // Inject custom-designed bases & spawners into the missiles module.
     this.missiles.setCustomBases(level.bases || []);
     this.missiles.setCustomSpawners(level.spawners || []);

@@ -67,6 +67,10 @@ export class LevelDesigner {
     this.topologyId = 'square';
     this.cities = []; // {x, y, width, height}
     this.defenseCells = new Set(); // "x,y" keys
+    this.barrierCells = new Set(); // "x,y" keys — static barrier tiles
+    // Paint target for freehand / line / fill tools.
+    // 'defense' paints into defenseCells; 'barrier' paints into barrierCells.
+    this.paintTarget = 'defense';
     // Wrap settings.
     this.wrapVerticalShift = 0;
     // Bases from the zoo. Each entry is
@@ -130,7 +134,7 @@ export class LevelDesigner {
             <div id="ld-toolbar">
               <div class="ld-tool-group">
                 <label>Tool:</label>
-                <button class="ld-mode-btn active" data-mode="defense" title="Paint defense cells">✏ Defense</button>
+                 <button class="ld-mode-btn active" data-mode="defense" title="Paint cells (defense or barrier — choose below)">✏ Draw</button>
                  <button class="ld-mode-btn" data-mode="line" title="Straight line">📏 Line</button>
                  <button class="ld-mode-btn" data-mode="fill" title="Region fill">🪣 Fill</button>
                 <button class="ld-mode-btn" data-mode="city" title="Place city">🏙 City</button>
@@ -139,6 +143,11 @@ export class LevelDesigner {
                   <button class="ld-mode-btn" data-mode="spawner" title="Place missile spawn point (pattern from Zoo)">🚀 Spawner</button>
                 <button class="ld-mode-btn" data-mode="erase" title="Erase">🧹 Erase</button>
               </div>
+               <div class="ld-tool-group" id="ld-paint-target-group">
+                 <label>Paint as:</label>
+                  <button class="ld-target-btn active" data-target="defense" title="Paint living defense cells (cyan)">✏ Defense</button>
+                  <button class="ld-target-btn" data-target="barrier" title="Paint static barrier tiles (gray) — never change, block missiles, partition the board">🧱 Barrier</button>
+               </div>
                <div class="ld-tool-group" id="ld-pattern-selector" style="display:none;">
                  <label>Stamp:</label>
                  <span id="ld-pattern-name" style="color:#00ffcc;font-weight:bold;min-width:120px;display:inline-block;">— none —</span>
@@ -260,6 +269,7 @@ export class LevelDesigner {
                   <div class="ld-stats">
                     <div>Cities: <strong id="ld-stat-cities">0</strong></div>
                     <div>Defense cells: <strong id="ld-stat-defense">0</strong></div>
+                     <div>Barriers: <strong id="ld-stat-barriers">0</strong></div>
                     <div>Bases: <strong id="ld-stat-bases">0</strong></div>
                     <div>Spawners: <strong id="ld-stat-spawners">0</strong></div>
                   </div>
@@ -445,6 +455,9 @@ export class LevelDesigner {
     // Mode buttons.
     ov.querySelectorAll('.ld-mode-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
+        // Defense-in-depth: ignore if this is a paint-target button that
+        // happens to also have ld-mode-btn for styling.
+        if (!btn.dataset.mode) return;
         this.mode = btn.dataset.mode;
         ov.querySelectorAll('.ld-mode-btn').forEach((b) => b.classList.toggle('active', b === btn));
         ov.querySelector('#ld-pattern-selector').style.display =
@@ -457,11 +470,29 @@ export class LevelDesigner {
           this.mode === DESIGNER_MODE.LINE ? 'flex' : 'none';
         ov.querySelector('#ld-fill-tools').style.display =
           this.mode === DESIGNER_MODE.FILL ? 'flex' : 'none';
+        // Paint target only matters for cell-painting tools.
+        const usesPaintTarget =
+          this.mode === DESIGNER_MODE.DEFENSE ||
+          this.mode === DESIGNER_MODE.LINE ||
+          this.mode === DESIGNER_MODE.FILL;
+        ov.querySelector('#ld-paint-target-group').style.display = usesPaintTarget
+          ? 'flex'
+          : 'none';
         // Cancel any in-progress line/fill drag when switching modes.
         this._lineStart = null;
         this._linePreview = null;
         this._fillStart = null;
         this._fillPreview = null;
+        this._draw();
+      });
+    });
+    // Paint-target toggle buttons (Defense vs Barrier).
+    ov.querySelectorAll('.ld-target-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.paintTarget = btn.dataset.target;
+        ov.querySelectorAll('.ld-target-btn').forEach((b) =>
+          b.classList.toggle('active', b === btn)
+        );
         this._draw();
       });
     });
@@ -587,9 +618,10 @@ export class LevelDesigner {
     }
     // Clear all.
     ov.querySelector('#ld-clear-btn').addEventListener('click', () => {
-      if (!confirm('Clear all cities, defenses, and bases?')) return;
+      if (!confirm('Clear all cities, defenses, barriers, and bases?')) return;
       this.cities = [];
       this.defenseCells.clear();
+      this.barrierCells.clear();
       this.bases = [];
       this.spawners = [];
       this._draw();
@@ -605,15 +637,23 @@ export class LevelDesigner {
     window.addEventListener('pointerup', () => {
       // Commit line / fill on release.
       if (this._lineStart && this._linePreview) {
+        const targetSet = this.paintTarget === 'barrier' ? this.barrierCells : this.defenseCells;
+        const otherSet = this.paintTarget === 'barrier' ? this.defenseCells : this.barrierCells;
         for (const [x, y] of this._linePreview) {
-          this.defenseCells.add(`${x},${y}`);
+          const key = `${x},${y}`;
+          targetSet.add(key);
+          otherSet.delete(key);
         }
         this._lineStart = null;
         this._linePreview = null;
       }
       if (this._fillStart && this._fillPreview) {
+        const targetSet = this.paintTarget === 'barrier' ? this.barrierCells : this.defenseCells;
+        const otherSet = this.paintTarget === 'barrier' ? this.defenseCells : this.barrierCells;
         for (const [x, y] of this._fillPreview) {
-          this.defenseCells.add(`${x},${y}`);
+          const key = `${x},${y}`;
+          targetSet.add(key);
+          otherSet.delete(key);
         }
         this._fillStart = null;
         this._fillPreview = null;
@@ -884,6 +924,8 @@ export class LevelDesigner {
   }
 
   _paintBrush(x, y, add) {
+    const targetSet = this.paintTarget === 'barrier' ? this.barrierCells : this.defenseCells;
+    const otherSet = this.paintTarget === 'barrier' ? this.defenseCells : this.barrierCells;
     const r = Math.floor(this.brushSize / 2);
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
@@ -891,8 +933,13 @@ export class LevelDesigner {
         const py = y + dy;
         if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
         const key = `${px},${py}`;
-        if (add) this.defenseCells.add(key);
-        else this.defenseCells.delete(key);
+        if (add) {
+          targetSet.add(key);
+          // Defense and Barrier are mutually exclusive at the same cell.
+          otherSet.delete(key);
+        } else {
+          targetSet.delete(key);
+        }
       }
     }
   }
@@ -1195,10 +1242,11 @@ export class LevelDesigner {
 
   _eraseAt(x, y) {
     const r = Math.floor(this.brushSize / 2);
-    // Remove defense cells.
+    // Remove defense cells and barrier tiles.
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
         this.defenseCells.delete(`${x + dx},${y + dy}`);
+        this.barrierCells.delete(`${x + dx},${y + dy}`);
       }
     }
     // Remove cities under cursor.
@@ -1225,6 +1273,12 @@ export class LevelDesigner {
       if (x < this.gridWidth && y < this.gridHeight) newDefense.add(key);
     }
     this.defenseCells = newDefense;
+    const newBarriers = new Set();
+    for (const key of this.barrierCells) {
+      const [x, y] = key.split(',').map(Number);
+      if (x < this.gridWidth && y < this.gridHeight) newBarriers.add(key);
+    }
+    this.barrierCells = newBarriers;
     this.bases = this.bases.filter(
       (pb) => pb.x + pb.width <= this.gridWidth && pb.y + pb.height <= this.gridHeight
     );
@@ -1378,6 +1432,13 @@ export class LevelDesigner {
         ctx.fillStyle = 'rgba(255, 100, 100, 0.85)';
         ctx.fillText('▲ REAR DEAD ZONE', 4, (dzMaxY + 1) * cs + 2);
       }
+    }
+    // Barriers — static stone-gray tiles. Drawn before defenses so live
+    // defense glow paints over them on the rare chance of overlap.
+    const barrierColor = (this.colorTheme && this.colorTheme.CELL_BARRIER) || '#a0a0a0';
+    for (const key of this.barrierCells) {
+      const [x, y] = key.split(',').map(Number);
+      this._fillCell(ctx, x, y, barrierColor);
     }
     // Defense cells.
     ctx.fillStyle = '#00ff88';
@@ -1542,17 +1603,24 @@ export class LevelDesigner {
     const cs = this.cellSize;
     const hover = this._hoverCell;
     const pulse = 0.55 + 0.15 * Math.sin(performance.now() / 200);
+    // Pick a preview color tuple based on the active paint target.
+    // Cyan-ish for defense, neutral gray for barrier.
+    const previewRgbDefense = '0, 255, 200';
+    const previewRgbBarrier = '180, 180, 180';
+    const isBarrier = this.paintTarget === 'barrier';
+    const cellPreviewRgb = isBarrier ? previewRgbBarrier : previewRgbDefense;
     // Line preview (during drag).
     if (this.mode === DESIGNER_MODE.LINE && this._linePreview && this._linePreview.length > 0) {
       for (const [x, y] of this._linePreview) {
-        this._fillCell(ctx, x, y, `rgba(0, 255, 200, ${pulse})`);
+        this._fillCell(ctx, x, y, `rgba(${cellPreviewRgb}, ${pulse})`);
       }
       return;
     }
     // Fill preview (during drag).
     if (this.mode === DESIGNER_MODE.FILL && this._fillPreview && this._fillPreview.length > 0) {
+      const fillRgb = isBarrier ? previewRgbBarrier : '255, 200, 80';
       for (const [x, y] of this._fillPreview) {
-        this._fillCell(ctx, x, y, `rgba(255, 200, 80, ${pulse * 0.8})`);
+        this._fillCell(ctx, x, y, `rgba(${fillRgb}, ${pulse * 0.8})`);
       }
       return;
     }
@@ -1658,8 +1726,9 @@ export class LevelDesigner {
     // Defense brush preview (freehand mode).
     if (this.mode === DESIGNER_MODE.DEFENSE) {
       const r = Math.floor(this.brushSize / 2);
+      const brushRgb = isBarrier ? '180, 180, 180' : '0, 255, 136';
       if (this.topologyId === 'square') {
-        ctx.strokeStyle = `rgba(0, 255, 136, ${pulse * 0.6})`;
+        ctx.strokeStyle = `rgba(${brushRgb}, ${pulse * 0.6})`;
         ctx.lineWidth = 1;
         ctx.strokeRect((hover.x - r) * cs, (hover.y - r) * cs, (r * 2 + 1) * cs, (r * 2 + 1) * cs);
       } else {
@@ -1668,7 +1737,7 @@ export class LevelDesigner {
             const px = hover.x + dx;
             const py = hover.y + dy;
             if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
-            this._fillCell(ctx, px, py, `rgba(0, 255, 136, ${pulse * 0.3})`);
+            this._fillCell(ctx, px, py, `rgba(${brushRgb}, ${pulse * 0.3})`);
           }
         }
       }
@@ -1683,6 +1752,8 @@ export class LevelDesigner {
     ov.querySelector('#ld-stat-bases').textContent = String(this.bases.length);
     const spEl = ov.querySelector('#ld-stat-spawners');
     if (spEl) spEl.textContent = String(this.spawners.length);
+    const baEl = ov.querySelector('#ld-stat-barriers');
+    if (baEl) baEl.textContent = String(this.barrierCells.size);
   }
 
   // ── Save / Load / Export ──────────────────────────────────────
@@ -1694,6 +1765,7 @@ export class LevelDesigner {
       gridHeight: this.gridHeight,
       cities: this.cities.map((c) => ({ ...c })),
       defenses: Array.from(this.defenseCells).map((k) => k.split(',').map(Number)),
+      barriers: Array.from(this.barrierCells).map((k) => k.split(',').map(Number)),
       bases: this.bases.map((pb) => ({
         patternId: pb.patternId,
         name: pb.name,
@@ -1746,6 +1818,7 @@ export class LevelDesigner {
     this.gridHeight = level.gridHeight || 80;
     this.cities = (level.cities || []).map((c) => ({ ...c }));
     this.defenseCells = new Set((level.defenses || []).map(([x, y]) => `${x},${y}`));
+    this.barrierCells = new Set((level.barriers || []).map(([x, y]) => `${x},${y}`));
     // Migration: accept both new "bases" (zoo-pattern shape) and old
     // legacy "patternBases" key; the old "bases" with {kind, x, y} are
     // no longer supported and skipped.
