@@ -350,7 +350,37 @@ export class Simulation {
         }
       }
     }
-
+    // --- Step 3b: Death contagion. When AGE_CONTAGION_AMOUNT > 0,
+    // increment the age of neighbors of any cell that's about to die
+    // (whether from annihilation OR age expiry). This makes loss-tolerant
+    // patterns (oscillators, spaceships) gradually decay because each
+    // death accelerates aging of nearby cells.
+    const contagionAmount = CONFIG.AGE_CONTAGION_AMOUNT | 0;
+    if (contagionAmount > 0) {
+      for (let i = 0; i < cells.length; i++) {
+        const willDie = annihilated[i] || ageDespawn[i];
+        if (!willDie) continue;
+        const t = cells[i];
+        if (t !== CELL_TYPE.MISSILE && t !== CELL_TYPE.DEFENSE) continue;
+        const y = (i / w) | 0;
+        const x = i - y * w;
+        for (let dy = -1; dy <= 1; dy++) {
+          const ny = y + dy;
+          if (ny < 0 || ny >= h) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = (((x + dx) % w) + w) % w;
+            const ni = ny * w + nx;
+            const nt = cells[ni];
+            if (nt !== CELL_TYPE.MISSILE && nt !== CELL_TYPE.DEFENSE) continue;
+            if (annihilated[ni] || ageDespawn[ni]) continue;
+            // Bump current age so the next-pass survival check sees it.
+            const newAge = age[ni] + contagionAmount;
+            age[ni] = newAge > 255 ? 255 : newAge;
+          }
+        }
+      }
+    }
     // --- Step 4: Apply Life rules + custom rules in a single pass. ---
     for (let y = 0; y < h; y++) {
       const rowBase = y * w;

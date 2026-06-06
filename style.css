@@ -111,6 +111,77 @@ body {
   color: #ffcc44;
   box-shadow: none;
 }
+#restart-level-button {
+  background: transparent;
+  color: #ffaa44;
+  border: 1px solid #ffaa44;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 3px;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+#restart-level-button:hover {
+  background: #ffaa44;
+  color: #000010;
+  box-shadow: 0 0 10px #ffaa44;
+}
+/* ── Restart Level button ──────────────────────────────────────────────── */
+#restart-level-button {
+  background: linear-gradient(135deg, rgba(255, 136, 200, 0.15), rgba(180, 80, 255, 0.15));
+  color: #ff88c8;
+  border: 1px solid #ff88c8;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.25s ease;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+  text-shadow: 0 0 6px rgba(255, 136, 200, 0.4);
+}
+#restart-level-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 136, 200, 0.3), transparent);
+  transition: left 0.5s ease;
+}
+#restart-level-button:hover {
+  background: linear-gradient(135deg, #ff88c8, #b450ff);
+  color: #000010;
+  box-shadow:
+    0 0 14px #ff88c8,
+    0 0 24px rgba(180, 80, 255, 0.5);
+  transform: translateY(-1px);
+  text-shadow: none;
+}
+#restart-level-button:hover::before {
+  left: 100%;
+}
+#restart-level-button:active {
+  transform: translateY(0);
+  box-shadow: 0 0 8px #ff88c8;
+}
+#restart-level-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: transparent;
+}
+#restart-level-button:disabled:hover {
+  background: transparent;
+  color: #ff88c8;
+  box-shadow: none;
+  transform: none;
+}
 
 /* ── PWA install / update banners ──────────────────────────────────────── */
 #pwa-install-banner,
@@ -3421,61 +3492,80 @@ body {
   border-radius: 4px;
   padding: 2px;
   margin: 12px 0;
+  font-size: 12px;
 }
 
 .aging-matrix-row {
   display: grid;
-  grid-template-columns: 180px 1fr 1fr;
+  grid-template-columns: 110px 1fr 1fr;
   gap: 2px;
 }
 
 .aging-matrix-header {
   font-weight: bold;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 
 .aging-matrix-cell {
   background: #0a0a20;
-  padding: 10px 12px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
-  min-height: 56px;
+  gap: 4px;
+  min-height: 44px;
 }
 
 .aging-matrix-label {
   font-weight: bold;
   color: #c0c0d0;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .aging-matrix-region-friendly {
   color: #00ff88;
   text-shadow: 0 0 6px rgba(0, 255, 136, 0.4);
   text-align: center;
+  font-size: 11px;
 }
 
 .aging-matrix-region-enemy {
   color: #ff5050;
   text-shadow: 0 0 6px rgba(255, 80, 80, 0.4);
   text-align: center;
+  font-size: 11px;
 }
 
 .aging-matrix-type-defense {
   color: #00ff88;
+  font-size: 11px;
 }
 
 .aging-matrix-type-missile {
   color: #ff5050;
+  font-size: 11px;
 }
 
 .aging-matrix-cell .setting-value {
-  font-size: 12px;
+  font-size: 11px;
   text-align: right;
   align-self: flex-end;
+}
+/* Make slider rows inside matrix cells more compact */
+.aging-matrix-cell .setting-slider-row {
+  gap: 4px;
+}
+.aging-matrix-cell .setting-slider-row input[type='range'] {
+  min-width: 60px;
+}
+.aging-matrix-cell .unlimited-label {
+  font-size: 11px;
+}
+.aging-matrix-cell .unlimited-label input[type='checkbox'] {
+  width: 12px;
+  height: 12px;
 }
 
 @media (max-width: 720px) {

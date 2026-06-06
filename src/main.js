@@ -59,6 +59,8 @@ class Game {
     this.howToPlayIngameButton = document.getElementById('howtoplay-ingame-button');
     this.fullscreenButton = document.getElementById('fullscreen-button');
     this.stepForwardButton = document.getElementById('step-forward-button');
+    this.restartLevelButton = document.getElementById('restart-level-button');
+    this.restartLevelButton = document.getElementById('restart-level-button');
     this.patternZooButton = document.getElementById('pattern-zoo-button');
     this.patternZooIngameButton = document.getElementById('pattern-zoo-ingame-button');
     this.levelDesignerButton = document.getElementById('level-designer-button');
@@ -280,6 +282,10 @@ class Game {
     // Step-forward button: advance one simulation tick when paused.
     if (this.stepForwardButton) {
       this.stepForwardButton.addEventListener('click', () => this.stepForward());
+    }
+    // Restart-level button: re-run the current level (with confirmation).
+    if (this.restartLevelButton) {
+      this.restartLevelButton.addEventListener('click', () => this.restartLevel());
     }
 
     this._initSpeedControls();
@@ -1733,6 +1739,32 @@ class Game {
     this.levelDesigner.show();
   }
   /**
+   * Restart the current level (or default game) from scratch. Prompts
+   * for confirmation. If a custom level is active, re-launches it;
+   * otherwise starts a fresh default game.
+   */
+  restartLevel() {
+    const inGame =
+      this.gameState.is(STATE.PLAYING) ||
+      this.gameState.is(STATE.WAVE_TRANSITION) ||
+      this.gameState.is(STATE.GAME_OVER);
+    if (!inGame) {
+      Logger.info('Restart requested but no game is active.');
+      return;
+    }
+    const levelName = this._activeCustomLevel ? this._activeCustomLevel.name : null;
+    const label = levelName ? `level "${levelName}"` : 'the current game';
+    const confirmed = window.confirm(`Restart ${label}? Your current progress will be lost.`);
+    if (!confirmed) return;
+    Logger.info(`Restarting ${label}.`);
+    if (this.input) this.input.cancelDrawing();
+    if (levelName) {
+      this.startCustomLevel(levelName);
+    } else {
+      this.startGame();
+    }
+  }
+  /**
    * Start a game using a saved custom level. Applies the level's
    * grid size, ruleset, wave config, cities, defenses, and bases,
    * then begins playing.
@@ -1789,11 +1821,20 @@ class Game {
       if (!this._defaultColors) {
         this._defaultColors = { ...CONFIG.COLORS };
       }
+      const themeKeys = Object.keys(level.colorTheme);
+      let appliedCount = 0;
+      Logger.info(`[Game] Color theme has ${themeKeys.length} key(s): ${themeKeys.join(', ')}`);
       for (const [k, v] of Object.entries(level.colorTheme)) {
-        if (k in CONFIG.COLORS) CONFIG.COLORS[k] = v;
+        // Apply even if the key isn't in CONFIG.COLORS by default — the
+        // level theme may introduce new keys, and `in` checks own+inherited.
+        // We trust the designer's set of keys.
+        CONFIG.COLORS[k] = v;
+        appliedCount++;
       }
+      Logger.info(`[Game] Applied ${appliedCount}/${themeKeys.length} color theme overrides.`);
       Logger.info(
-        `[Game] Applied color theme overrides for ${Object.keys(level.colorTheme).length} keys.`
+        `[Game] CONFIG.COLORS.BACKGROUND now = ${CONFIG.COLORS.BACKGROUND}, ` +
+          `CELL_CITY = ${CONFIG.COLORS.CELL_CITY}`
       );
     }
     // Apply level config overrides.
@@ -2056,6 +2097,7 @@ class Game {
     if (!this.ingameSettingsButton) return;
     this.ingameSettingsButton.style.display = CONFIG.IN_PLAY_SETTINGS_ENABLED ? '' : 'none';
   }
+
   // Return to the main menu from an active game (or anywhere else).
   // Prompts for confirmation if a game is in progress.
   exitToMenu() {
@@ -2067,6 +2109,49 @@ class Game {
     }
     Logger.info('Exiting to main menu.');
     this._customVictoryShown = false;
+    // Strip any ?level= / ?autostart= query params from the URL so a
+    // reload from the menu doesn't re-enter the level the user just
+    // exited from.
+    try {
+      const url = new URL(window.location.href);
+      let changed = false;
+      if (url.searchParams.has('level')) {
+        url.searchParams.delete('level');
+        changed = true;
+      }
+      if (url.searchParams.has('autostart')) {
+        url.searchParams.delete('autostart');
+        changed = true;
+      }
+      if (changed) {
+        const newHref = url.pathname + (url.search ? url.search : '') + url.hash;
+        window.history.replaceState({}, '', newHref);
+        Logger.info('Cleared level/autostart query params from URL.');
+      }
+    } catch (e) {
+      Logger.warn('Failed to clean URL on exit:', e);
+    }
+    // Strip any ?level= (and ?autostart=) query param from the URL so a
+    // page reload from the menu doesn't immediately re-enter the level.
+    try {
+      const url = new URL(window.location.href);
+      let changed = false;
+      if (url.searchParams.has('level')) {
+        url.searchParams.delete('level');
+        changed = true;
+      }
+      if (url.searchParams.has('autostart')) {
+        url.searchParams.delete('autostart');
+        changed = true;
+      }
+      if (changed) {
+        const newHref = url.pathname + (url.search ? url.search : '') + url.hash;
+        window.history.replaceState({}, '', newHref);
+        Logger.info('Cleared level/autostart query params from URL.');
+      }
+    } catch (e) {
+      Logger.warn('Failed to clean URL on exit:', e);
+    }
     // Restore default colors if a custom level was active.
     if (this._defaultColors) {
       Object.assign(CONFIG.COLORS, this._defaultColors);

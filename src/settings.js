@@ -67,6 +67,7 @@ export const SETTING_DEFS = [
   { key: 'MISSILE_AGE_FRIENDLY', id: 'setting-miss-age-friendly', format: (v) => v },
   { key: 'MISSILE_AGE_ENEMY', id: 'setting-miss-age-enemy', format: (v) => v },
   { key: 'MISSILE_CASCADE_TICKS', id: 'setting-cascade-ticks', format: (v) => v },
+  { key: 'AGE_CONTAGION_AMOUNT', id: 'setting-age-contagion', format: (v) => v },
   { key: 'CLEAR_REFUND_FRACTION', id: 'setting-clear-refund', format: (v) => v.toFixed(2) },
   { key: 'INK_DRY_TICKS', id: 'setting-ink-dry', format: (v) => v },
   { key: 'DRAW_ZONE_FRACTION', id: 'setting-draw-zone', format: (v) => `${Math.round(v * 100)}%` },

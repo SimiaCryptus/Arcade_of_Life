@@ -2340,7 +2340,7 @@ export class LevelDesigner {
       },
       {
         title: '🚀 Enemy Pacing',
-        keys: ['MISSILE_MAX_AGE_TICKS', 'MISSILE_CASCADE_TICKS'],
+        keys: ['MISSILE_MAX_AGE_TICKS', 'MISSILE_CASCADE_TICKS', 'AGE_CONTAGION_AMOUNT'],
       },
       {
         title: '⚔ Bases',
@@ -2655,6 +2655,7 @@ export class LevelDesigner {
       MISSILE_AGE_FRIENDLY: { min: 20, max: 2000, step: 10 },
       MISSILE_AGE_ENEMY: { min: 20, max: 2000, step: 10 },
       MISSILE_CASCADE_TICKS: { min: 0, max: 200, step: 1 },
+      AGE_CONTAGION_AMOUNT: { min: 0, max: 200, step: 1 },
       CLEAR_REFUND_FRACTION: { min: 0, max: 1, step: 0.05 },
       DRAW_ZONE_FRACTION: { min: 0.2, max: 0.8, step: 0.05 },
       REAR_DEAD_ZONE_HEIGHT: { min: 0, max: 10, step: 1 },

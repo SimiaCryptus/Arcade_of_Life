@@ -102,6 +102,28 @@ export class Renderer {
     }
     return false;
   }
+  // Convert grid coords (gx, gy) to absolute canvas pixel coords,
+  // respecting the active grid topology (square / hex / tri).
+  // Used by all VFX entry points so effects line up with the cells
+  // they're depicting regardless of topology.
+  _gridToCanvas(gx, gy) {
+    const cs = CONFIG.CELL_SIZE;
+    const topologyId = (this.grid && this.grid.topologyId) || 'square';
+    if (topologyId === 'square') {
+      return {
+        x: gx * cs + cs / 2,
+        y: gy * cs + CONFIG.HUD_HEIGHT + cs / 2,
+      };
+    }
+    const topology = getTopology(topologyId);
+    if (topologyId === 'tri') {
+      const c = topology.cellCenter(gx, gy, cs, 0);
+      return { x: c.px, y: c.py + CONFIG.HUD_HEIGHT };
+    }
+    // hex
+    const c = topology.cellCenter(gx, gy, cs);
+    return { x: c.px, y: c.py + CONFIG.HUD_HEIGHT };
+  }
 
   addFloater(gx, gy, text, color) {
     if (CONFIG.VFX_FLOATERS === false) return;
@@ -113,9 +135,11 @@ export class Renderer {
       Logger.warn('addFloater: invalid coordinates', { gx, gy });
       return;
     }
-    const cs = CONFIG.CELL_SIZE;
-    const canvasX = gx * cs + cs / 2;
-    const canvasY = gy * cs + CONFIG.HUD_HEIGHT;
+    const { x: canvasX, y: canvasY } = this._gridToCanvas(gx, gy);
+    // Floaters anchor at the top edge of a cell so they appear above it.
+    // _gridToCanvas returns center; subtract half-cell to get top edge.
+    const cellH = CONFIG.CELL_SIZE / 2;
+    const adjustedY = canvasY - cellH;
     if (this._isDuplicateFloater(canvasX, canvasY, text)) {
       this._vfxStats.floatersDeduped++;
       return;
@@ -126,7 +150,7 @@ export class Renderer {
     }
     this.floaters.push({
       x: canvasX,
-      y: canvasY,
+      y: adjustedY,
       text,
       color,
       ttl: 60,
@@ -146,9 +170,9 @@ export class Renderer {
       Logger.warn('addBigFloater: invalid coordinates', { gx, gy });
       return;
     }
-    const cs = CONFIG.CELL_SIZE;
-    const canvasX = gx * cs + cs / 2;
-    const canvasY = gy * cs + CONFIG.HUD_HEIGHT;
+    const { x: canvasX, y: canvasY } = this._gridToCanvas(gx, gy);
+    const cellH = CONFIG.CELL_SIZE / 2;
+    const adjustedY = canvasY - cellH;
     if (this._isDuplicateFloater(canvasX, canvasY, text)) {
       this._vfxStats.floatersDeduped++;
       return;
@@ -158,7 +182,7 @@ export class Renderer {
     }
     this.floaters.push({
       x: canvasX,
-      y: canvasY,
+      y: adjustedY,
       text,
       color,
       ttl: 90,
@@ -197,9 +221,6 @@ export class Renderer {
         (1 - VFX_LIMITS.PARTICLE_THROTTLE_THRESHOLD);
       countScale = Math.max(0.2, 1 - overload * 0.8);
     }
-    const cs = CONFIG.CELL_SIZE;
-    const cx = gx * cs + cs / 2;
-    const cy = gy * cs + CONFIG.HUD_HEIGHT + cs / 2;
     const requestedCount = opts.count != null ? opts.count : 12;
     let count = Math.max(1, Math.round(requestedCount * countScale));
     // Also clamp by remaining per-frame and per-array budgets.
@@ -226,6 +247,8 @@ export class Renderer {
     const gravity = opts.gravity != null ? opts.gravity : 0;
     const glow = opts.glow != null ? opts.glow : 6;
     const vy0 = opts.vy0 != null ? opts.vy0 : 0;
+    const { x: cx, y: cy } = this._gridToCanvas(gx, gy);
+    const cs = CONFIG.CELL_SIZE;
     for (let i = 0; i < count; i++) {
       const a = dir - spread / 2 + Math.random() * spread;
       const v = speed * (0.5 + Math.random());
@@ -261,10 +284,10 @@ export class Renderer {
       // Drop the oldest to make room (rings fade quickly so this is fine).
       this.shockwaves.shift();
     }
-    const cs = CONFIG.CELL_SIZE;
+    const { x: shockX, y: shockY } = this._gridToCanvas(gx, gy);
     this.shockwaves.push({
-      x: gx * cs + cs / 2,
-      y: gy * cs + CONFIG.HUD_HEIGHT + cs / 2,
+      x: shockX,
+      y: shockY,
       radius: opts.startRadius != null ? opts.startRadius : 2,
       maxRadius: opts.maxRadius != null ? opts.maxRadius : 40,
       color: opts.color || '#ffffff',
@@ -820,6 +843,44 @@ export class Renderer {
     ctx.fillStyle = colors.HUD_TEXT;
     ctx.textAlign = 'left';
     ctx.fillText('INK', inkBarX - 30, CONFIG.HUD_HEIGHT / 2);
+    // Numeric ink readout centered over the bar. Outlined for legibility
+    // regardless of how full the colored fill is.
+    const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
+    const isUnlimited = hud.maxInk >= UNLIMITED;
+    const inkInt = Math.floor(hud.ink);
+    const inkLabel = isUnlimited ? `${inkInt} / ∞` : `${inkInt} / ${Math.floor(hud.maxInk)}`;
+    ctx.save();
+    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0, 0, 24, 0.85)';
+    ctx.strokeText(inkLabel, inkBarX + inkBarW / 2, inkBarY + inkBarH / 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(inkLabel, inkBarX + inkBarW / 2, inkBarY + inkBarH / 2);
+    ctx.restore();
+    ctx.save();
+    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Outline for legibility regardless of bar color.
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0, 0, 24, 0.85)';
+    ctx.strokeText(inkLabel, inkBarX + inkBarW / 2, inkBarY + inkBarH / 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(inkLabel, inkBarX + inkBarW / 2, inkBarY + inkBarH / 2);
+    ctx.restore();
+    ctx.save();
+    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Outline for legibility regardless of bar color.
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0, 0, 24, 0.85)';
+    ctx.strokeText(inkLabel, inkBarX + inkBarW / 2, inkBarY + inkBarH / 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(inkLabel, inkBarX + inkBarW / 2, inkBarY + inkBarH / 2);
+    ctx.restore();
 
     // Speed indicator
     const speed = CONFIG.SPEED_MULTIPLIER;

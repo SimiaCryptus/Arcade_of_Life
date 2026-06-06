@@ -44,6 +44,9 @@
         </button>
         <button id="help-button" title="Open the Console Hacking Guide (pauses game)">Guide</button>
         <button id="fullscreen-button" title="Toggle fullscreen [F11]">⛶</button>
+        <button id="restart-level-button" title="Restart current level (asks for confirmation) [R]">
+          ↻ Restart
+        </button>
         <button id="exit-to-menu-button" title="Exit to main menu">✕ Exit</button>
         <span id="speed-hint"
           >[Space=pause, N=step, [ ] slow/fast, 0–7 speed, C clear, Z undo, S settings, M mute, H
@@ -715,6 +718,24 @@
                   </label>
                 </div>
                 <span class="setting-value" id="setting-cascade-ticks-value"></span>
+              </div>
+              <div class="setting-row">
+                <label for="setting-age-contagion">
+                  Age Contagion Amount
+                  <span style="display: block; font-size: 10px; color: #8080a0; font-style: italic">
+                    Bump neighbor age by N ticks when a cell dies (0 = disabled). Creates a "decay
+                    spreads" effect that breaks loss-tolerant patterns.
+                  </span>
+                </label>
+                <input
+                  id="setting-age-contagion"
+                  type="range"
+                  min="0"
+                  max="200"
+                  step="1"
+                  value="0"
+                />
+                <span id="setting-age-contagion-value" class="setting-value">0</span>
               </div>
               <div class="setting-section-header">Enemy Bases</div>
               <div class="setting-row setting-row-checks">
