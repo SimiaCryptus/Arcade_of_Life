@@ -1,0 +1,6 @@
+{
+  "levels": [
+    "levels/pillbox.json",
+    "levels/invaders.json"
+  ]
+}

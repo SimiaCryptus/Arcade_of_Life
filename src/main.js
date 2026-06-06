@@ -22,6 +22,7 @@ import { PatternCapture } from './patternCapture.js';
 import { PatternZoo } from './patternZoo.js';
 import { LevelDesigner } from './levelDesigner.js';
 import { getLevel } from './levels.js';
+import { initLevelCatalog } from './levelCatalog.js';
 import {
   registerServiceWorker,
   initInstallPrompt,
@@ -325,6 +326,8 @@ class Game {
                  High Score: ${this.hud.highScore}`,
       'Start Game'
     );
+    // Prefetch and render the curated level catalog on the main menu.
+    initLevelCatalog();
     Logger.info(
       `Game initialized. Grid ${CONFIG.GRID_WIDTH}x${CONFIG.GRID_HEIGHT}, cell ${CONFIG.CELL_SIZE}px.`
     );
@@ -2349,6 +2352,8 @@ class Game {
        High Score: ${this.hud.highScore}`,
       'Start Game'
     );
+    // Re-render the curated level list (overlay content was rewritten).
+    initLevelCatalog();
   }
 
   startGame() {
