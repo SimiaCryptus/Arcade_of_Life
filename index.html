@@ -246,10 +246,289 @@
               </div>
               <div class="setting-row">
                 <label>&nbsp;</label>
+                <p
+                  id="setting-ruleset-nbhd"
+                  style="
+                    font-size: 11px;
+                    color: #66ccff;
+                    font-weight: bold;
+                    margin: 0;
+                    grid-column: 2/4;
+                  "
+                ></p>
+                <span></span>
+              </div>
+              <div class="setting-row">
+                <label>&nbsp;</label>
                 <p style="font-size: 11px; color: #ffaa44; margin: 0; grid-column: 2/4">
                   ⚠ Non-Conway rulesets change how all cells evolve. Some patterns may behave
                   unexpectedly.
                 </p>
+                <span></span>
+              </div>
+              <div class="setting-row">
+                <label>&nbsp;</label>
+                <div style="grid-column: 2/4">
+                  <button
+                    id="setting-nbhd-builder-toggle"
+                    class="profile-btn"
+                    style="font-size: 11px"
+                  >
+                    ▸ Build Custom Neighborhood
+                  </button>
+                  <div
+                    id="setting-nbhd-builder-panel"
+                    style="
+                      display: none;
+                      margin-top: 10px;
+                      padding: 12px;
+                      background: rgba(20, 20, 60, 0.6);
+                      border: 1px solid #4040a0;
+                      border-radius: 4px;
+                    "
+                  >
+                    <p
+                      style="font-size: 11px; color: #a0a0c0; margin: 0 0 10px; font-style: italic"
+                    >
+                      Construct an exotic neighborhood (fractional Euclidean radius, elliptical,
+                      sheared, rotated) and pair it with B/S rules. Creates a new ruleset that you
+                      can immediately apply.
+                    </p>
+                    <div
+                      style="
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 10px;
+                        align-items: center;
+                      "
+                    >
+                      <label style="font-size: 11px; color: #c0c0d0">
+                        Type:
+                        <select
+                          id="setting-nbhd-type"
+                          class="setting-select"
+                          style="margin-top: 2px"
+                        >
+                          <option value="euclidean">Euclidean (isotropic)</option>
+                          <option value="ellipse">Ellipse (axis-aligned)</option>
+                          <option value="rotated">Rotated ellipse</option>
+                          <option value="shear">Shear</option>
+                        </select>
+                      </label>
+                      <label style="font-size: 11px; color: #c0c0d0">
+                        Radius:
+                        <input
+                          id="setting-nbhd-radius"
+                          type="number"
+                          step="0.1"
+                          min="0.5"
+                          max="6"
+                          value="2.0"
+                          style="
+                            width: 100%;
+                            background: #0a0a20;
+                            color: #e0e0ff;
+                            border: 1px solid #4040a0;
+                            padding: 4px 6px;
+                            font-family: inherit;
+                            font-size: 12px;
+                            border-radius: 3px;
+                            margin-top: 2px;
+                            box-sizing: border-box;
+                          "
+                        />
+                      </label>
+                    </div>
+                    <div
+                      id="setting-nbhd-ellipse-row"
+                      style="display: flex; gap: 10px; margin-top: 8px; align-items: center"
+                    >
+                      <label style="font-size: 11px; color: #c0c0d0; flex: 1">
+                        Sx:
+                        <input
+                          id="setting-nbhd-sx"
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="3"
+                          value="0.5"
+                          style="
+                            width: 100%;
+                            background: #0a0a20;
+                            color: #e0e0ff;
+                            border: 1px solid #4040a0;
+                            padding: 4px 6px;
+                            font-family: inherit;
+                            font-size: 12px;
+                            border-radius: 3px;
+                            margin-top: 2px;
+                            box-sizing: border-box;
+                          "
+                        />
+                      </label>
+                      <label style="font-size: 11px; color: #c0c0d0; flex: 1">
+                        Sy:
+                        <input
+                          id="setting-nbhd-sy"
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="3"
+                          value="1.0"
+                          style="
+                            width: 100%;
+                            background: #0a0a20;
+                            color: #e0e0ff;
+                            border: 1px solid #4040a0;
+                            padding: 4px 6px;
+                            font-family: inherit;
+                            font-size: 12px;
+                            border-radius: 3px;
+                            margin-top: 2px;
+                            box-sizing: border-box;
+                          "
+                        />
+                      </label>
+                    </div>
+                    <div
+                      id="setting-nbhd-theta-row"
+                      style="display: none; margin-top: 8px; align-items: center"
+                    >
+                      <label style="font-size: 11px; color: #c0c0d0; flex: 1">
+                        Rotation θ (degrees):
+                        <input
+                          id="setting-nbhd-theta"
+                          type="number"
+                          step="5"
+                          min="-180"
+                          max="180"
+                          value="45"
+                          style="
+                            width: 100%;
+                            background: #0a0a20;
+                            color: #e0e0ff;
+                            border: 1px solid #4040a0;
+                            padding: 4px 6px;
+                            font-family: inherit;
+                            font-size: 12px;
+                            border-radius: 3px;
+                            margin-top: 2px;
+                            box-sizing: border-box;
+                          "
+                        />
+                      </label>
+                    </div>
+                    <div
+                      id="setting-nbhd-shear-row"
+                      style="display: none; margin-top: 8px; align-items: center"
+                    >
+                      <label style="font-size: 11px; color: #c0c0d0; flex: 1">
+                        Shear k:
+                        <input
+                          id="setting-nbhd-shear"
+                          type="number"
+                          step="0.1"
+                          min="-2"
+                          max="2"
+                          value="0.5"
+                          style="
+                            width: 100%;
+                            background: #0a0a20;
+                            color: #e0e0ff;
+                            border: 1px solid #4040a0;
+                            padding: 4px 6px;
+                            font-family: inherit;
+                            font-size: 12px;
+                            border-radius: 3px;
+                            margin-top: 2px;
+                            box-sizing: border-box;
+                          "
+                        />
+                      </label>
+                    </div>
+                    <div
+                      style="
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 10px;
+                        margin-top: 10px;
+                      "
+                    >
+                      <label style="font-size: 11px; color: #c0c0d0">
+                        Birth counts (comma sep):
+                        <input
+                          id="setting-nbhd-birth"
+                          type="text"
+                          placeholder="3"
+                          value="3"
+                          style="
+                            width: 100%;
+                            background: #0a0a20;
+                            color: #e0e0ff;
+                            border: 1px solid #4040a0;
+                            padding: 4px 6px;
+                            font-family: inherit;
+                            font-size: 12px;
+                            border-radius: 3px;
+                            margin-top: 2px;
+                            box-sizing: border-box;
+                          "
+                        />
+                      </label>
+                      <label style="font-size: 11px; color: #c0c0d0">
+                        Survival counts (comma sep):
+                        <input
+                          id="setting-nbhd-survival"
+                          type="text"
+                          placeholder="2,3"
+                          value="2,3"
+                          style="
+                            width: 100%;
+                            background: #0a0a20;
+                            color: #e0e0ff;
+                            border: 1px solid #4040a0;
+                            padding: 4px 6px;
+                            font-family: inherit;
+                            font-size: 12px;
+                            border-radius: 3px;
+                            margin-top: 2px;
+                            box-sizing: border-box;
+                          "
+                        />
+                      </label>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center; margin-top: 10px">
+                      <canvas
+                        id="setting-nbhd-preview"
+                        width="160"
+                        height="160"
+                        style="
+                          border: 1px solid #4040a0;
+                          background: #000010;
+                          image-rendering: pixelated;
+                        "
+                      ></canvas>
+                      <div style="flex: 1">
+                        <button
+                          id="setting-nbhd-build-btn"
+                          class="profile-btn profile-btn-primary"
+                          style="font-size: 12px"
+                        >
+                          Create &amp; Apply Rule
+                        </button>
+                        <p
+                          id="setting-nbhd-status"
+                          style="
+                            font-size: 11px;
+                            font-weight: bold;
+                            margin: 8px 0 0;
+                            min-height: 14px;
+                          "
+                        ></p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <span></span>
               </div>
               <div class="setting-row">

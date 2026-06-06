@@ -1,7 +1,18 @@
 import { CONFIG, RESOLUTION_PRESETS, GAME_MODE_PRESETS } from './config.js';
 import { Logger } from './logger.js';
 import { loadJSON, saveJSON } from './storage.js';
-import { listRulesets, getRuleset } from './rules/index.js';
+import {
+  listRulesets,
+  getRuleset,
+  registerRuleset,
+  listNeighborhoods,
+  getNeighborhood,
+  neighborhoodFromRadius,
+  neighborhoodFromTransform,
+  registerNeighborhood,
+  rotatedScaleMatrix,
+  shearMatrix,
+} from './rules/index.js';
 
 /**
  * Compute an automatic grid size that:
@@ -468,12 +479,224 @@ export class SettingsPanel {
       this.settings.save();
       this._syncRulesetDescription();
     });
+    // Wire the exotic neighborhood builder.
+    this._initNeighborhoodBuilder();
   }
   _syncRulesetDescription() {
     const descEl = document.getElementById('setting-ruleset-desc');
     if (!descEl || !this.rulesetSelect) return;
     const def = getRuleset(this.rulesetSelect.value);
     if (def) descEl.textContent = def.description;
+    // Also update the neighborhood info label.
+    const nbhdLabel = document.getElementById('setting-ruleset-nbhd');
+    if (nbhdLabel && def) {
+      const nbhdId = def.neighborhood || 'moore';
+      const nbhd = getNeighborhood(nbhdId);
+      if (nbhd) {
+        const detail = nbhd.radius != null ? ` r=${nbhd.radius}` : '';
+        nbhdLabel.textContent = `Neighborhood: ${nbhd.name} — ${nbhd.size} cells${detail}`;
+      }
+    }
+  }
+  // ---- Custom neighborhood builder ----
+  _initNeighborhoodBuilder() {
+    const btn = document.getElementById('setting-nbhd-builder-toggle');
+    const panel = document.getElementById('setting-nbhd-builder-panel');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', () => {
+      const visible = panel.style.display !== 'none';
+      panel.style.display = visible ? 'none' : 'block';
+      btn.textContent = visible ? '▸ Build Custom Neighborhood' : '▾ Hide Builder';
+    });
+    const typeSel = document.getElementById('setting-nbhd-type');
+    const radiusInp = document.getElementById('setting-nbhd-radius');
+    const sxInp = document.getElementById('setting-nbhd-sx');
+    const syInp = document.getElementById('setting-nbhd-sy');
+    const thetaInp = document.getElementById('setting-nbhd-theta');
+    const shearInp = document.getElementById('setting-nbhd-shear');
+    const birthInp = document.getElementById('setting-nbhd-birth');
+    const survivalInp = document.getElementById('setting-nbhd-survival');
+    const previewEl = document.getElementById('setting-nbhd-preview');
+    const buildBtn = document.getElementById('setting-nbhd-build-btn');
+    const statusEl = document.getElementById('setting-nbhd-status');
+    const updateVisibility = () => {
+      const t = typeSel.value;
+      document.getElementById('setting-nbhd-ellipse-row').style.display =
+        t === 'ellipse' || t === 'rotated' ? 'flex' : 'none';
+      document.getElementById('setting-nbhd-theta-row').style.display =
+        t === 'rotated' ? 'flex' : 'none';
+      document.getElementById('setting-nbhd-shear-row').style.display =
+        t === 'shear' ? 'flex' : 'none';
+      this._updateNbhdPreview();
+    };
+    const updatePreview = () => this._updateNbhdPreview();
+    typeSel.addEventListener('change', updateVisibility);
+    radiusInp.addEventListener('input', updatePreview);
+    sxInp.addEventListener('input', updatePreview);
+    syInp.addEventListener('input', updatePreview);
+    thetaInp.addEventListener('input', updatePreview);
+    shearInp.addEventListener('input', updatePreview);
+    buildBtn.addEventListener('click', () => {
+      try {
+        const result = this._buildCustomNeighborhoodAndRule();
+        if (!result) return;
+        this._setNbhdStatus(`✓ Created "${result.ruleName}" — selecting it now.`, 'ok');
+        // Refresh ruleset dropdown.
+        const cur = this.rulesetSelect.value;
+        this.rulesetSelect.innerHTML = '';
+        for (const def of listRulesets()) {
+          const opt = document.createElement('option');
+          opt.value = def.id;
+          opt.textContent = `${def.name} (${def.notation})`;
+          opt.title = def.description;
+          this.rulesetSelect.appendChild(opt);
+        }
+        this.rulesetSelect.value = result.ruleId;
+        this.settings.set('ACTIVE_RULESET', result.ruleId);
+        this.settings.save();
+        this._syncRulesetDescription();
+      } catch (e) {
+        this._setNbhdStatus(`✗ ${e.message}`, 'err');
+      }
+    });
+    updateVisibility();
+  }
+  _buildCustomNeighborhood() {
+    const typeSel = document.getElementById('setting-nbhd-type');
+    const radius = parseFloat(document.getElementById('setting-nbhd-radius').value);
+    if (!Number.isFinite(radius) || radius <= 0 || radius > 8) {
+      throw new Error('Radius must be between 0 and 8.');
+    }
+    const t = typeSel.value;
+    const id = `custom_${t}_${Date.now()}`;
+    if (t === 'euclidean') {
+      return neighborhoodFromRadius(radius, id, `Custom Euclidean r=${radius}`);
+    }
+    const sx = parseFloat(document.getElementById('setting-nbhd-sx').value) || 1;
+    const sy = parseFloat(document.getElementById('setting-nbhd-sy').value) || 1;
+    if (t === 'ellipse') {
+      return neighborhoodFromTransform(
+        radius,
+        [
+          [sx, 0],
+          [0, sy],
+        ],
+        id,
+        `Custom Ellipse r=${radius} (${sx}, ${sy})`
+      );
+    }
+    if (t === 'rotated') {
+      const theta = parseFloat(document.getElementById('setting-nbhd-theta').value) || 0;
+      return neighborhoodFromTransform(
+        radius,
+        rotatedScaleMatrix((theta * Math.PI) / 180, sx, sy),
+        id,
+        `Custom Rotated r=${radius} θ=${theta}°`
+      );
+    }
+    if (t === 'shear') {
+      const k = parseFloat(document.getElementById('setting-nbhd-shear').value) || 0;
+      return neighborhoodFromTransform(
+        radius,
+        shearMatrix(k),
+        id,
+        `Custom Shear r=${radius} k=${k}`
+      );
+    }
+    throw new Error(`Unknown neighborhood type: ${t}`);
+  }
+  _buildCustomNeighborhoodAndRule() {
+    const nbhd = this._buildCustomNeighborhood();
+    registerNeighborhood(nbhd);
+    const birthStr = (document.getElementById('setting-nbhd-birth').value || '').trim();
+    const survivalStr = (document.getElementById('setting-nbhd-survival').value || '').trim();
+    const parseList = (s) => {
+      if (!s) return [];
+      return s
+        .split(/[\s,]+/)
+        .filter(Boolean)
+        .map((n) => parseInt(n, 10))
+        .filter((n) => Number.isInteger(n) && n >= 0 && n <= nbhd.size);
+    };
+    const birth = parseList(birthStr);
+    const survival = parseList(survivalStr);
+    if (birth.length === 0 && survival.length === 0) {
+      throw new Error('Provide at least one birth or survival count.');
+    }
+    const ruleId = `custom_rule_${Date.now()}`;
+    const ruleName = `Custom: B${birth.join('')}/S${survival.join('')} on ${nbhd.name}`;
+    const def = {
+      id: ruleId,
+      name: ruleName,
+      notation: `B${birth.join('')}/S${survival.join('')} (${nbhd.id})`,
+      description: `User-built rule on ${nbhd.name}.`,
+      birth,
+      survival,
+      neighborhood: nbhd.id,
+    };
+    registerRuleset(def);
+    return { ruleId, ruleName };
+  }
+  _updateNbhdPreview() {
+    const previewEl = document.getElementById('setting-nbhd-preview');
+    if (!previewEl) return;
+    try {
+      const nbhd = this._buildCustomNeighborhood();
+      this._drawNeighborhoodPreview(previewEl, nbhd);
+    } catch (e) {
+      // ignore preview errors during typing
+    }
+  }
+  _drawNeighborhoodPreview(canvas, nbhd) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.fillStyle = '#000010';
+    ctx.fillRect(0, 0, w, h);
+    // Determine cell size from bounds.
+    const b = nbhd.bounds;
+    const range = Math.max(Math.abs(b.minX), Math.abs(b.minY), Math.abs(b.maxX), Math.abs(b.maxY));
+    const span = range * 2 + 1;
+    const cs = Math.floor(Math.min(w, h) / Math.max(span + 2, 1));
+    const cx = w / 2;
+    const cy = h / 2;
+    // Grid lines.
+    ctx.strokeStyle = '#1a1a3a';
+    ctx.lineWidth = 1;
+    for (let i = -range - 1; i <= range + 1; i++) {
+      const x = cx + i * cs + 0.5;
+      const y = cy + i * cs + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+    // Center cell.
+    ctx.fillStyle = '#ffaa00';
+    ctx.fillRect(cx - cs / 2, cy - cs / 2, cs, cs);
+    // Neighborhood cells.
+    ctx.fillStyle = '#00ffcc';
+    for (const [dx, dy] of nbhd.offsets) {
+      ctx.fillRect(cx + dx * cs - cs / 2 + 1, cy + dy * cs - cs / 2 + 1, cs - 2, cs - 2);
+    }
+    // Cell count.
+    ctx.fillStyle = '#e0e0ff';
+    ctx.font = '11px monospace';
+    ctx.fillText(`${nbhd.size} cells`, 4, 14);
+  }
+  _setNbhdStatus(msg, kind) {
+    const el = document.getElementById('setting-nbhd-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = kind === 'ok' ? '#00ff88' : '#ff8888';
+    if (this._nbhdStatusTimer) clearTimeout(this._nbhdStatusTimer);
+    this._nbhdStatusTimer = setTimeout(() => {
+      if (el) el.textContent = '';
+    }, 4000);
   }
   _syncGameModeSelect() {
     if (!this.gameModeSelect) return;

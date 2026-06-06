@@ -6,6 +6,10 @@
  * if it wants access to the extra rulesets (Move, DryLife, Gnarl, etc.).
  */
 
+// Load neighborhoods FIRST so the global hook is installed before any
+// ruleset registration tries to validate against exotic neighborhoods.
+export * from './neighborhoods.js';
 export * from './ruleset.js';
 // Side-effect import registers the extra rulesets.
 import './extraRulesets.js';
+import './exoticRulesets.js';

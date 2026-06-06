@@ -11,6 +11,10 @@ import { CELL_TYPE } from '../config.js';
  * maintain rolling sums of (row-1, row, row+1). Then each cell's neighbor
  * count is the sum of three column sums minus its own value. This reduces
  * the work from 8 lookups per cell to ~3 amortized.
+ *
+ * For non-Moore neighborhoods (Euclidean radii, anisotropic transforms),
+ * the fast column-sum path is bypassed in favor of a general per-cell
+ * scan over the neighborhood's offset list.
  */
 export class CpuSimBackend {
   constructor(width, height) {
@@ -20,6 +24,15 @@ export class CpuSimBackend {
     this._colLife = new Uint8Array(width);
     this._colMissile = new Uint8Array(width);
     this._colDefense = new Uint8Array(width);
+    // Active neighborhood for generic path. null = use fast Moore path.
+    this._neighborhood = null;
+  }
+  /**
+   * Set the active neighborhood. Pass null to use the fast Moore path.
+   * @param {Neighborhood|null} neighborhood
+   */
+  setNeighborhood(neighborhood) {
+    this._neighborhood = neighborhood;
   }
 
   /**
@@ -34,6 +47,11 @@ export class CpuSimBackend {
    * @param {Uint8Array} defOut  - neighbor counts for DEFENSE
    */
   computeNeighborCounts(cells, w, h, lifeOut, missOut, defOut) {
+    // Generic path for non-Moore neighborhoods.
+    if (this._neighborhood && this._neighborhood.id !== 'moore') {
+      this._computeNeighborCountsGeneric(cells, w, h, lifeOut, missOut, defOut);
+      return;
+    }
     lifeOut.fill(0);
     missOut.fill(0);
     defOut.fill(0);
@@ -105,6 +123,52 @@ export class CpuSimBackend {
         lifeOut[rowBase + x] = l;
         missOut[rowBase + x] = m;
         defOut[rowBase + x] = d;
+      }
+    }
+  }
+  /**
+   * Generic neighbor-counting path for arbitrary neighborhoods.
+   * Iterates the precomputed offset list for each cell. Used when
+   * the active ruleset uses a non-Moore neighborhood (fractional
+   * Euclidean radii, anisotropic transforms, etc.).
+   *
+   * Counts may exceed 8 for larger neighborhoods, so output arrays
+   * must be wide enough (Uint8Array supports 0..255, which is plenty
+   * for any reasonable radius).
+   */
+  _computeNeighborCountsGeneric(cells, w, h, lifeOut, missOut, defOut) {
+    lifeOut.fill(0);
+    missOut.fill(0);
+    defOut.fill(0);
+    const offsets = this._neighborhood.offsets;
+    const nOff = offsets.length;
+    for (let y = 0; y < h; y++) {
+      const rowBase = y * w;
+      for (let x = 0; x < w; x++) {
+        let life = 0,
+          miss = 0,
+          def = 0;
+        for (let k = 0; k < nOff; k++) {
+          const dx = offsets[k][0];
+          const dy = offsets[k][1];
+          const ny = y + dy;
+          if (ny < 0 || ny >= h) continue;
+          // Horizontal wrap.
+          let nx = x + dx;
+          if (nx < 0) nx = ((nx % w) + w) % w;
+          else if (nx >= w) nx = nx % w;
+          const t = cells[ny * w + nx];
+          if (t === CELL_TYPE.MISSILE) {
+            life++;
+            miss++;
+          } else if (t === CELL_TYPE.DEFENSE) {
+            life++;
+            def++;
+          }
+        }
+        lifeOut[rowBase + x] = life;
+        missOut[rowBase + x] = miss;
+        defOut[rowBase + x] = def;
       }
     }
   }

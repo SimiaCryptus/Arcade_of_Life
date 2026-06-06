@@ -61,6 +61,11 @@ export class Simulation {
     const def = getRuleset(id) || CONWAY;
     this._rule = new CompiledRuleset(def);
     this._ruleId = id;
+    // Inform the backend about the active neighborhood so it can
+    // dispatch to the generic path for non-Moore neighborhoods.
+    if (this.backend && this.backend.setNeighborhood) {
+      this.backend.setNeighborhood(this._rule.neighborhood);
+    }
     Logger.info(`Sim ruleset: ${def.name} (${def.notation})`);
   }
 
@@ -74,6 +79,17 @@ export class Simulation {
     let mode = (CONFIG.SIM_BACKEND || 'auto').toLowerCase();
     if (mode === 'auto') {
       mode = cells >= 40000 ? 'gpu' : 'cpu';
+    }
+    // GPU backend currently only supports the Moore neighborhood.
+    // Force CPU when an exotic neighborhood is active.
+    if (mode === 'gpu') {
+      const ruleId = CONFIG.ACTIVE_RULESET || 'conway';
+      const def = getRuleset(ruleId);
+      const nbhdId = def && def.neighborhood ? def.neighborhood : 'moore';
+      if (nbhdId !== 'moore') {
+        Logger.info(`Sim backend: forced CPU due to non-Moore neighborhood "${nbhdId}".`);
+        mode = 'cpu';
+      }
     }
     if (mode === 'gpu') {
       try {

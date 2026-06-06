@@ -6,6 +6,7 @@
  */
 
 import './rules/ruleset.test.js';
+import './rules/neighborhoods.test.js';
 import './patterns/library.test.js';
 import './patterns/simulation.test.js';
 import './patterns/inferMetadata.test.js';

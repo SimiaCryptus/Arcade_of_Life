@@ -4,6 +4,7 @@
     "test": "node test/run-all.js",
     "test:patterns": "node test/patterns/library.test.js",
     "test:rules": "node test/rules/ruleset.test.js",
+       "test:neighborhoods": "node test/rules/neighborhoods.test.js",
     "test:simulation": "node test/patterns/simulation.test.js",
     "test:sim-engine": "node test/sim/simulation.test.js",
     "test:grid": "node test/grid.test.js",

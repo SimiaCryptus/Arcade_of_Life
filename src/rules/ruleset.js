@@ -4,6 +4,7 @@
  * A ruleset defines:
  *   - birth conditions (which neighbor counts spawn a new cell)
  *   - survival conditions (which neighbor counts keep a cell alive)
+ *   - neighborhood (which cells are counted as neighbors)
  *   - metadata (name, description, B/S notation)
  *
  * The classic Game of Life is B3/S23. This module exposes that as the
@@ -13,6 +14,7 @@
  * and selected at runtime. The Simulation class will consult the active
  * ruleset for its birth/survival decisions.
  */
+import { getNeighborhood, MOORE_NEIGHBORHOOD } from './neighborhoods.js';
 
 /**
  * @typedef {Object} RulesetDef
@@ -22,6 +24,7 @@
  * @property {string}   description     - Human-readable description
  * @property {number[]} birth           - Neighbor counts that cause birth
  * @property {number[]} survival        - Neighbor counts that allow survival
+ * @property {string}   [neighborhood]   - Neighborhood id (default: 'moore')
  */
 
 /** @type {Map<string, RulesetDef>} */
@@ -37,17 +40,53 @@ export function registerRuleset(def) {
   if (!Array.isArray(def.birth) || !Array.isArray(def.survival)) {
     throw new Error(`Ruleset "${def.id}" must define birth and survival arrays.`);
   }
+  // Determine the maximum allowed neighbor count based on the
+  // declared neighborhood. Moore = 8, but exotic neighborhoods
+  // (Euclidean radii, anisotropic transforms) can have far more
+  // cells. We look up the neighborhood size lazily to avoid a
+  // hard dependency on the neighborhoods module being loaded first.
+  let maxNeighbors = 8;
+  if (def.neighborhood && def.neighborhood !== 'moore') {
+    // Best-effort: try to resolve the neighborhood now. If it's not
+    // yet registered (load-order issue), fall back to a generous cap
+    // and let CompiledRuleset re-validate later.
+    try {
+      // Lazy require to avoid circular import issues at module load.
+      const nbhd = _tryGetNeighborhood(def.neighborhood);
+      if (nbhd && typeof nbhd.size === 'number') {
+        maxNeighbors = nbhd.size;
+      } else {
+        // Unknown neighborhood at registration time — be permissive.
+        maxNeighbors = 64;
+      }
+    } catch (_e) {
+      maxNeighbors = 64;
+    }
+  }
   for (const n of def.birth) {
-    if (!Number.isInteger(n) || n < 0 || n > 8) {
+    if (!Number.isInteger(n) || n < 0 || n > maxNeighbors) {
       throw new Error(`Ruleset "${def.id}" has invalid birth value: ${n}`);
     }
   }
   for (const n of def.survival) {
-    if (!Number.isInteger(n) || n < 0 || n > 8) {
+    if (!Number.isInteger(n) || n < 0 || n > maxNeighbors) {
       throw new Error(`Ruleset "${def.id}" has invalid survival value: ${n}`);
     }
   }
   REGISTRY.set(def.id, { ...def });
+}
+// Lazy lookup that avoids the circular dependency between ruleset.js
+// and neighborhoods.js. Returns null if the neighborhood module hasn't
+// loaded yet or the id isn't registered.
+function _tryGetNeighborhood(id) {
+  // The neighborhoods module attaches its registry getter on the
+  // module namespace when imported. We access it via a dynamic
+  // reference stored on globalThis to break the cycle.
+  const getter = globalThis.__getNeighborhood__;
+  if (typeof getter === 'function') {
+    return getter(id);
+  }
+  return null;
 }
 
 /**
@@ -145,13 +184,18 @@ export function rulesetFromNotation({ id, name, notation, description }) {
  * Pre-computed lookup tables for fast birth/survival checks. Used by
  * the simulation's hot loop to avoid array indexOf calls per cell.
  *
- * Each table is a 9-entry Uint8Array (indices 0..8 = neighbor count).
+ * Tables are sized to fit the neighborhood (size+1 entries to cover
+ * neighbor counts 0..size inclusive).
  */
 export class CompiledRuleset {
   constructor(def) {
     this.def = def;
-    this.birthTable = new Uint8Array(9);
-    this.survivalTable = new Uint8Array(9);
+    // Resolve neighborhood (defaults to Moore for backwards compat).
+    const nbhdId = def.neighborhood || 'moore';
+    this.neighborhood = getNeighborhood(nbhdId) || MOORE_NEIGHBORHOOD;
+    const tableSize = this.neighborhood.size + 1;
+    this.birthTable = new Uint8Array(tableSize);
+    this.survivalTable = new Uint8Array(tableSize);
     for (const n of def.birth) this.birthTable[n] = 1;
     for (const n of def.survival) this.survivalTable[n] = 1;
   }
