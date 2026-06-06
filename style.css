@@ -2340,6 +2340,123 @@ body {
   color: #000010;
   box-shadow: 0 0 8px #ffcc44;
 }
+/* ── Paint target switch (Defense vs Barrier) ──────────────── */
+#ld-paint-target-group {
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.06), rgba(160, 160, 160, 0.06));
+  border: 1px solid #2a2a5a;
+  border-radius: 6px;
+  padding: 6px 10px;
+  gap: 8px;
+}
+#ld-paint-target-group label {
+  color: #ffcc44;
+  font-weight: bold;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.ld-target-switch {
+  display: inline-flex;
+  gap: 4px;
+  background: rgba(5, 5, 20, 0.6);
+  border: 1px solid #2a2a5a;
+  border-radius: 5px;
+  padding: 3px;
+  position: relative;
+}
+.ld-target-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: #8080a0;
+  border: 1px solid transparent;
+  padding: 5px 12px 5px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+.ld-target-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent, transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.ld-target-btn:hover {
+  color: #c0c0e0;
+  border-color: #4040a0;
+}
+.ld-target-btn:hover::before {
+  opacity: 0.3;
+}
+.ld-target-icon {
+  font-size: 18px;
+  line-height: 1;
+  filter: grayscale(0.5);
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+.ld-target-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+  gap: 1px;
+}
+.ld-target-name {
+  font-weight: bold;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+.ld-target-desc {
+  font-size: 9px;
+  color: #6060a0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+/* Defense (cyan/green) active state */
+.ld-target-btn[data-target='defense'].active {
+  color: #00ff88;
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.18), rgba(0, 255, 200, 0.08));
+  border-color: #00ff88;
+  box-shadow:
+    0 0 10px rgba(0, 255, 136, 0.35),
+    inset 0 0 8px rgba(0, 255, 136, 0.1);
+  text-shadow: 0 0 6px rgba(0, 255, 136, 0.6);
+}
+.ld-target-btn[data-target='defense'].active .ld-target-icon {
+  filter: grayscale(0) drop-shadow(0 0 4px #00ff88);
+  transform: scale(1.1);
+}
+.ld-target-btn[data-target='defense'].active .ld-target-desc {
+  color: #00cc66;
+  opacity: 1;
+}
+/* Barrier (gray/stone) active state */
+.ld-target-btn[data-target='barrier'].active {
+  color: #d0d0d0;
+  background: linear-gradient(135deg, rgba(180, 180, 180, 0.22), rgba(120, 120, 120, 0.1));
+  border-color: #a0a0a0;
+  box-shadow:
+    0 0 10px rgba(180, 180, 180, 0.3),
+    inset 0 0 8px rgba(160, 160, 160, 0.15);
+  text-shadow: 0 0 6px rgba(220, 220, 220, 0.5);
+}
+.ld-target-btn[data-target='barrier'].active .ld-target-icon {
+  filter: grayscale(0) drop-shadow(0 0 4px #c0c0c0);
+  transform: scale(1.1);
+}
+.ld-target-btn[data-target='barrier'].active .ld-target-desc {
+  color: #a0a0a0;
+  opacity: 1;
+}
 .ld-tool-group input[type='number'] {
   width: 60px;
   background: #0a0a20;

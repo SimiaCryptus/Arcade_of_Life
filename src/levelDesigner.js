@@ -145,8 +145,22 @@ export class LevelDesigner {
               </div>
                <div class="ld-tool-group" id="ld-paint-target-group">
                  <label>Paint as:</label>
-                  <button class="ld-target-btn active" data-target="defense" title="Paint living defense cells (cyan)">✏ Defense</button>
-                  <button class="ld-target-btn" data-target="barrier" title="Paint static barrier tiles (gray) — never change, block missiles, partition the board">🧱 Barrier</button>
+                 <div class="ld-target-switch">
+                   <button class="ld-target-btn active" data-target="defense" title="Paint living defense cells (cyan) — follow the cellular automaton rules">
+                     <span class="ld-target-icon">✏</span>
+                     <span class="ld-target-label">
+                       <span class="ld-target-name">Defense</span>
+                       <span class="ld-target-desc">Living cells</span>
+                     </span>
+                   </button>
+                   <button class="ld-target-btn" data-target="barrier" title="Paint static barrier tiles (gray) — never change, block missiles, partition the board">
+                     <span class="ld-target-icon">🧱</span>
+                     <span class="ld-target-label">
+                       <span class="ld-target-name">Barrier</span>
+                       <span class="ld-target-desc">Static walls</span>
+                     </span>
+                   </button>
+                 </div>
                </div>
                <div class="ld-tool-group" id="ld-pattern-selector" style="display:none;">
                  <label>Stamp:</label>
@@ -1057,17 +1071,7 @@ export class LevelDesigner {
       defense: 'Pick a pattern to stamp as defense cells',
     };
     const title = titles[target] || titles.defense;
-    // For spawners: restrict to gliders/spaceships (things that move).
     let filter = null;
-    if (target === 'spawner') {
-      filter = (pattern) => {
-        return (
-          pattern.category === 'spaceship' ||
-          (pattern.tags && pattern.tags.includes('spaceship')) ||
-          (pattern.tags && pattern.tags.includes('glider'))
-        );
-      };
-    }
     // Hide our overlay while the zoo is shown — both use the same overlay
     // layer, so we restore on completion.
     this.overlay.classList.add('hidden');
