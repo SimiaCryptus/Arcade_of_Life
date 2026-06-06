@@ -9,6 +9,8 @@ import {
   onCustomPatternsChanged,
 } from './patternCapture.js';
 import { normalizeCells } from './patterns/library.js';
+import { getTopology } from './topology.js';
+import { getNeighborhood } from './rules/index.js';
 
 /**
  * PatternZoo: browse the pattern library with live toroidal previews.
@@ -32,13 +34,15 @@ import { normalizeCells } from './patterns/library.js';
 // ─────────────────────────────────────────────────────────────────────
 
 class ToroidalLifeSim {
-  constructor(width, height, rule) {
+  constructor(width, height, rule, topologyId = 'square') {
     this.width = width;
     this.height = height;
     this.rule = rule;
+    this.topologyId = topologyId;
     this.wrap = true; // set false for guns / open-boundary patterns
-    this.cells = new Uint8Array(width * height);
-    this.next = new Uint8Array(width * height);
+    const sz = topologyId === 'tri' ? width * height * 2 : width * height;
+    this.cells = new Uint8Array(sz);
+    this.next = new Uint8Array(sz);
     this.generation = 0;
   }
 
@@ -46,8 +50,9 @@ class ToroidalLifeSim {
     if (this.width === width && this.height === height) return;
     this.width = width;
     this.height = height;
-    this.cells = new Uint8Array(width * height);
-    this.next = new Uint8Array(width * height);
+    const sz = this.topologyId === 'tri' ? width * height * 2 : width * height;
+    this.cells = new Uint8Array(sz);
+    this.next = new Uint8Array(sz);
     this.generation = 0;
   }
 
@@ -56,6 +61,14 @@ class ToroidalLifeSim {
   }
   setWrap(wrap) {
     this.wrap = wrap;
+  }
+  setTopology(topologyId) {
+    if (this.topologyId === topologyId) return;
+    this.topologyId = topologyId;
+    const sz = topologyId === 'tri' ? this.width * this.height * 2 : this.width * this.height;
+    this.cells = new Uint8Array(sz);
+    this.next = new Uint8Array(sz);
+    this.generation = 0;
   }
 
   clear() {
@@ -77,14 +90,31 @@ class ToroidalLifeSim {
     const ph = maxY + 1;
     const offX = Math.floor((this.width - pw) / 2);
     const offY = Math.floor((this.height - ph) / 2);
+    const stride = this.topologyId === 'tri' ? 2 : 1;
     for (const [x, y] of cells) {
       const px = (((x + offX) % this.width) + this.width) % this.width;
       const py = (((y + offY) % this.height) + this.height) % this.height;
-      this.cells[py * this.width + px] = 1;
+      if (this.topologyId === 'tri') {
+        // Default to upward triangle (orient=0) for plain (x,y) coords.
+        this.cells[py * this.width * 2 + px * 2] = 1;
+      } else {
+        this.cells[py * this.width + px * stride] = 1;
+      }
     }
   }
 
   tick() {
+    if (this.topologyId === 'hex') {
+      this._tickHex();
+      return;
+    }
+    if (this.topologyId === 'tri') {
+      this._tickTri();
+      return;
+    }
+    this._tickSquare();
+  }
+  _tickSquare() {
     const w = this.width;
     const h = this.height;
     const cells = this.cells;
@@ -125,6 +155,89 @@ class ToroidalLifeSim {
     this.next = tmp;
     this.generation++;
   }
+  _tickHex() {
+    const w = this.width;
+    const h = this.height;
+    const cells = this.cells;
+    const next = this.next;
+    const rule = this.rule;
+    const wrap = this.wrap;
+    const topology = getTopology('hex');
+    const nbhdSize = rule.neighborhood && rule.neighborhood.size === 18 ? 18 : 6;
+    const offsetsEven = topology.getOffsetsForCell(0, nbhdSize);
+    const offsetsOdd = topology.getOffsetsForCell(1, nbhdSize);
+    for (let r = 0; r < h; r++) {
+      const offsets = (r & 1) === 1 ? offsetsOdd : offsetsEven;
+      const nOff = offsets.length;
+      for (let q = 0; q < w; q++) {
+        let n = 0;
+        for (let k = 0; k < nOff; k++) {
+          const dq = offsets[k][0];
+          const dr = offsets[k][1];
+          let nr = r + dr;
+          if (!wrap && (nr < 0 || nr >= h)) continue;
+          if (wrap) nr = ((nr % h) + h) % h;
+          let nq = q + dq;
+          if (!wrap && (nq < 0 || nq >= w)) continue;
+          if (wrap) nq = ((nq % w) + w) % w;
+          n += cells[nr * w + nq];
+        }
+        const alive = cells[r * w + q];
+        let nextAlive;
+        if (alive) nextAlive = rule.shouldSurvive(n) ? 1 : 0;
+        else nextAlive = rule.shouldBirth(n) ? 1 : 0;
+        next[r * w + q] = nextAlive;
+      }
+    }
+    const tmp = this.cells;
+    this.cells = next;
+    this.next = tmp;
+    this.generation++;
+  }
+  _tickTri() {
+    const w = this.width;
+    const h = this.height;
+    const stride = 2 * w;
+    const cells = this.cells;
+    const next = this.next;
+    const rule = this.rule;
+    const wrap = this.wrap;
+    const topology = getTopology('tri');
+    const useEdgeOnly = rule.neighborhood && rule.neighborhood.size === 3;
+    const getOffsets = useEdgeOnly ? topology.getEdgeOffsetsForCell : topology.getOffsetsForCell;
+    const offsetsUp = getOffsets(0);
+    const offsetsDown = getOffsets(1);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        for (let o = 0; o < 2; o++) {
+          const i = y * stride + 2 * x + o;
+          const offsets = o === 0 ? offsetsUp : offsetsDown;
+          let n = 0;
+          for (let k = 0; k < offsets.length; k++) {
+            const dx = offsets[k][0];
+            const dy = offsets[k][1];
+            const dOrient = offsets[k][2];
+            let ny = y + dy;
+            if (!wrap && (ny < 0 || ny >= h)) continue;
+            if (wrap) ny = ((ny % h) + h) % h;
+            let nx = x + dx;
+            if (!wrap && (nx < 0 || nx >= w)) continue;
+            if (wrap) nx = ((nx % w) + w) % w;
+            n += cells[ny * stride + 2 * nx + dOrient];
+          }
+          const alive = cells[i];
+          let nextAlive;
+          if (alive) nextAlive = rule.shouldSurvive(n) ? 1 : 0;
+          else nextAlive = rule.shouldBirth(n) ? 1 : 0;
+          next[i] = nextAlive;
+        }
+      }
+    }
+    const tmp = this.cells;
+    this.cells = next;
+    this.next = tmp;
+    this.generation++;
+  }
 
   population() {
     let n = 0;
@@ -148,7 +261,9 @@ class PatternPreview {
     // Guns need open boundaries so emitted gliders don't wrap back and
     // interfere with the gun structure.
     this.wrap = wrap !== undefined ? wrap : pattern.category !== CATEGORY.GUN;
-    this.sim = new ToroidalLifeSim(gridSize, gridSize, this._compileRule());
+    const rule = this._compileRule();
+    const topologyId = rule.topology || 'square';
+    this.sim = new ToroidalLifeSim(gridSize, gridSize, rule, topologyId);
     this.sim.setWrap(this.wrap);
     this.sim.stampCentered(pattern.cells);
     this._accumMs = 0;
@@ -159,12 +274,20 @@ class PatternPreview {
 
   _compileRule() {
     const def = getRuleset(this.rulesetId) || CONWAY;
+    // Exotic rules don't expose a neighborhood — fall back to Conway
+    // for preview purposes.
+    if (def._exoticType) {
+      return new CompiledRuleset(CONWAY);
+    }
     return new CompiledRuleset(def);
   }
 
   setRuleset(id) {
     this.rulesetId = id;
-    this.sim.setRule(this._compileRule());
+    const rule = this._compileRule();
+    const topologyId = rule.topology || 'square';
+    this.sim.setTopology(topologyId);
+    this.sim.setRule(rule);
     this.reset();
   }
 
@@ -211,11 +334,24 @@ class PatternPreview {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
-    const cs = w / this.gridSize;
+    const topologyId = this.sim.topologyId || 'square';
     // Background.
     ctx.fillStyle = '#000010';
     ctx.fillRect(0, 0, w, h);
-    // Subtle grid lines (only if cells are big enough).
+    if (topologyId === 'square') {
+      this._drawSquare(ctx, w, h);
+    } else if (topologyId === 'hex') {
+      this._drawHex(ctx, w, h);
+    } else if (topologyId === 'tri') {
+      this._drawTri(ctx, w, h);
+    } else {
+      this._drawSquare(ctx, w, h);
+    }
+  }
+
+  _drawSquare(ctx, w, h) {
+    const cs = w / this.gridSize;
+    const cells = this.sim.cells;
     if (cs >= 4) {
       ctx.strokeStyle = 'rgba(64, 64, 160, 0.15)';
       ctx.lineWidth = 1;
@@ -231,14 +367,9 @@ class PatternPreview {
         ctx.stroke();
       }
     }
-    // Cells with glow.
     ctx.fillStyle = '#00ff88';
     ctx.shadowColor = '#00ff88';
-    const cells = this.sim.cells;
     // Adapt cell rendering to size so small cells stay visible.
-    // - For tiny cells (cs < 3), draw full cell with no inset and boost glow.
-    // - For medium cells, use a 1px inset.
-    // - For large cells, use the original 2px inset for a clean grid look.
     let inset, drawSize;
     if (cs < 3) {
       inset = 0;
@@ -250,12 +381,78 @@ class PatternPreview {
       inset = 1;
       drawSize = cs - 2;
     }
-    // Boost glow for small cells so they remain visible against the dark bg.
     ctx.shadowBlur = cs < 4 ? Math.max(3, cs * 1.5) : Math.max(2, cs * 0.4);
     for (let y = 0; y < this.gridSize; y++) {
       for (let x = 0; x < this.gridSize; x++) {
         if (cells[y * this.gridSize + x]) {
           ctx.fillRect(x * cs + inset, y * cs + inset, drawSize, drawSize);
+        }
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
+  _drawHex(ctx, w, h) {
+    const topology = getTopology('hex');
+    // Fit hex grid to canvas: compute cell size.
+    const SQRT3 = Math.sqrt(3);
+    const csByW = w / ((SQRT3 / 2) * (this.gridSize + 0.5));
+    const csByH = h / (0.75 * (this.gridSize - 1) + 1);
+    const cs = Math.max(2, Math.min(csByW, csByH));
+    const cells = this.sim.cells;
+    // Grid outlines.
+    if (cs >= 5) {
+      ctx.strokeStyle = 'rgba(64, 64, 160, 0.15)';
+      ctx.lineWidth = 1;
+      for (let r = 0; r < this.gridSize; r++) {
+        for (let q = 0; q < this.gridSize; q++) {
+          const verts = topology.cellPolygon(q, r, cs);
+          ctx.beginPath();
+          ctx.moveTo(verts[0][0], verts[0][1]);
+          for (let v = 1; v < verts.length; v++) ctx.lineTo(verts[v][0], verts[v][1]);
+          ctx.closePath();
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.fillStyle = '#00ff88';
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = cs < 4 ? Math.max(3, cs * 1.5) : Math.max(2, cs * 0.4);
+    for (let r = 0; r < this.gridSize; r++) {
+      for (let q = 0; q < this.gridSize; q++) {
+        if (cells[r * this.gridSize + q]) {
+          const verts = topology.cellPolygon(q, r, cs);
+          ctx.beginPath();
+          ctx.moveTo(verts[0][0], verts[0][1]);
+          for (let v = 1; v < verts.length; v++) ctx.lineTo(verts[v][0], verts[v][1]);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
+  _drawTri(ctx, w, h) {
+    const topology = getTopology('tri');
+    const csByW = w / (this.gridSize * 0.5 + 0.5);
+    const csByH = (h * 2) / (this.gridSize * Math.sqrt(3));
+    const cs = Math.max(2, Math.min(csByW, csByH));
+    const cells = this.sim.cells;
+    const stride = 2 * this.gridSize;
+    ctx.fillStyle = '#00ff88';
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = cs < 4 ? Math.max(3, cs * 1.5) : Math.max(2, cs * 0.4);
+    for (let y = 0; y < this.gridSize; y++) {
+      for (let x = 0; x < this.gridSize; x++) {
+        for (let o = 0; o < 2; o++) {
+          const i = y * stride + 2 * x + o;
+          if (cells[i]) {
+            const verts = topology.cellPolygon(x, y, cs, o);
+            ctx.beginPath();
+            ctx.moveTo(verts[0][0], verts[0][1]);
+            for (let v = 1; v < verts.length; v++) ctx.lineTo(verts[v][0], verts[v][1]);
+            ctx.closePath();
+            ctx.fill();
+          }
         }
       }
     }

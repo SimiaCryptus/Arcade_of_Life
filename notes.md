@@ -1,3 +1,3 @@
-
-
-- level designer's default/starting speed setting is not working - the game always starts at the same speed regardless of the setting
+- in hex mode, during gameplay, the grid appears too small. the bottom only goes down anout 80% of the way; the zone area painting is the correct size underneath it, but the grid overlay is too short and narrow
+- pattern capturing is bugged in hex mode - the window select does not appear to align with the grid so it misreports an empty selection unless I capture a very wide area
+- ensure the zoo supports hex modes

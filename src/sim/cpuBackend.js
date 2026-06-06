@@ -237,9 +237,16 @@ export class CpuSimBackend {
     lifeOut.fill(0);
     missOut.fill(0);
     defOut.fill(0);
-    const offsets = this._neighborhood.offsets;
-    const nOff = offsets.length;
+    // Hex grid uses ODD-R OFFSET coordinates with row-parity-dependent
+    // neighbor offsets. Use the topology helper to get the correct
+    // offset list per row.
+    const topology = getTopology('hex');
+    const nbhdSize = this._neighborhood.size === 18 ? 18 : 6;
+    const offsetsEven = topology.getOffsetsForCell(0, nbhdSize);
+    const offsetsOdd = topology.getOffsetsForCell(1, nbhdSize);
     for (let r = 0; r < h; r++) {
+      const offsets = (r & 1) === 1 ? offsetsOdd : offsetsEven;
+      const nOff = offsets.length;
       for (let q = 0; q < w; q++) {
         let life = 0,
           miss = 0,

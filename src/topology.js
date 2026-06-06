@@ -74,40 +74,82 @@ export const SQUARE_TOPOLOGY = {
 
 // ── Hex topology (HexLife) ──────────────────────────────────────────
 
-// Pointy-top axial hex: 6 edge neighbors.
-// q is column, r is row. Offsets in axial coords.
-const HEX_NEIGHBOR_OFFSETS_6 = [
+// Pointy-top hex with odd-r OFFSET coordinates (rectangular layout).
+// Each odd row r is shifted right by half a hex width.
+// Neighbor offsets depend on row parity for the diagonals.
+//
+// For EVEN rows (r is even):
+//   E: (q+1, r)      W: (q-1, r)
+//   NE: (q, r-1)     NW: (q-1, r-1)
+//   SE: (q, r+1)     SW: (q-1, r+1)
+//
+// For ODD rows (r is odd):
+//   E: (q+1, r)      W: (q-1, r)
+//   NE: (q+1, r-1)   NW: (q, r-1)
+//   SE: (q+1, r+1)   SW: (q, r+1)
+const HEX_NEIGHBOR_OFFSETS_6_EVEN = [
   [+1, 0],
   [-1, 0],
-  [0, +1],
   [0, -1],
-  [+1, -1],
+  [-1, -1],
+  [0, +1],
   [-1, +1],
 ];
+const HEX_NEIGHBOR_OFFSETS_6_ODD = [
+  [+1, 0],
+  [-1, 0],
+  [+1, -1],
+  [0, -1],
+  [+1, +1],
+  [0, +1],
+];
+// Legacy axial offsets kept for backward compatibility with the
+// neighborhoods.js registry (which uses them as the canonical
+// "hex_6" offset list). The topology helper getOffsetsForCell()
+// returns the correct row-parity-dependent offsets.
+const HEX_NEIGHBOR_OFFSETS_6 = HEX_NEIGHBOR_OFFSETS_6_EVEN;
 
 // Extended hex neighborhood: 6 + 12 = 18 cells (two concentric rings).
-const HEX_NEIGHBOR_OFFSETS_18 = [
-  // Ring 1 (6 neighbors)
-  [+1, 0],
-  [-1, 0],
-  [0, +1],
-  [0, -1],
-  [+1, -1],
-  [-1, +1],
-  // Ring 2 (12 neighbors)
+// Row-parity-dependent for the same reason as the 6-cell set.
+const HEX_NEIGHBOR_OFFSETS_18_EVEN = [
+  ...HEX_NEIGHBOR_OFFSETS_6_EVEN,
   [+2, 0],
   [-2, 0],
-  [0, +2],
-  [0, -2],
-  [+2, -1],
-  [-2, +1],
+  [+1, -1],
+  [-2, -1],
   [+1, +1],
-  [-1, -1],
+  [-2, +1],
+  [-1, -2],
+  [0, -2],
   [+1, -2],
   [-1, +2],
-  [+2, -2],
-  [-2, +2],
+  [0, +2],
+  [+1, +2],
 ];
+const HEX_NEIGHBOR_OFFSETS_18_ODD = [
+  ...HEX_NEIGHBOR_OFFSETS_6_ODD,
+  [+2, 0],
+  [-2, 0],
+  [+2, -1],
+  [-1, -1],
+  [+2, +1],
+  [-1, +1],
+  [-1, -2],
+  [0, -2],
+  [+1, -2],
+  [-1, +2],
+  [0, +2],
+  [+1, +2],
+];
+const HEX_NEIGHBOR_OFFSETS_18 = HEX_NEIGHBOR_OFFSETS_18_EVEN;
+// Helper exported so the simulation backend can resolve per-cell offsets.
+export function getHexNeighborOffsets(r, size = 6) {
+  const isOdd = (r & 1) === 1;
+  if (size === 18) {
+    return isOdd ? HEX_NEIGHBOR_OFFSETS_18_ODD : HEX_NEIGHBOR_OFFSETS_18_EVEN;
+  }
+  return isOdd ? HEX_NEIGHBOR_OFFSETS_6_ODD : HEX_NEIGHBOR_OFFSETS_6_EVEN;
+}
 
 // Hex pixel math constants (pointy-top).
 // For hex of "size" s (center-to-vertex distance):
@@ -129,39 +171,65 @@ export const HEX_TOPOLOGY = {
   unindex: (i, w) => [i % w, Math.floor(i / w)],
   defaultOffsets: HEX_NEIGHBOR_OFFSETS_6,
   extendedOffsets: HEX_NEIGHBOR_OFFSETS_18,
-  // For pointy-top hex: each row r is offset by r*0.5 in the q direction.
-  // Pixel position of cell (q, r):
-  //   px = cs * (SQRT3 * (q + r/2)) / 2 ... but we use cs as full height,
-  //   so s = cs/2, width = SQRT3 * s = SQRT3 * cs / 2.
-  //   Horizontal stride: SQRT3 * cs / 2
-  //   Vertical stride:   3/4 * cs
+  // Per-cell offset getter — neighbors depend on row parity.
+  getOffsetsForCell: (r, size = 6) => getHexNeighborOffsets(r, size),
+  // Rectangular layout using "odd-r offset" coordinates: each odd
+  // row is shifted right by half a hex width, so the overall grid
+  // forms a rectangle (not a slanted parallelogram).
+  // For pointy-top hex of size s (s = cs/2):
+  //   hex width  = √3 * s
+  //   hex height = 2 * s
+  //   horizontal stride: √3 * s
+  //   vertical stride:   1.5 * s
+  //   odd rows offset by: (√3 * s) / 2
   cellToPixel: (q, r, cs) => {
     const s = cs / 2;
     const w = SQRT3 * s;
+    const offset = (r & 1) === 1 ? w * 0.5 : 0;
     return {
-      px: w * (q + r * 0.5),
+      px: w * q + offset,
       py: 1.5 * s * r,
     };
   },
   cellCenter: (q, r, cs) => {
     const s = cs / 2;
     const w = SQRT3 * s;
+    const offset = (r & 1) === 1 ? w * 0.5 : 0;
     return {
-      px: w * (q + r * 0.5) + w / 2,
+      px: w * q + offset + w / 2,
       py: 1.5 * s * r + s,
     };
   },
   pixelToCell: (px, py, cs) => {
-    // Inverse of cellCenter, then round to nearest hex.
-    // Convert to fractional axial, then cube-round.
-    // cellCenter: px = w*(q + r*0.5) + w/2, py = 1.5*s*r + s
-    // where s = cs/2, w = √3 * s.
-    // Solve: r = (py - s) / (1.5*s); q = (px - w/2)/w - r*0.5
+    // Inverse of cellCenter for odd-r offset layout.
+    //   py = 1.5*s*r + s  ⇒  r = (py - s) / (1.5*s)
+    //   px = w*q + offset + w/2  ⇒  q = (px - offset - w/2) / w
     const s = cs / 2;
     const w = SQRT3 * s;
-    const r = (py - s) / (1.5 * s);
-    const q = (px - w / 2) / w - r * 0.5;
-    return hexRound(q, r);
+    const rFloat = (py - s) / (1.5 * s);
+    // We need to round r first to know the offset.
+    // Try both even and odd r candidates and pick the closest hex.
+    const rCandidates = [Math.floor(rFloat), Math.ceil(rFloat)];
+    let best = null;
+    let bestDist = Infinity;
+    for (const rCand of rCandidates) {
+      const offset = (rCand & 1) === 1 ? w * 0.5 : 0;
+      const qFloat = (px - offset - w / 2) / w;
+      const qCandidates = [Math.floor(qFloat), Math.ceil(qFloat)];
+      for (const qCand of qCandidates) {
+        // Distance from pixel to this hex center.
+        const cx = w * qCand + offset + w / 2;
+        const cy = 1.5 * s * rCand + s;
+        const dx = px - cx;
+        const dy = py - cy;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestDist) {
+          bestDist = d2;
+          best = { x: qCand, y: rCand };
+        }
+      }
+    }
+    return best || { x: 0, y: 0 };
   },
   cellPolygon: (q, r, cs) => {
     const s = cs / 2;
@@ -178,9 +246,10 @@ export const HEX_TOPOLOGY = {
   canvasSize: (w, h, cs) => {
     const s = cs / 2;
     const hexW = SQRT3 * s;
+    // Rectangular layout: width is just w hexes plus a half-hex
+    // offset for any odd row (always present unless h <= 1).
     return {
-      // Last row offsets by (h-1)*0.5 hex widths.
-      w: hexW * (w + (h - 1) * 0.5),
+      w: hexW * w + (h > 1 ? hexW * 0.5 : 0),
       h: 1.5 * s * (h - 1) + cs,
     };
   },

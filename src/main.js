@@ -753,6 +753,7 @@ class Game {
     } catch (e) {
       Logger.warn('Failed to determine topology; defaulting to square.', e);
     }
+    Logger.info(`[Game] Building world with topology: ${topologyId}`);
     this.grid = new Grid(CONFIG.GRID_WIDTH, CONFIG.GRID_HEIGHT, topologyId);
     this.simulation = new Simulation(this.grid);
     this.cities = new Cities(this.grid);
@@ -1129,8 +1130,34 @@ class Game {
     const reservedW = 24; // borders + padding
     const availW = Math.max(200, window.innerWidth - reservedW);
     const availH = Math.max(200, window.innerHeight - reservedH);
-    const sizeByW = Math.floor(availW / w);
-    const sizeByH = Math.floor(availH / h);
+    // Determine topology to size cells correctly.
+    let topologyId = 'square';
+    try {
+      const ruleDef = getRuleset(CONFIG.ACTIVE_RULESET || 'conway');
+      const nbhd =
+        ruleDef && ruleDef.neighborhood && !ruleDef._exoticType
+          ? getNeighborhood(ruleDef.neighborhood)
+          : null;
+      if (nbhd && nbhd.topology) topologyId = nbhd.topology;
+    } catch (_e) {
+      // default square
+    }
+    let sizeByW, sizeByH;
+    if (topologyId === 'hex') {
+      // Pointy-top hex: width = √3*s where s = cs/2, so horizontal stride
+      // per column is (√3/2)*cs. Total width with odd-row offset is
+      // w*(√3/2)*cs + (√3/4)*cs. Vertical stride is 0.75*cs, total height
+      // is 0.75*cs*(h-1) + cs.
+      const SQRT3 = Math.sqrt(3);
+      sizeByW = Math.floor(availW / ((SQRT3 / 2) * (w + 0.5)));
+      sizeByH = Math.floor(availH / (0.75 * (h - 1) + 1));
+    } else if (topologyId === 'tri') {
+      sizeByW = Math.floor(availW / (w * 0.5 + 0.5));
+      sizeByH = Math.floor((availH * 2) / (h * Math.sqrt(3)));
+    } else {
+      sizeByW = Math.floor(availW / w);
+      sizeByH = Math.floor(availH / h);
+    }
     let size = Math.min(sizeByW, sizeByH);
     // Clamp to reasonable bounds.
     if (size < 1) size = 1;
@@ -1865,8 +1892,10 @@ class Game {
     let startSpeed = 1.0;
     if (level.settings && typeof level.settings.STARTING_SPEED === 'number') {
       startSpeed = level.settings.STARTING_SPEED;
+      Logger.info(`[Game] Using STARTING_SPEED from level.settings: ${startSpeed}x`);
     } else if (typeof CONFIG.STARTING_SPEED === 'number') {
       startSpeed = CONFIG.STARTING_SPEED;
+      Logger.info(`[Game] Using STARTING_SPEED from CONFIG fallback: ${startSpeed}x`);
     }
     // CRITICAL: write to CONFIG so the slider sync reads the correct value.
     CONFIG.SPEED_MULTIPLIER = startSpeed;
@@ -1895,6 +1924,18 @@ class Game {
       }
       this.speedSlider.value = String(idx);
       this._applySpeedFromSlider();
+      // The slider may snap to a preset value that differs from
+      // the requested startSpeed. Force CONFIG.SPEED_MULTIPLIER back
+      // to the exact requested value, overriding _applySpeedFromSlider.
+      CONFIG.SPEED_MULTIPLIER = startSpeed;
+      if (this.speedLabel) {
+        const matched = SPEED_PRESETS[idx];
+        if (matched && matched.value === startSpeed) {
+          this.speedLabel.textContent = matched.name;
+        } else {
+          this.speedLabel.textContent = startSpeed === 0 ? 'Paused' : `${startSpeed}x (custom)`;
+        }
+      }
       // If starting paused, remember 1x so Space resumes to normal speed.
       if (startSpeed === 0) {
         this._prePauseIdx = SPEED_PRESETS.findIndex((p) => p.value === 1.0);

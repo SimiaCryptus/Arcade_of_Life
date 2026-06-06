@@ -7,7 +7,8 @@ import {
   onLevelsChanged,
   importLevelJSON,
 } from './levels.js';
-import { listRulesets } from './rules/index.js';
+import { listRulesets, getRuleset, getNeighborhood } from './rules/index.js';
+import { getTopology } from './topology.js';
 import { listPatterns } from './patterns/index.js';
 import { SETTING_DEFS, BOOLEAN_SETTING_DEFS } from './settings.js';
 
@@ -60,6 +61,9 @@ export class LevelDesigner {
     this.gridWidth = 120;
     this.gridHeight = 80;
     this.cellSize = 6;
+    // Current topology id ('square' | 'hex' | 'tri'), derived from
+    // the selected ruleset's neighborhood.
+    this.topologyId = 'square';
     this.cities = []; // {x, y, width, height}
     this.defenseCells = new Set(); // "x,y" keys
     // Wrap settings.
@@ -343,6 +347,24 @@ export class LevelDesigner {
     const def = listRulesets().find((d) => d.id === sel.value);
     descEl.textContent = def ? def.description || '' : '';
   }
+  // Recompute the active topology from the selected ruleset's
+  // neighborhood. Falls back to 'square' for exotic rules.
+  _updateTopologyFromRuleset() {
+    let topologyId = 'square';
+    try {
+      const def = getRuleset(this.ruleset);
+      if (def && def.neighborhood && !def._exoticType) {
+        const nbhd = getNeighborhood(def.neighborhood);
+        if (nbhd && nbhd.topology) topologyId = nbhd.topology;
+      }
+    } catch (e) {
+      // Default to square.
+    }
+    if (topologyId !== this.topologyId) {
+      this.topologyId = topologyId;
+      this._resizeCanvas();
+    }
+  }
 
   _resizeCanvas() {
     // Fit the designer canvas to the wrap with reasonable cell size.
@@ -350,11 +372,34 @@ export class LevelDesigner {
     if (!wrap) return;
     const maxW = Math.min(wrap.clientWidth || 800, 1200);
     const maxH = Math.min(wrap.clientHeight || 600, 800);
-    const sizeByW = Math.floor(maxW / this.gridWidth);
-    const sizeByH = Math.floor(maxH / this.gridHeight);
-    this.cellSize = Math.max(2, Math.min(sizeByW, sizeByH, 12));
-    this.canvas.width = this.gridWidth * this.cellSize;
-    this.canvas.height = this.gridHeight * this.cellSize;
+    const topology = getTopology(this.topologyId);
+    // Estimate cell size for the current topology.
+    if (this.topologyId === 'hex') {
+      // For hex: width per row ≈ √3/2 * cs * (w + 0.5 for odd rows),
+      // height ≈ 1.5*(cs/2)*(h-1) + cs = 0.75*cs*(h-1) + cs.
+      // Solve for cs to fit both bounds.
+      const SQRT3 = Math.sqrt(3);
+      const csByW = Math.floor(maxW / ((SQRT3 / 2) * (this.gridWidth + 0.5)));
+      const csByH = Math.floor(maxH / (0.75 * (this.gridHeight - 1) + 1));
+      this.cellSize = Math.max(3, Math.min(csByW, csByH, 16));
+      const dims = topology.canvasSize(this.gridWidth, this.gridHeight, this.cellSize);
+      this.canvas.width = Math.ceil(dims.w);
+      this.canvas.height = Math.ceil(dims.h);
+    } else if (this.topologyId === 'tri') {
+      // Tri grid: 2 triangles per (x,y) cell. Stride is ~cs*0.5 horizontally.
+      const csByW = Math.floor(maxW / (this.gridWidth * 0.5 + 0.5));
+      const csByH = Math.floor((maxH * 2) / (this.gridHeight * Math.sqrt(3)));
+      this.cellSize = Math.max(3, Math.min(csByW, csByH, 18));
+      const dims = topology.canvasSize(this.gridWidth, this.gridHeight, this.cellSize);
+      this.canvas.width = Math.ceil(dims.w);
+      this.canvas.height = Math.ceil(dims.h);
+    } else {
+      const sizeByW = Math.floor(maxW / this.gridWidth);
+      const sizeByH = Math.floor(maxH / this.gridHeight);
+      this.cellSize = Math.max(2, Math.min(sizeByW, sizeByH, 12));
+      this.canvas.width = this.gridWidth * this.cellSize;
+      this.canvas.height = this.gridHeight * this.cellSize;
+    }
     this._draw();
   }
 
@@ -521,6 +566,7 @@ export class LevelDesigner {
       this._updateRulesetDesc();
       // Mirror into settings snapshot so it's saved consistently.
       if (this.levelSettings) this.levelSettings.ACTIVE_RULESET = e.target.value;
+      this._updateTopologyFromRuleset();
       this._draw();
     });
     // Footer buttons.
@@ -640,8 +686,18 @@ export class LevelDesigner {
     const rect = this.canvas.getBoundingClientRect();
     const sx = this.canvas.width / rect.width;
     const sy = this.canvas.height / rect.height;
-    const x = Math.floor(((e.clientX - rect.left) * sx) / this.cellSize);
-    const y = Math.floor(((e.clientY - rect.top) * sy) / this.cellSize);
+    const px = (e.clientX - rect.left) * sx;
+    const py = (e.clientY - rect.top) * sy;
+    let x, y;
+    if (this.topologyId === 'hex' || this.topologyId === 'tri') {
+      const topology = getTopology(this.topologyId);
+      const result = topology.pixelToCell(px, py, this.cellSize);
+      x = result.x;
+      y = result.y;
+    } else {
+      x = Math.floor(px / this.cellSize);
+      y = Math.floor(py / this.cellSize);
+    }
     if (x < 0 || x >= this.gridWidth || y < 0 || y >= this.gridHeight) return null;
     return { x, y };
   }
@@ -1107,23 +1163,28 @@ export class LevelDesigner {
     // Background.
     ctx.fillStyle = theme('BACKGROUND', '#000010');
     ctx.fillRect(0, 0, w, h);
-    // Grid lines (subtle, only if cells are big enough).
+    // Grid lines / cell outlines.
     if (cs >= 4) {
-      ctx.strokeStyle = 'rgba(64, 64, 160, 0.15)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= this.gridWidth; i++) {
-        const x = i * cs + 0.5;
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
-        ctx.stroke();
-      }
-      for (let i = 0; i <= this.gridHeight; i++) {
-        const y = i * cs + 0.5;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
+      if (this.topologyId === 'square') {
+        ctx.strokeStyle = 'rgba(64, 64, 160, 0.15)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= this.gridWidth; i++) {
+          const x = i * cs + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, h);
+          ctx.stroke();
+        }
+        for (let i = 0; i <= this.gridHeight; i++) {
+          const y = i * cs + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
+      } else {
+        // Hex/Tri: draw cell outlines.
+        this._drawTopologyGrid(ctx);
       }
     }
     // Draw zone tint (informational). Pull values from the level's own
@@ -1238,33 +1299,37 @@ export class LevelDesigner {
     ctx.fillStyle = '#00ff88';
     for (const key of this.defenseCells) {
       const [x, y] = key.split(',').map(Number);
-      ctx.fillRect(x * cs + 1, y * cs + 1, cs - 2, cs - 2);
+      this._fillCell(ctx, x, y, '#00ff88');
     }
     // Cities.
     const cityColor = (this.colorTheme && this.colorTheme.CELL_CITY) || '#ffff60';
-    ctx.fillStyle = cityColor;
     ctx.shadowColor = cityColor;
     ctx.shadowBlur = 6;
     for (const c of this.cities) {
-      ctx.fillRect(c.x * cs, c.y * cs, c.width * cs, c.height * cs);
+      for (let dy = 0; dy < c.height; dy++) {
+        for (let dx = 0; dx < c.width; dx++) {
+          this._fillCell(ctx, c.x + dx, c.y + dy, cityColor);
+        }
+      }
     }
     ctx.shadowBlur = 0;
     // Bases — draw cells with a red/orange tint plus a bbox outline.
     for (const pb of this.bases) {
-      // Outline.
-      ctx.strokeStyle = 'rgba(255, 120, 60, 0.7)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([3, 3]);
-      ctx.strokeRect(pb.x * cs, pb.y * cs, pb.width * cs, pb.height * cs);
-      ctx.setLineDash([]);
+      // Outline (only for square; hex/tri skip bbox).
+      if (this.topologyId === 'square') {
+        ctx.strokeStyle = 'rgba(255, 120, 60, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.strokeRect(pb.x * cs, pb.y * cs, pb.width * cs, pb.height * cs);
+        ctx.setLineDash([]);
+      }
       // Cells.
-      ctx.fillStyle = '#ff7733';
       ctx.shadowColor = '#ff7733';
       ctx.shadowBlur = 4;
       for (const [dx, dy] of pb.cells) {
         const px = pb.x + dx;
         const py = pb.y + dy;
-        ctx.fillRect(px * cs + 1, py * cs + 1, Math.max(1, cs - 2), Math.max(1, cs - 2));
+        this._fillCell(ctx, px, py, '#ff7733');
       }
       ctx.shadowBlur = 0;
       // Tiny label above bounding box.
@@ -1273,23 +1338,25 @@ export class LevelDesigner {
         ctx.font = `bold ${Math.max(8, Math.min(12, cs * 1.2))}px monospace`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
-        ctx.fillText(pb.name, pb.x * cs + 2, pb.y * cs - 1);
+        const labelPos = this._cellPixelPos(pb.x, pb.y);
+        ctx.fillText(pb.name, labelPos.px + 2, labelPos.py - 1);
       }
     }
     // Spawners — magenta/purple tint with double-outline.
     for (const sp of this.spawners) {
-      ctx.strokeStyle = 'rgba(255, 100, 220, 0.8)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 2]);
-      ctx.strokeRect(sp.x * cs, sp.y * cs, sp.width * cs, sp.height * cs);
-      ctx.setLineDash([]);
-      ctx.fillStyle = '#ff66cc';
+      if (this.topologyId === 'square') {
+        ctx.strokeStyle = 'rgba(255, 100, 220, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 2]);
+        ctx.strokeRect(sp.x * cs, sp.y * cs, sp.width * cs, sp.height * cs);
+        ctx.setLineDash([]);
+      }
       ctx.shadowColor = '#ff66cc';
       ctx.shadowBlur = 5;
       for (const [dx, dy] of sp.cells) {
         const px = sp.x + dx;
         const py = sp.y + dy;
-        ctx.fillRect(px * cs + 1, py * cs + 1, Math.max(1, cs - 2), Math.max(1, cs - 2));
+        this._fillCell(ctx, px, py, '#ff66cc');
       }
       ctx.shadowBlur = 0;
       if (cs >= 4 && sp.name) {
@@ -1297,11 +1364,87 @@ export class LevelDesigner {
         ctx.font = `bold ${Math.max(8, Math.min(12, cs * 1.2))}px monospace`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
-        ctx.fillText('🚀 ' + sp.name, sp.x * cs + 2, sp.y * cs - 1);
+        const labelPos = this._cellPixelPos(sp.x, sp.y);
+        ctx.fillText('🚀 ' + sp.name, labelPos.px + 2, labelPos.py - 1);
       }
     }
     // ── Previews ──────────────────────────────────────────
     this._drawPreviews();
+  }
+  // Fill a single cell using the current topology.
+  _fillCell(ctx, x, y, color) {
+    const cs = this.cellSize;
+    if (this.topologyId === 'square') {
+      ctx.fillStyle = color;
+      ctx.fillRect(x * cs + 1, y * cs + 1, Math.max(1, cs - 2), Math.max(1, cs - 2));
+      return;
+    }
+    const topology = getTopology(this.topologyId);
+    if (this.topologyId === 'tri') {
+      // Tri: draw both up & down triangles at (x, y).
+      for (let o = 0; o < 2; o++) {
+        const verts = topology.cellPolygon(x, y, cs, o);
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(verts[0][0], verts[0][1]);
+        for (let v = 1; v < verts.length; v++) ctx.lineTo(verts[v][0], verts[v][1]);
+        ctx.closePath();
+        ctx.fill();
+      }
+      return;
+    }
+    // Hex.
+    const verts = topology.cellPolygon(x, y, cs);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(verts[0][0], verts[0][1]);
+    for (let v = 1; v < verts.length; v++) ctx.lineTo(verts[v][0], verts[v][1]);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // Get the top-left pixel position of a cell (for label placement).
+  _cellPixelPos(x, y) {
+    const cs = this.cellSize;
+    if (this.topologyId === 'square') {
+      return { px: x * cs, py: y * cs };
+    }
+    const topology = getTopology(this.topologyId);
+    if (this.topologyId === 'tri') {
+      return topology.cellToPixel(x, y, cs, 0);
+    }
+    return topology.cellToPixel(x, y, cs);
+  }
+  // Draw outlines for the current topology.
+  _drawTopologyGrid(ctx) {
+    const cs = this.cellSize;
+    const topology = getTopology(this.topologyId);
+    ctx.strokeStyle = 'rgba(64, 64, 160, 0.18)';
+    ctx.lineWidth = 1;
+    if (this.topologyId === 'hex') {
+      for (let r = 0; r < this.gridHeight; r++) {
+        for (let q = 0; q < this.gridWidth; q++) {
+          const verts = topology.cellPolygon(q, r, cs);
+          ctx.beginPath();
+          ctx.moveTo(verts[0][0], verts[0][1]);
+          for (let v = 1; v < verts.length; v++) ctx.lineTo(verts[v][0], verts[v][1]);
+          ctx.closePath();
+          ctx.stroke();
+        }
+      }
+    } else if (this.topologyId === 'tri') {
+      for (let y = 0; y < this.gridHeight; y++) {
+        for (let x = 0; x < this.gridWidth; x++) {
+          for (let o = 0; o < 2; o++) {
+            const verts = topology.cellPolygon(x, y, cs, o);
+            ctx.beginPath();
+            ctx.moveTo(verts[0][0], verts[0][1]);
+            for (let v = 1; v < verts.length; v++) ctx.lineTo(verts[v][0], verts[v][1]);
+            ctx.closePath();
+            ctx.stroke();
+          }
+        }
+      }
+    }
   }
   // Render hover/drag previews on top of committed content.
   _drawPreviews() {
@@ -1311,17 +1454,15 @@ export class LevelDesigner {
     const pulse = 0.55 + 0.15 * Math.sin(performance.now() / 200);
     // Line preview (during drag).
     if (this.mode === DESIGNER_MODE.LINE && this._linePreview && this._linePreview.length > 0) {
-      ctx.fillStyle = `rgba(0, 255, 200, ${pulse})`;
       for (const [x, y] of this._linePreview) {
-        ctx.fillRect(x * cs + 1, y * cs + 1, Math.max(1, cs - 2), Math.max(1, cs - 2));
+        this._fillCell(ctx, x, y, `rgba(0, 255, 200, ${pulse})`);
       }
       return;
     }
     // Fill preview (during drag).
     if (this.mode === DESIGNER_MODE.FILL && this._fillPreview && this._fillPreview.length > 0) {
-      ctx.fillStyle = `rgba(255, 200, 80, ${pulse * 0.8})`;
       for (const [x, y] of this._fillPreview) {
-        ctx.fillRect(x * cs + 1, y * cs + 1, Math.max(1, cs - 2), Math.max(1, cs - 2));
+        this._fillCell(ctx, x, y, `rgba(255, 200, 80, ${pulse * 0.8})`);
       }
       return;
     }
@@ -1331,22 +1472,20 @@ export class LevelDesigner {
       const stamp = this._stampPattern;
       const offX = hover.x - Math.floor(stamp.width / 2);
       const offY = hover.y - Math.floor(stamp.height / 2);
-      ctx.fillStyle = `rgba(0, 255, 200, ${pulse})`;
-      ctx.strokeStyle = `rgba(255, 255, 255, ${pulse * 0.5})`;
-      ctx.lineWidth = 1;
       for (const [dx, dy] of stamp.cells) {
         const px = offX + dx;
         const py = offY + dy;
         if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
-        ctx.fillRect(px * cs + 1, py * cs + 1, Math.max(1, cs - 2), Math.max(1, cs - 2));
-        ctx.strokeRect(px * cs + 0.5, py * cs + 0.5, cs - 1, cs - 1);
+        this._fillCell(ctx, px, py, `rgba(0, 255, 200, ${pulse})`);
       }
-      // Bounding box.
-      ctx.strokeStyle = `rgba(0, 255, 200, ${pulse * 0.7})`;
-      ctx.setLineDash([3, 3]);
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(offX * cs, offY * cs, stamp.width * cs, stamp.height * cs);
-      ctx.setLineDash([]);
+      // Bounding box (only for square topology).
+      if (this.topologyId === 'square') {
+        ctx.strokeStyle = `rgba(0, 255, 200, ${pulse * 0.7})`;
+        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(offX * cs, offY * cs, stamp.width * cs, stamp.height * cs);
+        ctx.setLineDash([]);
+      }
       return;
     }
     // Base stamp preview.
@@ -1354,18 +1493,19 @@ export class LevelDesigner {
       const stamp = this._basePattern;
       const offX = hover.x - Math.floor(stamp.width / 2);
       const offY = hover.y - Math.floor(stamp.height / 2);
-      ctx.fillStyle = `rgba(255, 119, 51, ${pulse})`;
       for (const [dx, dy] of stamp.cells) {
         const px = offX + dx;
         const py = offY + dy;
         if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
-        ctx.fillRect(px * cs + 1, py * cs + 1, Math.max(1, cs - 2), Math.max(1, cs - 2));
+        this._fillCell(ctx, px, py, `rgba(255, 119, 51, ${pulse})`);
       }
-      ctx.strokeStyle = `rgba(255, 120, 60, ${pulse * 0.8})`;
-      ctx.setLineDash([3, 3]);
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(offX * cs, offY * cs, stamp.width * cs, stamp.height * cs);
-      ctx.setLineDash([]);
+      if (this.topologyId === 'square') {
+        ctx.strokeStyle = `rgba(255, 120, 60, ${pulse * 0.8})`;
+        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(offX * cs, offY * cs, stamp.width * cs, stamp.height * cs);
+        ctx.setLineDash([]);
+      }
       return;
     }
     // Spawner stamp preview.
@@ -1373,18 +1513,19 @@ export class LevelDesigner {
       const stamp = this._spawnerPattern;
       const offX = hover.x - Math.floor(stamp.width / 2);
       const offY = hover.y - Math.floor(stamp.height / 2);
-      ctx.fillStyle = `rgba(255, 102, 204, ${pulse})`;
       for (const [dx, dy] of stamp.cells) {
         const px = offX + dx;
         const py = offY + dy;
         if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
-        ctx.fillRect(px * cs + 1, py * cs + 1, Math.max(1, cs - 2), Math.max(1, cs - 2));
+        this._fillCell(ctx, px, py, `rgba(255, 102, 204, ${pulse})`);
       }
-      ctx.strokeStyle = `rgba(255, 100, 220, ${pulse * 0.8})`;
-      ctx.setLineDash([4, 2]);
-      ctx.lineWidth = 2;
-      ctx.strokeRect(offX * cs, offY * cs, stamp.width * cs, stamp.height * cs);
-      ctx.setLineDash([]);
+      if (this.topologyId === 'square') {
+        ctx.strokeStyle = `rgba(255, 100, 220, ${pulse * 0.8})`;
+        ctx.setLineDash([4, 2]);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(offX * cs, offY * cs, stamp.width * cs, stamp.height * cs);
+        ctx.setLineDash([]);
+      }
       return;
     }
     // City placement preview (5×3 block).
@@ -1393,27 +1534,54 @@ export class LevelDesigner {
       const ch = CONFIG.CITY_HEIGHT || 3;
       const cx = Math.max(0, Math.min(this.gridWidth - cw, hover.x - Math.floor(cw / 2)));
       const cy = Math.max(0, Math.min(this.gridHeight - ch, hover.y - Math.floor(ch / 2)));
-      ctx.fillStyle = `rgba(255, 255, 96, ${pulse * 0.6})`;
-      ctx.fillRect(cx * cs, cy * cs, cw * cs, ch * cs);
-      ctx.strokeStyle = `rgba(255, 255, 96, ${pulse})`;
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(cx * cs, cy * cs, cw * cs, ch * cs);
+      for (let dy = 0; dy < ch; dy++) {
+        for (let dx = 0; dx < cw; dx++) {
+          this._fillCell(ctx, cx + dx, cy + dy, `rgba(255, 255, 96, ${pulse * 0.6})`);
+        }
+      }
+      if (this.topologyId === 'square') {
+        ctx.strokeStyle = `rgba(255, 255, 96, ${pulse})`;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(cx * cs, cy * cs, cw * cs, ch * cs);
+      }
       return;
     }
     // Erase brush preview.
     if (this.mode === DESIGNER_MODE.ERASE) {
       const r = Math.floor(this.brushSize / 2);
-      ctx.strokeStyle = `rgba(255, 80, 80, ${pulse})`;
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect((hover.x - r) * cs, (hover.y - r) * cs, (r * 2 + 1) * cs, (r * 2 + 1) * cs);
+      if (this.topologyId === 'square') {
+        ctx.strokeStyle = `rgba(255, 80, 80, ${pulse})`;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect((hover.x - r) * cs, (hover.y - r) * cs, (r * 2 + 1) * cs, (r * 2 + 1) * cs);
+      } else {
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            const px = hover.x + dx;
+            const py = hover.y + dy;
+            if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
+            this._fillCell(ctx, px, py, `rgba(255, 80, 80, ${pulse * 0.3})`);
+          }
+        }
+      }
       return;
     }
     // Defense brush preview (freehand mode).
     if (this.mode === DESIGNER_MODE.DEFENSE) {
       const r = Math.floor(this.brushSize / 2);
-      ctx.strokeStyle = `rgba(0, 255, 136, ${pulse * 0.6})`;
-      ctx.lineWidth = 1;
-      ctx.strokeRect((hover.x - r) * cs, (hover.y - r) * cs, (r * 2 + 1) * cs, (r * 2 + 1) * cs);
+      if (this.topologyId === 'square') {
+        ctx.strokeStyle = `rgba(0, 255, 136, ${pulse * 0.6})`;
+        ctx.lineWidth = 1;
+        ctx.strokeRect((hover.x - r) * cs, (hover.y - r) * cs, (r * 2 + 1) * cs, (r * 2 + 1) * cs);
+      } else {
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            const px = hover.x + dx;
+            const py = hover.y + dy;
+            if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
+            this._fillCell(ctx, px, py, `rgba(0, 255, 136, ${pulse * 0.3})`);
+          }
+        }
+      }
       return;
     }
   }
@@ -1537,6 +1705,7 @@ export class LevelDesigner {
     ov.querySelector('#ld-desc').value = this.description;
     ov.querySelector('#ld-ruleset').value = this.ruleset;
     this._updateRulesetDesc();
+    this._updateTopologyFromRuleset();
     ov.querySelector('#ld-grid-w').value = this.gridWidth;
     ov.querySelector('#ld-grid-h').value = this.gridHeight;
     const wrapInp = ov.querySelector('#ld-wrap-shift');
@@ -1570,18 +1739,8 @@ export class LevelDesigner {
     this.hide();
     if (this.game && this.game.startCustomLevel) {
       this.game.startCustomLevel(name);
-      // Start paused so the player can inspect the level before action begins.
-      if (this.game.speedSlider) {
-        // Find the "Paused" preset (value === 0).
-        const pausedIdx = 0; // First preset is always "Paused"
-        this.game.speedSlider.value = String(pausedIdx);
-        this.game._applySpeedFromSlider();
-      } else {
-        // Fallback: set CONFIG directly.
-        if (typeof window !== 'undefined' && window.CONFIG) {
-          window.CONFIG.SPEED_MULTIPLIER = 0;
-        }
-      }
+      // startCustomLevel applies the level's STARTING_SPEED setting from
+      // the level's settings snapshot, so we don't need to override here.
     }
   }
 
@@ -1968,6 +2127,8 @@ export class LevelDesigner {
     this.overlay.removeAttribute('aria-hidden');
     this._syncUIFromState();
     this._refreshLevelList();
+    // Sync topology from current ruleset.
+    this._updateTopologyFromRuleset();
     // Defer resize until layout settles.
     requestAnimationFrame(() => this._resizeCanvas());
   }
@@ -2334,7 +2495,7 @@ export class LevelDesigner {
       INK_REGEN_RATE: { min: 0, max: 20, step: 0.1 },
       INK_DRY_TICKS: { min: 0, max: 30, step: 1 },
       TICK_RATE: { min: 40, max: 300, step: 10 },
-      STARTING_SPEED: { min: 0.25, max: 8.0, step: 0.25 },
+      STARTING_SPEED: { min: 0, max: 16, step: 1 },
       DEFENDER_TICKS: { min: 1, max: 8, step: 1 },
       ATTACKER_TICKS: { min: 1, max: 8, step: 1 },
       MISSILES_PER_WAVE_BASE: { min: 1, max: 30, step: 1 },

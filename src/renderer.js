@@ -73,8 +73,16 @@ export class Renderer {
   // Recompute canvas size from current grid + CONFIG.
   // Call this after resolution changes or grid replacement.
   resize() {
-    this.canvas.width = this.grid.width * CONFIG.CELL_SIZE;
-    this.canvas.height = this.grid.height * CONFIG.CELL_SIZE + CONFIG.HUD_HEIGHT;
+    const topologyId = this.grid.topologyId || 'square';
+    if (topologyId === 'square') {
+      this.canvas.width = this.grid.width * CONFIG.CELL_SIZE;
+      this.canvas.height = this.grid.height * CONFIG.CELL_SIZE + CONFIG.HUD_HEIGHT;
+    } else {
+      const topology = getTopology(topologyId);
+      const dims = topology.canvasSize(this.grid.width, this.grid.height, CONFIG.CELL_SIZE);
+      this.canvas.width = Math.ceil(dims.w);
+      this.canvas.height = Math.ceil(dims.h) + CONFIG.HUD_HEIGHT;
+    }
   }
   // Return whether a floater with the same text would be a duplicate
   // of a recently-spawned one nearby. Helps prevent floater spam when
@@ -323,9 +331,24 @@ export class Renderer {
     const gridYOffset = CONFIG.HUD_HEIGHT;
 
     // Draw the draw-zone boundary + a subtle tint over the drawable area.
+    const topologyId = this.grid.topologyId || 'square';
+    const playfieldH = this.canvas.height - gridYOffset;
+    let zoneRowToY;
+    if (topologyId === 'square') {
+      zoneRowToY = (row) => row * cs + gridYOffset;
+    } else if (topologyId === 'hex') {
+      const s = cs / 2;
+      zoneRowToY = (row) => 1.5 * s * row + gridYOffset;
+    } else if (topologyId === 'tri') {
+      const triH = (cs * Math.sqrt(3)) / 2;
+      zoneRowToY = (row) => row * triH + gridYOffset;
+    } else {
+      zoneRowToY = (row) => row * cs + gridYOffset;
+    }
     const dzMinY = this.grid.drawZoneMinY();
-    const midY = dzMinY * cs + gridYOffset;
-    const rearY = this.grid.rearDeadZoneMinY() * cs + gridYOffset;
+    const midY = zoneRowToY(dzMinY);
+    const rearY = zoneRowToY(this.grid.rearDeadZoneMinY());
+    const playfieldBottom = gridYOffset + playfieldH;
     // Base zone band (between top dead zone and missile spawn line).
     const bz = this.grid.baseZoneBounds();
     if (CONFIG.SHOW_DRAW_ZONE !== false && CONFIG.VFX_DRAW_ZONE_TINT !== false) {
@@ -333,14 +356,14 @@ export class Renderer {
       ctx.fillStyle = colors.DRAW_ZONE_TINT || 'rgba(0,255,136,0.04)';
       ctx.fillRect(0, midY, this.canvas.width, rearY - midY);
       // Rear dead zone tint (red-ish "no man's land").
-      if (rearY < this.grid.height * cs + gridYOffset) {
+      if (rearY < playfieldBottom) {
         ctx.fillStyle = 'rgba(255, 80, 80, 0.06)';
-        ctx.fillRect(0, rearY, this.canvas.width, this.grid.height * cs + gridYOffset - rearY);
+        ctx.fillRect(0, rearY, this.canvas.width, playfieldBottom - rearY);
       }
       // Base zone tint (subtle amber).
       if (bz) {
-        const bzY = bz.minY * cs + gridYOffset;
-        const bzH = (bz.maxY - bz.minY + 1) * cs;
+        const bzY = zoneRowToY(bz.minY);
+        const bzH = zoneRowToY(bz.maxY + 1) - bzY;
         ctx.fillStyle = 'rgba(255, 180, 60, 0.05)';
         ctx.fillRect(0, bzY, this.canvas.width, bzH);
       }
@@ -356,7 +379,7 @@ export class Renderer {
       ctx.lineTo(this.canvas.width, midY + 0.5);
       ctx.stroke();
       // Rear dead zone boundary line (red).
-      if (rearY < this.grid.height * cs + gridYOffset) {
+      if (rearY < playfieldBottom) {
         ctx.strokeStyle = 'rgba(255, 80, 80, 0.5)';
         ctx.beginPath();
         ctx.moveTo(0, rearY + 0.5);
@@ -367,8 +390,8 @@ export class Renderer {
       if (bz) {
         ctx.strokeStyle = 'rgba(255, 180, 60, 0.4)';
         ctx.setLineDash([4, 4]);
-        const bzTop = bz.minY * cs + gridYOffset;
-        const bzBot = (bz.maxY + 1) * cs + gridYOffset;
+        const bzTop = zoneRowToY(bz.minY);
+        const bzBot = zoneRowToY(bz.maxY + 1);
         ctx.beginPath();
         ctx.moveTo(0, bzTop + 0.5);
         ctx.lineTo(this.canvas.width, bzTop + 0.5);
@@ -389,9 +412,9 @@ export class Renderer {
       ctx.fillText('▼ DRAW ZONE', 4, midY - 2);
       if (bz) {
         ctx.fillStyle = 'rgba(255, 180, 60, 0.7)';
-        ctx.fillText('◆ BASE ZONE', 4, bz.minY * cs + gridYOffset - 2);
+        ctx.fillText('◆ BASE ZONE', 4, zoneRowToY(bz.minY) - 2);
       }
-      if (rearY < this.grid.height * cs + gridYOffset) {
+      if (rearY < playfieldBottom) {
         ctx.fillStyle = 'rgba(255, 100, 100, 0.7)';
         ctx.fillText('▲ REAR DEAD ZONE', 4, rearY - 2);
       }
@@ -408,7 +431,6 @@ export class Renderer {
     }
 
     // Draw cells — dispatch on topology.
-    const topologyId = this.grid.topologyId || 'square';
     if (topologyId === 'hex') {
       this._renderCellsHex(gridYOffset);
     } else if (topologyId === 'tri') {

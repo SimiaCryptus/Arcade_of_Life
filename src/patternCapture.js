@@ -4,6 +4,7 @@ import { loadJSON, saveJSON } from './storage.js';
 import { normalizeCells } from './patterns/library.js';
 import { listPatterns } from './patterns/index.js';
 import { inferPatternMetadata } from './patterns/inferMetadata.js';
+import { getTopology } from './topology.js';
 
 const STORAGE_KEY = 'missileDefenseCustomPatterns';
 const STORAGE_KEY_META = 'missileDefenseCustomPatternsMeta';
@@ -216,12 +217,16 @@ export class PatternCapture {
     const containerRect = container.getBoundingClientRect();
     const overlay = document.createElement('div');
     overlay.id = 'pattern-capture-overlay';
+    // Convert HUD offset from canvas-pixel space to CSS-pixel space.
+    const scaleY = canvasRect.height / this.canvas.height;
+    const hudCss = CONFIG.HUD_HEIGHT * scaleY;
+    const playfieldCss = canvasRect.height - hudCss;
     overlay.style.cssText = `
           position: absolute;
-          top: ${canvasRect.top - containerRect.top + CONFIG.HUD_HEIGHT}px;
+          top: ${canvasRect.top - containerRect.top + hudCss}px;
           left: ${canvasRect.left - containerRect.left}px;
-          width: ${this.canvas.width}px;
-          height: ${this.canvas.height - CONFIG.HUD_HEIGHT}px;
+          width: ${canvasRect.width}px;
+          height: ${playfieldCss}px;
           pointer-events: none;
           z-index: 8;
           background: rgba(255, 200, 60, 0.06);
@@ -285,16 +290,64 @@ export class PatternCapture {
 
   _updateRect() {
     if (!this._rectEl || !this.startCell || !this.currentCell) return;
-    const cs = CONFIG.CELL_SIZE;
     const x0 = Math.min(this.startCell.gx, this.currentCell.gx);
     const x1 = Math.max(this.startCell.gx, this.currentCell.gx);
     const y0 = Math.min(this.startCell.gy, this.currentCell.gy);
     const y1 = Math.max(this.startCell.gy, this.currentCell.gy);
+    // Compute bounding rect in canvas-pixel space using the current
+    // topology, then convert to CSS pixels for the overlay element.
+    const cs = CONFIG.CELL_SIZE;
+    const topologyId = (this.game.grid && this.game.grid.topologyId) || 'square';
+    const canvasRect = this.canvas.getBoundingClientRect();
+    const scaleX = canvasRect.width / this.canvas.width;
+    const scaleY = canvasRect.height / this.canvas.height;
+    let pxL, pxT, pxR, pxB;
+    if (topologyId === 'square') {
+      pxL = x0 * cs;
+      pxT = y0 * cs;
+      pxR = (x1 + 1) * cs;
+      pxB = (y1 + 1) * cs;
+    } else {
+      const topology = getTopology(topologyId);
+      // Build the union of cell bounding boxes for the selection.
+      let minPx = Infinity,
+        minPy = Infinity,
+        maxPx = -Infinity,
+        maxPy = -Infinity;
+      for (let yy = y0; yy <= y1; yy++) {
+        for (let xx = x0; xx <= x1; xx++) {
+          let verts;
+          if (topologyId === 'tri') {
+            for (let o = 0; o < 2; o++) {
+              verts = topology.cellPolygon(xx, yy, cs, o);
+              for (const [vx, vy] of verts) {
+                if (vx < minPx) minPx = vx;
+                if (vy < minPy) minPy = vy;
+                if (vx > maxPx) maxPx = vx;
+                if (vy > maxPy) maxPy = vy;
+              }
+            }
+          } else {
+            verts = topology.cellPolygon(xx, yy, cs);
+            for (const [vx, vy] of verts) {
+              if (vx < minPx) minPx = vx;
+              if (vy < minPy) minPy = vy;
+              if (vx > maxPx) maxPx = vx;
+              if (vy > maxPy) maxPy = vy;
+            }
+          }
+        }
+      }
+      pxL = minPx;
+      pxT = minPy;
+      pxR = maxPx;
+      pxB = maxPy;
+    }
     this._rectEl.style.display = 'block';
-    this._rectEl.style.left = `${x0 * cs}px`;
-    this._rectEl.style.top = `${y0 * cs}px`;
-    this._rectEl.style.width = `${(x1 - x0 + 1) * cs}px`;
-    this._rectEl.style.height = `${(y1 - y0 + 1) * cs}px`;
+    this._rectEl.style.left = `${pxL * scaleX}px`;
+    this._rectEl.style.top = `${pxT * scaleY}px`;
+    this._rectEl.style.width = `${(pxR - pxL) * scaleX}px`;
+    this._rectEl.style.height = `${(pxB - pxT) * scaleY}px`;
     // Update hint with selection size.
     if (this._hintEl) {
       const w = x1 - x0 + 1;
@@ -307,12 +360,21 @@ export class PatternCapture {
   _getCell(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
     const cs = CONFIG.CELL_SIZE > 0 ? CONFIG.CELL_SIZE : 1;
-    const x = clientX - rect.left;
-    const y = clientY - rect.top - CONFIG.HUD_HEIGHT;
-    return {
-      gx: Math.floor(x / cs),
-      gy: Math.floor(y / cs),
-    };
+    // Scale CSS pixel coords to internal canvas pixel coords.
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY - CONFIG.HUD_HEIGHT;
+    const topologyId = (this.game.grid && this.game.grid.topologyId) || 'square';
+    if (topologyId === 'square') {
+      return {
+        gx: Math.floor(x / cs),
+        gy: Math.floor(y / cs),
+      };
+    }
+    const topology = getTopology(topologyId);
+    const r = topology.pixelToCell(x, y, cs);
+    return { gx: r.x, gy: r.y };
   }
 
   _clampCell(cell) {
