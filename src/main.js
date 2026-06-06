@@ -1786,6 +1786,30 @@ class Game {
     );
     this._activeCustomLevel = level;
     this._customVictoryShown = false;
+    // Diagnostic: dump age-related settings from the loaded level.
+    if (level.settings) {
+      const s = level.settings;
+      Logger.info(
+        `[Game] startCustomLevel "${levelName}" — incoming age settings: ` +
+          `CELL_MAX_AGE_TICKS=${s.CELL_MAX_AGE_TICKS}, ` +
+          `UNLIMITED_CELL_AGE=${s.UNLIMITED_CELL_AGE}, ` +
+          `DEFENSE_AGE_FRIENDLY=${s.DEFENSE_AGE_FRIENDLY}, ` +
+          `UNLIMITED_DEF_AGE_FRIENDLY=${s.UNLIMITED_DEF_AGE_FRIENDLY}, ` +
+          `DEFENSE_AGE_ENEMY=${s.DEFENSE_AGE_ENEMY}, ` +
+          `UNLIMITED_DEF_AGE_ENEMY=${s.UNLIMITED_DEF_AGE_ENEMY}, ` +
+          `MISSILE_AGE_FRIENDLY=${s.MISSILE_AGE_FRIENDLY}, ` +
+          `UNLIMITED_MISS_AGE_FRIENDLY=${s.UNLIMITED_MISS_AGE_FRIENDLY}, ` +
+          `MISSILE_AGE_ENEMY=${s.MISSILE_AGE_ENEMY}, ` +
+          `UNLIMITED_MISS_AGE_ENEMY=${s.UNLIMITED_MISS_AGE_ENEMY}`
+      );
+      Logger.info(
+        `[Game] CONFIG age values BEFORE level apply: ` +
+          `DEFENSE_AGE_FRIENDLY=${CONFIG.DEFENSE_AGE_FRIENDLY}, ` +
+          `DEFENSE_AGE_ENEMY=${CONFIG.DEFENSE_AGE_ENEMY}, ` +
+          `MISSILE_AGE_FRIENDLY=${CONFIG.MISSILE_AGE_FRIENDLY}, ` +
+          `MISSILE_AGE_ENEMY=${CONFIG.MISSILE_AGE_ENEMY}`
+      );
+    }
     // Apply full settings snapshot first (if present) so that downstream
     // overrides like waveConfig and ruleset still take precedence.
     if (level.settings && typeof level.settings === 'object') {
@@ -1794,14 +1818,40 @@ class Game {
         if (k in CONFIG) CONFIG[k] = v;
       }
       Logger.info(`[Game] Applied ${Object.keys(level.settings).length} setting overrides.`);
+      // Also sync the level's settings into this.settings.values so the
+      // Settings panel reflects the level's state and any subsequent
+      // settings.apply() call (e.g. from opening the in-game settings
+      // panel) won't clobber CONFIG with the user's persistent values.
+      // This is especially important for the UNLIMITED_* flags which
+      // live only in settings.values (not CONFIG) and would otherwise
+      // re-apply their sentinel values on the next apply().
+      if (this.settings && this.settings.values) {
+        for (const [k, v] of Object.entries(level.settings)) {
+          // Only sync keys that the Settings system already knows about.
+          if (k in this.settings.values) {
+            this.settings.values[k] = v;
+          }
+        }
+        Logger.info(
+          `[Game] Synced level settings into Settings.values: ` +
+            `UNLIMITED_DEF_AGE_FRIENDLY=${this.settings.values.UNLIMITED_DEF_AGE_FRIENDLY}, ` +
+            `UNLIMITED_DEF_AGE_ENEMY=${this.settings.values.UNLIMITED_DEF_AGE_ENEMY}, ` +
+            `UNLIMITED_MISS_AGE_FRIENDLY=${this.settings.values.UNLIMITED_MISS_AGE_FRIENDLY}, ` +
+            `UNLIMITED_MISS_AGE_ENEMY=${this.settings.values.UNLIMITED_MISS_AGE_ENEMY}, ` +
+            `UNLIMITED_CELL_AGE=${this.settings.values.UNLIMITED_CELL_AGE}`
+        );
+      }
     }
     // Apply unlimited-toggle sentinels from the level's settings snapshot.
     const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
     const unlimitedMap = {
       UNLIMITED_MAX_INK: ['MAX_INK', 'INITIAL_INK'],
       UNLIMITED_INK_REGEN: ['INK_REGEN_RATE'],
+      // Legacy CELL_MAX_AGE_TICKS is superseded by region-specific
+      // ages. When the level uses the legacy "Max Age" slider's ∞
+      // toggle, propagate it to all four region-specific age keys
+      // so the simulation (which reads those four) sees ∞.
       UNLIMITED_CELL_AGE: ['CELL_MAX_AGE_TICKS'],
-      UNLIMITED_MISSILE_AGE: ['MISSILE_MAX_AGE_TICKS'],
       UNLIMITED_MISSILE_CASCADE: ['MISSILE_CASCADE_TICKS'],
       UNLIMITED_DEF_AGE_FRIENDLY: ['DEFENSE_AGE_FRIENDLY'],
       UNLIMITED_DEF_AGE_ENEMY: ['DEFENSE_AGE_ENEMY'],
@@ -1809,11 +1859,95 @@ class Game {
       UNLIMITED_MISS_AGE_ENEMY: ['MISSILE_AGE_ENEMY'],
     };
     if (level.settings) {
+      // Legacy translation: the level designer exposes a single "Max Age"
+      // (CELL_MAX_AGE_TICKS) slider AS WELL AS four region-specific age
+      // sliders. The simulation only reads the four region-specific ages.
+      //
+      // Strategy: if the level explicitly sets ANY region-specific age,
+      // honor those values (they take precedence). Otherwise propagate
+      // CELL_MAX_AGE_TICKS into all four. The previous logic was buggy:
+      // it checked `== null` per-key, but the level designer captures
+      // ALL keys from CONFIG so they're never null — meaning the legacy
+      // value never got translated and adjusting the "Max Age" slider
+      // had no observable effect.
+      const legacy = level.settings.CELL_MAX_AGE_TICKS;
+      const regionKeys = [
+        'DEFENSE_AGE_FRIENDLY',
+        'DEFENSE_AGE_ENEMY',
+        'MISSILE_AGE_FRIENDLY',
+        'MISSILE_AGE_ENEMY',
+      ];
+      // Did any region-specific age get explicitly written by the user?
+      // We can't perfectly detect this from a snapshot, so we use a
+      // heuristic: if all four region values are identical to the legacy
+      // value (or all four are the default sentinel/value), treat the
+      // legacy slider as authoritative. Otherwise honor region values.
+      const regionValues = regionKeys.map((k) => level.settings[k]);
+      const allRegionUndef = regionValues.every((v) => v == null);
+      const allRegionSame =
+        regionValues.length > 0 && regionValues.every((v) => v === regionValues[0]);
+      const legacyValid = typeof legacy === 'number' && legacy > 0;
+
+      if (legacyValid && (allRegionUndef || allRegionSame)) {
+        // Propagate legacy into all region keys.
+        for (const rk of regionKeys) {
+          CONFIG[rk] = legacy;
+          Logger.info(
+            `[Game] Legacy CELL_MAX_AGE_TICKS=${legacy} → CONFIG.${rk} ` +
+              `(allRegionUndef=${allRegionUndef}, allRegionSame=${allRegionSame})`
+          );
+        }
+      } else if (legacyValid) {
+        Logger.info(
+          `[Game] Legacy CELL_MAX_AGE_TICKS=${legacy} NOT propagated; ` +
+            `region values differ: ${JSON.stringify(regionValues)}`
+        );
+      }
+      // Legacy unlimited toggle: if "Max Age" is marked ∞, propagate
+      // the sentinel into all region keys unless region-specific
+      // unlimited flags are explicitly set, OR the region keys have
+      // explicit finite values (< sentinel) in the level settings.
+      if (level.settings.UNLIMITED_CELL_AGE) {
+        const regionFlags = [
+          ['UNLIMITED_DEF_AGE_FRIENDLY', 'DEFENSE_AGE_FRIENDLY'],
+          ['UNLIMITED_DEF_AGE_ENEMY', 'DEFENSE_AGE_ENEMY'],
+          ['UNLIMITED_MISS_AGE_FRIENDLY', 'MISSILE_AGE_FRIENDLY'],
+          ['UNLIMITED_MISS_AGE_ENEMY', 'MISSILE_AGE_ENEMY'],
+        ];
+        // If no region unlimited flag is set, propagate ∞ to all.
+        const anyRegionUnlimited = regionFlags.some(([flag]) => level.settings[flag]);
+        // Also skip propagation if any region key has an explicit finite
+        // value in the level settings — that's a clear designer override.
+        const anyRegionFinite = regionFlags.some(
+          ([, key]) => typeof level.settings[key] === 'number' && level.settings[key] < UNLIMITED
+        );
+        if (!anyRegionUnlimited && !anyRegionFinite) {
+          for (const [, key] of regionFlags) {
+            CONFIG[key] = UNLIMITED;
+            Logger.info(`[Game] Legacy UNLIMITED_CELL_AGE → CONFIG.${key} = ∞`);
+          }
+        } else if (anyRegionFinite) {
+          Logger.info(
+            `[Game] Legacy UNLIMITED_CELL_AGE NOT propagated; ` +
+              `level has explicit finite region ages.`
+          );
+        }
+      }
       for (const [flag, keys] of Object.entries(unlimitedMap)) {
         if (level.settings[flag]) {
           for (const k of keys) CONFIG[k] = UNLIMITED;
+          Logger.info(`[Game] Unlimited flag ${flag} → ${keys.join(', ')} = ∞`);
         }
       }
+      // Diagnostic: final CONFIG age values after all translations.
+      Logger.info(
+        `[Game] CONFIG age values AFTER level apply: ` +
+          `DEFENSE_AGE_FRIENDLY=${CONFIG.DEFENSE_AGE_FRIENDLY}, ` +
+          `DEFENSE_AGE_ENEMY=${CONFIG.DEFENSE_AGE_ENEMY}, ` +
+          `MISSILE_AGE_FRIENDLY=${CONFIG.MISSILE_AGE_FRIENDLY}, ` +
+          `MISSILE_AGE_ENEMY=${CONFIG.MISSILE_AGE_ENEMY}, ` +
+          `MISSILE_CASCADE_TICKS=${CONFIG.MISSILE_CASCADE_TICKS}`
+      );
     }
     // Apply color theme overrides on top of the loaded settings.
     if (level.colorTheme && typeof level.colorTheme === 'object') {

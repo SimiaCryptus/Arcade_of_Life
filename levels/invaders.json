@@ -620,7 +620,6 @@
     "VFX_SCREEN_SHAKE": true,
     "VFX_CELL_GLOW": true,
     "VFX_DRAW_ZONE_TINT": true,
-    "UNLIMITED_MISSILE_AGE": true,
     "UNLIMITED_CELL_AGE": true,
     "UNLIMITED_DEF_AGE_FRIENDLY": true,
     "UNLIMITED_DEF_AGE_ENEMY": true,

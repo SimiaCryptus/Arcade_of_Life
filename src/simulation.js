@@ -237,16 +237,15 @@ export class Simulation {
     nextDir.fill(0);
 
     const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
-    const defenseMaxAge = CONFIG.CELL_MAX_AGE_TICKS;
-    const missileMaxAge = CONFIG.MISSILE_MAX_AGE_TICKS;
-    // When set to the sentinel, treat as effectively infinite (skip age expiry).
-    const defenseAgeUnlimited = defenseMaxAge >= UNLIMITED;
-    const missileAgeUnlimited = missileMaxAge >= UNLIMITED;
-    // Per-region age limits. A value >= UNLIMITED means "use global".
-    const defAgeF = CONFIG.DEFENSE_AGE_FRIENDLY;
-    const defAgeE = CONFIG.DEFENSE_AGE_ENEMY;
-    const missAgeF = CONFIG.MISSILE_AGE_FRIENDLY;
-    const missAgeE = CONFIG.MISSILE_AGE_ENEMY;
+    // Per-region age limits. A value >= UNLIMITED means "effectively infinite".
+    // Note: cell age is stored in Uint8Array (max 255). Any finite limit
+    // above 255 is clamped to 255 here so age comparisons work correctly.
+    // Limits >= UNLIMITED stay as-is and are treated as "no limit" below.
+    const clampAge = (v) => (v >= UNLIMITED ? v : Math.min(v | 0, 255));
+    const defAgeF = clampAge(CONFIG.DEFENSE_AGE_FRIENDLY);
+    const defAgeE = clampAge(CONFIG.DEFENSE_AGE_ENEMY);
+    const missAgeF = clampAge(CONFIG.MISSILE_AGE_FRIENDLY);
+    const missAgeE = clampAge(CONFIG.MISSILE_AGE_ENEMY);
     const dzMinYBoundary = g.drawZoneMinY();
     const cascadeTicks = CONFIG.MISSILE_CASCADE_TICKS;
     const defenseVariants = CONFIG.COLORS.DEFENSE_VARIANTS.length;
@@ -310,13 +309,12 @@ export class Simulation {
     const ageDespawn = this._ageDespawn;
     ageDespawn.fill(0);
     // When enemies are frozen, skip aging entirely.
-    if (!freezeEnemies && !missileAgeUnlimited) {
+    if (!freezeEnemies) {
       for (let i = 0; i < cells.length; i++) {
         if (cells[i] === CELL_TYPE.MISSILE) {
           const y = (i / w) | 0;
           const inFriendly = y >= dzMinYBoundary;
-          const regionLimit = inFriendly ? missAgeF : missAgeE;
-          const effectiveLimit = regionLimit < UNLIMITED ? regionLimit : missileMaxAge;
+          const effectiveLimit = inFriendly ? missAgeF : missAgeE;
           if (effectiveLimit < UNLIMITED && age[i] >= effectiveLimit) {
             ageDespawn[i] = 1;
           }
@@ -325,12 +323,18 @@ export class Simulation {
       // Cascade: any missile within cascadeTicks of expiry adjacent to an
       // already-despawning missile also despawns. Iterate until stable.
       // Use a worklist approach for efficiency on large grids.
-      const cascadeThreshold = missileMaxAge - cascadeTicks;
+      // Use the larger of the two region limits as the reference for
+      // cascade threshold (cells nearing expiry in either region cascade).
+      const maxRegionLimit = Math.max(
+        missAgeF < UNLIMITED ? missAgeF : 0,
+        missAgeE < UNLIMITED ? missAgeE : 0
+      );
+      const cascadeThreshold = maxRegionLimit - cascadeTicks;
       const worklist = [];
       for (let i = 0; i < cells.length; i++) {
         if (ageDespawn[i]) worklist.push(i);
       }
-      while (worklist.length > 0) {
+      while (worklist.length > 0 && maxRegionLimit > 0) {
         const i = worklist.pop();
         const y = (i / w) | 0;
         const x = i - y * w;
@@ -446,12 +450,10 @@ export class Simulation {
           let maxForType;
           let ageUnlimited;
           if (t === CELL_TYPE.MISSILE) {
-            const regionLimit = inFriendly ? missAgeF : missAgeE;
-            maxForType = regionLimit < UNLIMITED ? regionLimit : missileMaxAge;
+            maxForType = inFriendly ? missAgeF : missAgeE;
             ageUnlimited = maxForType >= UNLIMITED;
           } else {
-            const regionLimit = inFriendly ? defAgeF : defAgeE;
-            maxForType = regionLimit < UNLIMITED ? regionLimit : defenseMaxAge;
+            maxForType = inFriendly ? defAgeF : defAgeE;
             ageUnlimited = maxForType >= UNLIMITED;
           }
           if (this._rule.shouldSurvive(ln) && (ageUnlimited || currentAge < maxForType)) {
@@ -623,17 +625,21 @@ export class Simulation {
     }
     // Age-based missile despawn.
     const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
-    const missileMaxAge = CONFIG.MISSILE_MAX_AGE_TICKS;
     const dzMinYBoundary = g.drawZoneMinY();
     const ageDespawn = this._ageDespawn;
     ageDespawn.fill(0);
-    if (!freezeEnemies && missileMaxAge < UNLIMITED) {
+    // Clamp age limits to Uint8Array range (see comment in tick()).
+    const clampAge = (v) => (v >= UNLIMITED ? v : Math.min(v | 0, 255));
+    const missAgeF = clampAge(CONFIG.MISSILE_AGE_FRIENDLY);
+    const missAgeE = clampAge(CONFIG.MISSILE_AGE_ENEMY);
+    const defAgeF = clampAge(CONFIG.DEFENSE_AGE_FRIENDLY);
+    const defAgeE = clampAge(CONFIG.DEFENSE_AGE_ENEMY);
+    if (!freezeEnemies) {
       for (let i = 0; i < n; i++) {
         if (cells[i] === CELL_TYPE.MISSILE) {
           const y = (i / w) | 0;
           const inFriendly = y >= dzMinYBoundary;
-          const limit = inFriendly ? CONFIG.MISSILE_AGE_FRIENDLY : CONFIG.MISSILE_AGE_ENEMY;
-          const eff = limit < UNLIMITED ? limit : missileMaxAge;
+          const eff = inFriendly ? missAgeF : missAgeE;
           if (eff < UNLIMITED && age[i] >= eff) {
             ageDespawn[i] = 1;
           }
@@ -699,8 +705,7 @@ export class Simulation {
           const alive = ln === 2 || ln === 3;
           if (alive) {
             const inFriendly = y >= dzMinYBoundary;
-            const regionLimit = inFriendly ? CONFIG.MISSILE_AGE_FRIENDLY : CONFIG.MISSILE_AGE_ENEMY;
-            const eff = regionLimit < UNLIMITED ? regionLimit : missileMaxAge;
+            const eff = inFriendly ? missAgeF : missAgeE;
             const ageUnlimited = eff >= UNLIMITED;
             const currentAge = age[i];
             if (ageUnlimited || currentAge < eff) {
@@ -751,9 +756,7 @@ export class Simulation {
           if (defOut[i]) {
             // Survives.
             const inFriendly = y >= dzMinYBoundary;
-            const defenseMaxAge = CONFIG.CELL_MAX_AGE_TICKS;
-            const regionLimit = inFriendly ? CONFIG.DEFENSE_AGE_FRIENDLY : CONFIG.DEFENSE_AGE_ENEMY;
-            const eff = regionLimit < UNLIMITED ? regionLimit : defenseMaxAge;
+            const eff = inFriendly ? defAgeF : defAgeE;
             const ageUnlimited = eff >= UNLIMITED;
             const currentAge = age[i];
             if (ageUnlimited || currentAge < eff) {

@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { Logger } from './logger.js';
 import {
   listLevels,
   saveLevel,
@@ -1686,7 +1687,7 @@ export class LevelDesigner {
 
   // ── Save / Load / Export ──────────────────────────────────────
   _serialize() {
-    return {
+    const out = {
       name: this.currentLevelName || 'untitled',
       createdAt: Date.now(),
       gridWidth: this.gridWidth,
@@ -1722,6 +1723,22 @@ export class LevelDesigner {
       colorTheme: { ...this.colorTheme },
       wrapVerticalShift: this.wrapVerticalShift | 0,
     };
+    // Diagnostic: log age-related settings being saved.
+    const s = out.settings || {};
+    Logger.info(
+      `[LevelDesigner] _serialize "${out.name}": ` +
+        `CELL_MAX_AGE_TICKS=${s.CELL_MAX_AGE_TICKS}, ` +
+        `UNLIMITED_CELL_AGE=${s.UNLIMITED_CELL_AGE}, ` +
+        `DEFENSE_AGE_FRIENDLY=${s.DEFENSE_AGE_FRIENDLY}, ` +
+        `UNLIMITED_DEF_AGE_FRIENDLY=${s.UNLIMITED_DEF_AGE_FRIENDLY}, ` +
+        `DEFENSE_AGE_ENEMY=${s.DEFENSE_AGE_ENEMY}, ` +
+        `UNLIMITED_DEF_AGE_ENEMY=${s.UNLIMITED_DEF_AGE_ENEMY}, ` +
+        `MISSILE_AGE_FRIENDLY=${s.MISSILE_AGE_FRIENDLY}, ` +
+        `UNLIMITED_MISS_AGE_FRIENDLY=${s.UNLIMITED_MISS_AGE_FRIENDLY}, ` +
+        `MISSILE_AGE_ENEMY=${s.MISSILE_AGE_ENEMY}, ` +
+        `UNLIMITED_MISS_AGE_ENEMY=${s.UNLIMITED_MISS_AGE_ENEMY}`
+    );
+    return out;
   }
 
   _deserialize(level) {
@@ -2320,6 +2337,16 @@ export class LevelDesigner {
     for (const def of BOOLEAN_SETTING_DEFS) {
       out[def.key] = CONFIG[def.key];
     }
+    // Diagnostic: log key age-related captured values.
+    Logger.info(
+      `[LevelDesigner] _captureCurrentSettings: ` +
+        `CELL_MAX_AGE_TICKS=${out.CELL_MAX_AGE_TICKS} ` +
+        `(CONFIG.CELL_MAX_AGE_TICKS=${CONFIG.CELL_MAX_AGE_TICKS}), ` +
+        `DEFENSE_AGE_FRIENDLY=${out.DEFENSE_AGE_FRIENDLY}, ` +
+        `DEFENSE_AGE_ENEMY=${out.DEFENSE_AGE_ENEMY}, ` +
+        `MISSILE_AGE_FRIENDLY=${out.MISSILE_AGE_FRIENDLY}, ` +
+        `MISSILE_AGE_ENEMY=${out.MISSILE_AGE_ENEMY}`
+    );
     return out;
   }
   // Defaults from the current CONFIG snapshot (same as captureCurrent
@@ -2340,7 +2367,7 @@ export class LevelDesigner {
       },
       {
         title: '🚀 Enemy Pacing',
-        keys: ['MISSILE_MAX_AGE_TICKS', 'MISSILE_CASCADE_TICKS', 'AGE_CONTAGION_AMOUNT'],
+        keys: ['MISSILE_CASCADE_TICKS', 'AGE_CONTAGION_AMOUNT'],
       },
       {
         title: '⚔ Bases',
@@ -2524,7 +2551,20 @@ export class LevelDesigner {
         numInput.style.opacity = infCheckbox.checked ? '0.35' : '';
         if (infCheckbox.checked) {
           valueEl.textContent = '∞';
+          // Note: we intentionally do NOT overwrite levelSettings[def.key]
+          // here — the unlimited flag is authoritative when checked, and
+          // preserving the slider's numeric value lets us restore it if
+          // the user later unchecks ∞.
         } else {
+          // When unchecking ∞, the previously-stored value may still be
+          // the unlimited sentinel (999999) from when the level was
+          // first loaded. Sync the slider's current displayed value into
+          // levelSettings so the game actually uses a finite age.
+          const step = parseFloat(input.step) || 1;
+          const raw = parseFloat(input.value);
+          const v = Number.isInteger(step) ? Math.round(raw) : raw;
+          this.levelSettings[def.key] = v;
+          numInput.value = String(v);
           valueEl.textContent = def.format(parseFloat(input.value));
         }
       });
@@ -2546,6 +2586,14 @@ export class LevelDesigner {
       this.levelSettings[def.key] = v;
       numInput.value = String(v);
       valueEl.textContent = def.format(v);
+      // Diagnostic: log age slider changes specifically.
+      if (
+        def.key === 'CELL_MAX_AGE_TICKS' ||
+        def.key.startsWith('DEFENSE_AGE_') ||
+        def.key.startsWith('MISSILE_AGE_')
+      ) {
+        Logger.info(`[LevelDesigner] Slider ${def.key} → ${v}`);
+      }
       // If DRAW_ZONE_FRACTION changed, recompute BASE_ZONE_HEIGHT slider max.
       if (def.key === 'DRAW_ZONE_FRACTION' || def.key === 'REAR_DEAD_ZONE_HEIGHT') {
         this._updateBaseZoneSliderMax();
@@ -2649,7 +2697,6 @@ export class LevelDesigner {
       MISSILE_SPAWN_DECREMENT: { min: 0, max: 200, step: 5 },
       MISSILE_SPAWN_MIN: { min: 100, max: 2000, step: 50 },
       CELL_MAX_AGE_TICKS: { min: 20, max: 2000, step: 10 },
-      MISSILE_MAX_AGE_TICKS: { min: 20, max: 2000, step: 10 },
       DEFENSE_AGE_FRIENDLY: { min: 20, max: 2000, step: 10 },
       DEFENSE_AGE_ENEMY: { min: 20, max: 2000, step: 10 },
       MISSILE_AGE_FRIENDLY: { min: 20, max: 2000, step: 10 },
@@ -2700,7 +2747,6 @@ export class LevelDesigner {
       MAX_INK: 300,
       INK_REGEN_RATE: 0.5,
       CELL_MAX_AGE_TICKS: 200,
-      MISSILE_MAX_AGE_TICKS: 200,
       DEFENSE_AGE_FRIENDLY: 200,
       DEFENSE_AGE_ENEMY: 200,
       MISSILE_AGE_FRIENDLY: 200,
@@ -2726,7 +2772,6 @@ export class LevelDesigner {
       MAX_INK: 'UNLIMITED_MAX_INK',
       INK_REGEN_RATE: 'UNLIMITED_INK_REGEN',
       CELL_MAX_AGE_TICKS: 'UNLIMITED_CELL_AGE',
-      MISSILE_MAX_AGE_TICKS: 'UNLIMITED_MISSILE_AGE',
       MISSILE_CASCADE_TICKS: 'UNLIMITED_MISSILE_CASCADE',
       DEFENSE_AGE_FRIENDLY: 'UNLIMITED_DEF_AGE_FRIENDLY',
       DEFENSE_AGE_ENEMY: 'UNLIMITED_DEF_AGE_ENEMY',

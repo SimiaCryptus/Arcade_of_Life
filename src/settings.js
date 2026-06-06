@@ -60,7 +60,6 @@ export const SETTING_DEFS = [
   { key: 'MISSILE_SPAWN_DECREMENT', id: 'setting-spawn-decrement', format: (v) => v },
   { key: 'MISSILE_SPAWN_MIN', id: 'setting-spawn-min', format: (v) => v },
   { key: 'CELL_MAX_AGE_TICKS', id: 'setting-cell-age', format: (v) => v },
-  { key: 'MISSILE_MAX_AGE_TICKS', id: 'setting-missile-age', format: (v) => v },
   // Region-specific age settings (matrix layout).
   { key: 'DEFENSE_AGE_FRIENDLY', id: 'setting-def-age-friendly', format: (v) => v },
   { key: 'DEFENSE_AGE_ENEMY', id: 'setting-def-age-enemy', format: (v) => v },
@@ -130,7 +129,6 @@ DEFAULTS.BASE_GLIDER_BUFFER = CONFIG.BASE_GLIDER_BUFFER;
 DEFAULTS.UNLIMITED_MAX_INK = false;
 DEFAULTS.UNLIMITED_INK_REGEN = false;
 DEFAULTS.UNLIMITED_CELL_AGE = true;
-DEFAULTS.UNLIMITED_MISSILE_AGE = true;
 DEFAULTS.UNLIMITED_MISSILE_CASCADE = false;
 // Unlimited flags for region-specific age settings.
 DEFAULTS.UNLIMITED_DEF_AGE_FRIENDLY = true;
@@ -189,7 +187,6 @@ export class Settings {
       }
       if (this.values.UNLIMITED_INK_REGEN) CONFIG.INK_REGEN_RATE = 999999;
       if (this.values.UNLIMITED_CELL_AGE) CONFIG.CELL_MAX_AGE_TICKS = 999999;
-      if (this.values.UNLIMITED_MISSILE_AGE) CONFIG.MISSILE_MAX_AGE_TICKS = 999999;
       if (this.values.UNLIMITED_MISSILE_CASCADE) CONFIG.MISSILE_CASCADE_TICKS = 999999;
       if (this.values.UNLIMITED_DEF_AGE_FRIENDLY) CONFIG.DEFENSE_AGE_FRIENDLY = 999999;
       if (this.values.UNLIMITED_DEF_AGE_ENEMY) CONFIG.DEFENSE_AGE_ENEMY = 999999;
@@ -878,13 +875,6 @@ export class SettingsPanel {
         checkboxId: 'setting-unlimited-cell-age-adv',
         sliderId: 'setting-cell-age-adv',
         valueId: 'setting-cell-age-adv-value',
-        label: '∞',
-      },
-      {
-        valueKey: 'UNLIMITED_MISSILE_AGE',
-        checkboxId: 'setting-unlimited-missile-age',
-        sliderId: 'setting-missile-age',
-        valueId: 'setting-missile-age-value',
         label: '∞',
       },
       {

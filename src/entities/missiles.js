@@ -959,9 +959,6 @@ export class Missiles {
     for (let i = this._designedBases.length - 1; i >= 0; i--) {
       const b = this._designedBases[i];
       if (!b.alive) continue;
-      // Refresh cell ages so designer-placed bases don't age out from
-      // CONFIG.MISSILE_MAX_AGE_TICKS. The base lives until its cells
-      // are killed by neighbor rules or the player.
       for (const [dx, dy] of b.cells) {
         const px = b.x + dx,
           py = b.y + dy;
