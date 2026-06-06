@@ -1,5 +1,4 @@
-import { CONFIG, CELL_TYPE } from './config.js';
-import { Logger } from './logger.js';
+import { CONFIG } from './config.js';
 import {
   listLevels,
   saveLevel,
@@ -9,7 +8,7 @@ import {
   importLevelJSON,
 } from './levels.js';
 import { listRulesets } from './rules/index.js';
-import { getPattern, clonePatternCells } from './patterns/index.js';
+import { listPatterns } from './patterns/index.js';
 import { SETTING_DEFS, BOOLEAN_SETTING_DEFS } from './settings.js';
 
 /**
@@ -36,8 +35,6 @@ const DESIGNER_MODE = {
   LINE: 'line',
   FILL: 'fill',
 };
-
-const BASE_KINDS = ['fortress', 'bunker', 'cruiser_e', 'cruiser_w'];
 
 export class LevelDesigner {
   constructor({ game } = {}) {
@@ -79,25 +76,21 @@ export class LevelDesigner {
     // Currently-selected spawner pattern for the SPAWNER tool.
     this._spawnerPattern = null;
     this.currentLevelName = null;
-    // Wave config overrides.
-    this.waveConfig = {
-      missilesPerWaveBase: 8,
-      missilesPerWaveInc: 3,
-      spawnInterval: 800,
-      gliderTypes: {
-        se: true,
-        sw: true,
-        heavy: false,
-        lwss: false,
-        mwss: false,
-        twin: false,
-        gun: false,
-      },
-    };
     this.ruleset = 'conway';
     this.description = '';
     this._stashedSpeed = null;
     this._isDragging = false;
+    // Tool enable/disable state for this level. Maps DRAW_MODE id → bool.
+    this.allowedTools = {
+      freehand: true,
+      line: true,
+      pattern: true,
+      fill: true,
+    };
+    // Allowed pattern preset ids (from the zoo). Empty Set = allow all.
+    this.allowedPatterns = new Set();
+    // Color theme overrides. Empty object = use defaults.
+    this.colorTheme = {};
     // Full settings snapshot for this level. Initialized from CONFIG.
     this.levelSettings = this._captureCurrentSettings();
     this._buildDom();
@@ -122,6 +115,8 @@ export class LevelDesigner {
             </div>
             <div id="ld-tabs">
               <button class="ld-tab active" data-tab="map">🗺 Map</button>
+              <button class="ld-tab" data-tab="tools">🛠 Tools & Patterns</button>
+              <button class="ld-tab" data-tab="theme">🎨 Color Theme</button>
               <button class="ld-tab" data-tab="settings">⚙ Settings</button>
             </div>
             <div id="ld-tab-map" class="ld-tab-panel active">
@@ -217,20 +212,12 @@ export class LevelDesigner {
                   <p id="ld-ruleset-desc" style="font-size:11px;color:#a0a0c0;font-style:italic;margin:4px 0 0;"></p>
                 </div>
                 <div class="ld-section">
-                  <h3>🌊 Wave Config</h3>
-                  <label>Missiles/wave (base): <input id="ld-miss-base" type="number" min="0" max="50" step="1" /></label>
-                  <label>Missiles/wave (inc): <input id="ld-miss-inc" type="number" min="0" max="20" step="1" /></label>
-                  <label>Spawn interval (ms): <input id="ld-spawn-int" type="number" min="100" max="5000" step="50" /></label>
-                  <div class="ld-checkboxes">
-                    <strong>Glider types:</strong>
-                    <label><input type="checkbox" data-glider="se" /> R-Glider (SE)</label>
-                    <label><input type="checkbox" data-glider="sw" /> L-Glider (SW)</label>
-                    <label><input type="checkbox" data-glider="heavy" /> Targets</label>
-                    <label><input type="checkbox" data-glider="lwss" /> LWSS</label>
-                    <label><input type="checkbox" data-glider="mwss" /> MWSS</label>
-                    <label><input type="checkbox" data-glider="twin" /> Twin</label>
-                    <label><input type="checkbox" data-glider="gun" /> ⚠ Gun</label>
-                  </div>
+                  <h3>ℹ Spawning</h3>
+                  <p style="font-size:11px;color:#a0a0c0;font-style:italic;margin:0;">
+                    Place 🚀 Spawner markers on the map to define where missiles emit. 
+                    Each spawner can use any pattern from the Pattern Zoo. Spawning
+                    is fully driven by placed spawners — there are no default waves.
+                  </p>
                 </div>
                 <div class="ld-section">
                   <h3>📊 Stats</h3>
@@ -251,6 +238,43 @@ export class LevelDesigner {
                 </div>
               </div>
             </div>
+            </div>
+            <div id="ld-tab-tools" class="ld-tab-panel">
+              <div id="ld-tools-panel">
+                <p class="ld-settings-intro">
+                  Configure which drawing tools and patterns are available to the
+                  player during this level. Useful for tutorials or challenges.
+                </p>
+                <div class="setting-section-header">Allowed Drawing Tools</div>
+                <div id="ld-tool-toggle-list" class="ld-tool-toggle-list"></div>
+                <div class="setting-section-header">Allowed Patterns</div>
+                <p class="ld-settings-intro">
+                  Select which patterns appear in the Pattern tool's preset dropdown.
+                  Leave all unchecked to allow every pattern. Custom patterns are
+                  always allowed.
+                </p>
+                <div class="ld-pattern-controls">
+                  <button id="ld-pattern-allow-all" class="ld-btn">Allow All</button>
+                  <button id="ld-pattern-allow-none" class="ld-btn">Clear Selection</button>
+                  <input id="ld-pattern-filter" type="text" placeholder="filter by name..." />
+                </div>
+                <div id="ld-pattern-allow-list" class="ld-pattern-allow-list"></div>
+              </div>
+            </div>
+            <div id="ld-tab-theme" class="ld-tab-panel">
+              <div id="ld-theme-panel">
+                <p class="ld-settings-intro">
+                  Customize the visual theme of this level. Leave a field blank
+                  (clear it) to use the default. Colors accept any valid CSS
+                  color (hex like <code>#00ff88</code>, names like <code>cyan</code>,
+                  or <code>rgba(...)</code>).
+                </p>
+                <div class="ld-settings-actions">
+                  <button id="ld-theme-reset" class="ld-btn ld-btn-danger">↺ Reset Theme</button>
+                  <button id="ld-theme-preview" class="ld-btn">👁 Live Preview</button>
+                </div>
+                <div id="ld-theme-list"></div>
+              </div>
             </div>
             <div id="ld-tab-settings" class="ld-tab-panel">
               <div id="ld-settings-panel">
@@ -335,6 +359,9 @@ export class LevelDesigner {
         if (target === 'map') {
           requestAnimationFrame(() => this._resizeCanvas());
         }
+        // Build dynamic content on first open.
+        if (target === 'tools') this._buildToolsPanel();
+        if (target === 'theme') this._buildThemePanel();
       });
     });
     // Mode buttons.
@@ -468,21 +495,6 @@ export class LevelDesigner {
       // Mirror into settings snapshot so it's saved consistently.
       if (this.levelSettings) this.levelSettings.ACTIVE_RULESET = e.target.value;
       this._draw();
-    });
-    // Wave config.
-    ov.querySelector('#ld-miss-base').addEventListener('input', (e) => {
-      this.waveConfig.missilesPerWaveBase = parseInt(e.target.value, 10) || 0;
-    });
-    ov.querySelector('#ld-miss-inc').addEventListener('input', (e) => {
-      this.waveConfig.missilesPerWaveInc = parseInt(e.target.value, 10) || 0;
-    });
-    ov.querySelector('#ld-spawn-int').addEventListener('input', (e) => {
-      this.waveConfig.spawnInterval = parseInt(e.target.value, 10) || 800;
-    });
-    ov.querySelectorAll('input[data-glider]').forEach((cb) => {
-      cb.addEventListener('change', () => {
-        this.waveConfig.gliderTypes[cb.dataset.glider] = cb.checked;
-      });
     });
     // Footer buttons.
     ov.querySelector('#ld-save-btn').addEventListener('click', () => this._save());
@@ -1060,8 +1072,13 @@ export class LevelDesigner {
     const cs = this.cellSize;
     const w = this.canvas.width;
     const h = this.canvas.height;
+    // Resolve theme colors with overrides.
+    const theme = (k, fallback) => {
+      if (this.colorTheme && this.colorTheme[k]) return this.colorTheme[k];
+      return CONFIG.COLORS[k] || fallback;
+    };
     // Background.
-    ctx.fillStyle = '#000010';
+    ctx.fillStyle = theme('BACKGROUND', '#000010');
     ctx.fillRect(0, 0, w, h);
     // Grid lines (subtle, only if cells are big enough).
     if (cs >= 4) {
@@ -1175,8 +1192,9 @@ export class LevelDesigner {
       ctx.fillRect(x * cs + 1, y * cs + 1, cs - 2, cs - 2);
     }
     // Cities.
-    ctx.fillStyle = '#ffff60';
-    ctx.shadowColor = '#ffff60';
+    const cityColor = (this.colorTheme && this.colorTheme.CELL_CITY) || '#ffff60';
+    ctx.fillStyle = cityColor;
+    ctx.shadowColor = cityColor;
     ctx.shadowBlur = 6;
     for (const c of this.cities) {
       ctx.fillRect(c.x * cs, c.y * cs, c.width * cs, c.height * cs);
@@ -1388,10 +1406,12 @@ export class LevelDesigner {
         cells: sp.cells.map(([dx, dy]) => [dx, dy]),
         interval: sp.interval || 2000,
       })),
-      waveConfig: JSON.parse(JSON.stringify(this.waveConfig)),
       ruleset: this.ruleset,
       description: this.description,
       settings: JSON.parse(JSON.stringify(this.levelSettings || {})),
+      allowedTools: { ...this.allowedTools },
+      allowedPatterns: Array.from(this.allowedPatterns),
+      colorTheme: { ...this.colorTheme },
     };
   }
 
@@ -1425,7 +1445,6 @@ export class LevelDesigner {
       cells: (sp.cells || []).map(([dx, dy]) => [dx, dy]),
       interval: sp.interval || 2000,
     }));
-    this.waveConfig = level.waveConfig || this.waveConfig;
     this.ruleset = level.ruleset || 'conway';
     this.description = level.description || '';
     this.currentLevelName = level.name;
@@ -1434,6 +1453,27 @@ export class LevelDesigner {
       level.settings && typeof level.settings === 'object'
         ? { ...this._defaultSettings(), ...level.settings }
         : this._defaultSettings();
+    // Load allowed tools (default = all allowed).
+    this.allowedTools = {
+      freehand: true,
+      line: true,
+      pattern: true,
+      fill: true,
+    };
+    if (level.allowedTools && typeof level.allowedTools === 'object') {
+      for (const k of Object.keys(this.allowedTools)) {
+        if (typeof level.allowedTools[k] === 'boolean') {
+          this.allowedTools[k] = level.allowedTools[k];
+        }
+      }
+    }
+    // Load allowed patterns (empty = all allowed).
+    this.allowedPatterns = new Set(
+      Array.isArray(level.allowedPatterns) ? level.allowedPatterns : []
+    );
+    // Load color theme.
+    this.colorTheme =
+      level.colorTheme && typeof level.colorTheme === 'object' ? { ...level.colorTheme } : {};
     this._syncUIFromState();
     this._resizeCanvas();
     this._updateStats();
@@ -1447,13 +1487,9 @@ export class LevelDesigner {
     this._updateRulesetDesc();
     ov.querySelector('#ld-grid-w').value = this.gridWidth;
     ov.querySelector('#ld-grid-h').value = this.gridHeight;
-    ov.querySelector('#ld-miss-base').value = this.waveConfig.missilesPerWaveBase;
-    ov.querySelector('#ld-miss-inc').value = this.waveConfig.missilesPerWaveInc;
-    ov.querySelector('#ld-spawn-int').value = this.waveConfig.spawnInterval;
-    ov.querySelectorAll('input[data-glider]').forEach((cb) => {
-      cb.checked = !!this.waveConfig.gliderTypes[cb.dataset.glider];
-    });
     this._syncSettingsPanelFromState();
+    this._syncToolsPanelFromState();
+    this._syncThemePanelFromState();
   }
 
   _save() {
@@ -1482,7 +1518,6 @@ export class LevelDesigner {
       this.game.startCustomLevel(name);
       // Start paused so the player can inspect the level before action begins.
       if (this.game.speedSlider) {
-        const SPEED_PRESETS = this.game.constructor.SPEED_PRESETS;
         // Find the "Paused" preset (value === 0).
         const pausedIdx = 0; // First preset is always "Paused"
         this.game.speedSlider.value = String(pausedIdx);
@@ -1578,6 +1613,238 @@ export class LevelDesigner {
       if (el) el.textContent = '';
     }, 3500);
   }
+  // ── Tools panel (enable/disable drawing tools + restrict patterns) ─
+  _buildToolsPanel() {
+    const toggleListEl = this.overlay.querySelector('#ld-tool-toggle-list');
+    if (!toggleListEl) return;
+    if (this._toolsPanelBuilt) return;
+    this._toolsPanelBuilt = true;
+    const toolDefs = [
+      { id: 'freehand', name: '✏ Freehand', desc: 'Click-and-drag drawing' },
+      { id: 'line', name: '📏 Line', desc: 'Straight-line tool' },
+      { id: 'pattern', name: '🧬 Pattern', desc: 'Stamp pre-built patterns' },
+      { id: 'fill', name: '🪣 Fill', desc: 'Region fill with patterns' },
+    ];
+    toggleListEl.innerHTML = '';
+    this._toolCheckboxes = {};
+    for (const def of toolDefs) {
+      const row = document.createElement('div');
+      row.className = 'ld-tool-toggle-row';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = `ld-tool-${def.id}`;
+      cb.checked = !!this.allowedTools[def.id];
+      cb.addEventListener('change', () => {
+        this.allowedTools[def.id] = cb.checked;
+        this._setStatus(`Tool "${def.name}" ${cb.checked ? 'enabled' : 'disabled'}.`, 'ok');
+      });
+      const label = document.createElement('label');
+      label.htmlFor = `ld-tool-${def.id}`;
+      label.innerHTML = `<strong>${def.name}</strong> <span style="color:#8080a0;">— ${def.desc}</span>`;
+      row.appendChild(cb);
+      row.appendChild(label);
+      toggleListEl.appendChild(row);
+      this._toolCheckboxes[def.id] = cb;
+    }
+    // Pattern allow-list controls.
+    const allowAllBtn = this.overlay.querySelector('#ld-pattern-allow-all');
+    const allowNoneBtn = this.overlay.querySelector('#ld-pattern-allow-none');
+    const filterInput = this.overlay.querySelector('#ld-pattern-filter');
+    allowAllBtn.addEventListener('click', () => {
+      const patterns = listPatterns();
+      this.allowedPatterns = new Set(patterns.map((p) => p.id));
+      this._refreshPatternAllowList();
+      this._setStatus(`Allowed ${this.allowedPatterns.size} pattern(s).`, 'ok');
+    });
+    allowNoneBtn.addEventListener('click', () => {
+      this.allowedPatterns.clear();
+      this._refreshPatternAllowList();
+      this._setStatus('Cleared pattern allow-list (= all allowed).', 'ok');
+    });
+    filterInput.addEventListener('input', () => {
+      this._patternFilterQuery = filterInput.value.toLowerCase();
+      this._refreshPatternAllowList();
+    });
+    this._refreshPatternAllowList();
+  }
+  _refreshPatternAllowList() {
+    const listEl = this.overlay.querySelector('#ld-pattern-allow-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    const q = this._patternFilterQuery || '';
+    let patterns = listPatterns();
+    if (q) {
+      patterns = patterns.filter(
+        (p) =>
+          p.id.toLowerCase().includes(q) ||
+          p.name.toLowerCase().includes(q) ||
+          (p.tags && p.tags.some((t) => t.toLowerCase().includes(q)))
+      );
+    }
+    // Limit to a reasonable count to avoid massive DOM trees.
+    const MAX = 300;
+    const limited = patterns.slice(0, MAX);
+    for (const p of limited) {
+      const row = document.createElement('div');
+      row.className = 'ld-pattern-allow-row';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = `ld-allow-${p.id}`;
+      cb.checked = this.allowedPatterns.has(p.id);
+      cb.addEventListener('change', () => {
+        if (cb.checked) this.allowedPatterns.add(p.id);
+        else this.allowedPatterns.delete(p.id);
+      });
+      const label = document.createElement('label');
+      label.htmlFor = `ld-allow-${p.id}`;
+      label.innerHTML = `<strong>${this._escapeHtml(p.name)}</strong> <span style="color:#8080a0;font-size:10px;">[${p.category}]</span>`;
+      row.appendChild(cb);
+      row.appendChild(label);
+      listEl.appendChild(row);
+    }
+    if (patterns.length > MAX) {
+      const more = document.createElement('div');
+      more.style.cssText = 'color:#8080a0;font-style:italic;padding:6px;font-size:11px;';
+      more.textContent = `... and ${patterns.length - MAX} more (use filter to narrow)`;
+      listEl.appendChild(more);
+    }
+  }
+  _syncToolsPanelFromState() {
+    if (!this._toolCheckboxes) return;
+    for (const [k, cb] of Object.entries(this._toolCheckboxes)) {
+      cb.checked = !!this.allowedTools[k];
+    }
+    this._refreshPatternAllowList();
+  }
+  _escapeHtml(s) {
+    return String(s).replace(
+      /[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+    );
+  }
+  // ── Theme panel (color overrides) ─────────────────────────────
+  _buildThemePanel() {
+    if (this._themePanelBuilt) return;
+    this._themePanelBuilt = true;
+    const container = this.overlay.querySelector('#ld-theme-list');
+    if (!container) return;
+    container.innerHTML = '';
+    const themeDefs = this._getThemeDefs();
+    this._themeInputs = {};
+    for (const def of themeDefs) {
+      const row = document.createElement('div');
+      row.className = 'ld-theme-row';
+      const label = document.createElement('label');
+      label.textContent = def.label;
+      label.htmlFor = `ld-theme-${def.key}`;
+      const swatch = document.createElement('span');
+      swatch.className = 'ld-theme-swatch';
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.id = `ld-theme-${def.key}`;
+      const textInput = document.createElement('input');
+      textInput.type = 'text';
+      textInput.className = 'ld-theme-text';
+      textInput.placeholder = def.default || '';
+      const initial =
+        this.colorTheme[def.key] != null ? this.colorTheme[def.key] : def.default || '';
+      textInput.value = this.colorTheme[def.key] || '';
+      this._setSwatchAndColor(colorInput, swatch, initial);
+      const apply = (val) => {
+        if (val == null || val === '') {
+          delete this.colorTheme[def.key];
+          textInput.value = '';
+          this._setSwatchAndColor(colorInput, swatch, def.default || '#000010');
+        } else {
+          this.colorTheme[def.key] = val;
+          this._setSwatchAndColor(colorInput, swatch, val);
+        }
+      };
+      colorInput.addEventListener('input', () => {
+        apply(colorInput.value);
+        textInput.value = colorInput.value;
+      });
+      textInput.addEventListener('change', () => apply(textInput.value.trim()));
+      const clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.className = 'ld-theme-clear';
+      clearBtn.title = 'Reset to default';
+      clearBtn.textContent = '✕';
+      clearBtn.addEventListener('click', () => apply(''));
+      row.appendChild(label);
+      row.appendChild(swatch);
+      row.appendChild(colorInput);
+      row.appendChild(textInput);
+      row.appendChild(clearBtn);
+      container.appendChild(row);
+      this._themeInputs[def.key] = { colorInput, textInput, swatch, def };
+    }
+    const resetBtn = this.overlay.querySelector('#ld-theme-reset');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        if (!confirm('Reset all color theme overrides?')) return;
+        this.colorTheme = {};
+        this._syncThemePanelFromState();
+        this._setStatus('Theme reset to defaults.', 'ok');
+      });
+    }
+    const previewBtn = this.overlay.querySelector('#ld-theme-preview');
+    if (previewBtn) {
+      previewBtn.addEventListener('click', () => {
+        this._draw();
+        this._setStatus('Theme preview applied to map canvas.', 'ok');
+      });
+    }
+  }
+  _setSwatchAndColor(colorInput, swatch, value) {
+    swatch.style.background = value || 'transparent';
+    // Try to coerce arbitrary CSS color into hex for the color picker.
+    try {
+      const probe = document.createElement('div');
+      probe.style.color = value;
+      document.body.appendChild(probe);
+      const computed = getComputedStyle(probe).color;
+      document.body.removeChild(probe);
+      const m = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (m) {
+        const r = parseInt(m[1], 10);
+        const g = parseInt(m[2], 10);
+        const b = parseInt(m[3], 10);
+        const hex = '#' + [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('');
+        colorInput.value = hex;
+      }
+    } catch (_e) {
+      // ignore — leave color input unchanged
+    }
+  }
+  _syncThemePanelFromState() {
+    if (!this._themeInputs) return;
+    for (const [key, entry] of Object.entries(this._themeInputs)) {
+      const val = this.colorTheme[key] || '';
+      entry.textInput.value = val;
+      this._setSwatchAndColor(entry.colorInput, entry.swatch, val || entry.def.default || '');
+    }
+  }
+  _getThemeDefs() {
+    return [
+      { key: 'BACKGROUND', label: 'Background', default: '#000010' },
+      { key: 'GRID', label: 'Grid lines', default: '#0a0a20' },
+      { key: 'MIDLINE', label: 'Draw-zone midline', default: '#2a2a5a' },
+      { key: 'CELL_CITY', label: 'City cells', default: '#ffff60' },
+      { key: 'CELL_EXPLOSION', label: 'Explosion cells', default: '#ff8800' },
+      { key: 'HUD_TEXT', label: 'HUD text', default: '#e0e0ff' },
+      { key: 'INK_BAR', label: 'Ink bar', default: '#00ffff' },
+      { key: 'INK_BAR_BG', label: 'Ink bar bg', default: '#1a1a3a' },
+      { key: 'RETURN_FIRE_TEXT', label: 'Return-fire text', default: '#00ffff' },
+      { key: 'RICOCHET_TEXT', label: 'Ricochet text', default: '#ffaa00' },
+      {
+        key: 'DRAW_ZONE_BOUNDARY',
+        label: 'Draw-zone boundary',
+        default: 'rgba(0, 255, 200, 0.35)',
+      },
+      { key: 'DRAW_ZONE_TINT', label: 'Draw-zone tint', default: 'rgba(0, 255, 136, 0.04)' },
+    ];
+  }
 
   // ── Show / Hide ───────────────────────────────────────────────
   show() {
@@ -1668,34 +1935,12 @@ export class LevelDesigner {
         ],
       },
       {
-        title: '🚀 Enemies',
-        keys: [
-          'MISSILES_PER_WAVE_BASE',
-          'MISSILES_PER_WAVE_INC',
-          'MISSILE_SPAWN_INTERVAL',
-          'MISSILE_SPAWN_DECREMENT',
-          'MISSILE_SPAWN_MIN',
-          'MISSILE_MAX_AGE_TICKS',
-          'MISSILE_CASCADE_TICKS',
-          'GLIDER_SE',
-          'GLIDER_SW',
-          'GLIDER_HEAVY',
-          'GLIDER_LWSS',
-          'GLIDER_MWSS',
-          'GLIDER_TWIN',
-          'GLIDER_GUN',
-        ],
+        title: '🚀 Enemy Pacing',
+        keys: ['MISSILE_MAX_AGE_TICKS', 'MISSILE_CASCADE_TICKS'],
       },
       {
         title: '⚔ Bases',
-        keys: [
-          'BASE_SPAWN_ENABLED',
-          'BASE_ZONE_HEIGHT',
-          'BASE_SPAWN_COUNT_BASE',
-          'BASE_SPAWN_COUNT_INC',
-          'BASE_SPAWN_MAX',
-          'BASE_GLIDER_BUFFER',
-        ],
+        keys: ['BASE_ZONE_HEIGHT', 'BASE_GLIDER_BUFFER'],
       },
       {
         title: '✏️ Drawing',
@@ -1767,15 +2012,18 @@ export class LevelDesigner {
     this._syncSettingsPanelFromState();
   }
   _buildSliderRow(container, def) {
-    // We use the same min/max/step values as the main settings panel by
-    // reading them from the corresponding DOM elements when available;
-    // otherwise fall back to sensible defaults.
     const row = document.createElement('div');
     row.className = 'ld-settings-row';
     const label = document.createElement('label');
     label.textContent = this._humanizeKey(def.key);
     label.htmlFor = `ld-set-${def.key}`;
     row.appendChild(label);
+    // Pre-declare valueEl so handlers below can close over it.
+    const valueEl = document.createElement('span');
+    valueEl.className = 'ld-settings-value';
+    // Controls cell holds the slider + numeric input + optional infinity toggle.
+    const controls = document.createElement('div');
+    controls.className = 'ld-settings-controls';
     const input = document.createElement('input');
     input.type = 'range';
     input.id = `ld-set-${def.key}`;
@@ -1783,23 +2031,90 @@ export class LevelDesigner {
     input.min = String(ranges.min);
     input.max = String(ranges.max);
     input.step = String(ranges.step);
-    input.value = String(
-      this.levelSettings[def.key] != null ? this.levelSettings[def.key] : CONFIG[def.key]
-    );
-    const valueEl = document.createElement('span');
-    valueEl.className = 'ld-settings-value';
-    valueEl.textContent = def.format(parseFloat(input.value));
+    const initialValue =
+      this.levelSettings[def.key] != null ? this.levelSettings[def.key] : CONFIG[def.key];
+    input.value = String(initialValue);
+    controls.appendChild(input);
+    // Numeric input for precise entry.
+    const numInput = document.createElement('input');
+    numInput.type = 'number';
+    numInput.className = 'ld-settings-num';
+    numInput.min = String(ranges.min);
+    numInput.max = String(ranges.max);
+    numInput.step = String(ranges.step);
+    numInput.value = String(initialValue);
+    controls.appendChild(numInput);
+    // Optional infinity toggle for "max age" / "unlimited" style keys.
+    const unlimitedKey = this._getUnlimitedKeyFor(def.key);
+    let infCheckbox = null;
+    if (unlimitedKey) {
+      const infLabel = document.createElement('label');
+      infLabel.className = 'ld-unlimited-label';
+      infLabel.title = 'Set to unlimited (∞)';
+      infCheckbox = document.createElement('input');
+      infCheckbox.type = 'checkbox';
+      infCheckbox.checked = !!this.levelSettings[unlimitedKey];
+      infLabel.appendChild(infCheckbox);
+      const txt = document.createElement('span');
+      txt.textContent = ' ∞';
+      infLabel.appendChild(txt);
+      controls.appendChild(infLabel);
+      infCheckbox.addEventListener('change', () => {
+        this.levelSettings[unlimitedKey] = infCheckbox.checked;
+        input.disabled = infCheckbox.checked;
+        numInput.disabled = infCheckbox.checked;
+        input.style.opacity = infCheckbox.checked ? '0.35' : '';
+        numInput.style.opacity = infCheckbox.checked ? '0.35' : '';
+        if (infCheckbox.checked) {
+          valueEl.textContent = '∞';
+        } else {
+          valueEl.textContent = def.format(parseFloat(input.value));
+        }
+      });
+      if (infCheckbox.checked) {
+        input.disabled = true;
+        numInput.disabled = true;
+        input.style.opacity = '0.35';
+        numInput.style.opacity = '0.35';
+      }
+    }
+    row.appendChild(controls);
+    valueEl.textContent =
+      infCheckbox && infCheckbox.checked ? '∞' : def.format(parseFloat(input.value));
+    row.appendChild(valueEl);
+    // Sync handlers: slider ↔ numeric input.
     input.addEventListener('input', () => {
       const step = parseFloat(input.step) || 1;
       const raw = parseFloat(input.value);
       const v = Number.isInteger(step) ? Math.round(raw) : raw;
       this.levelSettings[def.key] = v;
+      numInput.value = String(v);
       valueEl.textContent = def.format(v);
     });
-    row.appendChild(input);
-    row.appendChild(valueEl);
+    numInput.addEventListener('change', () => {
+      const step = parseFloat(numInput.step) || 1;
+      let raw = parseFloat(numInput.value);
+      if (!Number.isFinite(raw)) return;
+      // Allow numeric entry outside slider range — clamp slider to its
+      // min/max but keep the actual value as entered.
+      const v = Number.isInteger(step) ? Math.round(raw) : raw;
+      this.levelSettings[def.key] = v;
+      const sMin = parseFloat(input.min);
+      const sMax = parseFloat(input.max);
+      const clamped = Math.max(sMin, Math.min(sMax, v));
+      input.value = String(clamped);
+      valueEl.textContent = def.format(v);
+    });
     container.appendChild(row);
-    this._settingsInputs[def.key] = { input, valueEl, type: 'slider', def };
+    this._settingsInputs[def.key] = {
+      input,
+      numInput,
+      valueEl,
+      infCheckbox,
+      unlimitedKey,
+      type: 'slider',
+      def,
+    };
   }
   _buildBoolRow(container, def) {
     const row = document.createElement('div');
@@ -1864,6 +2179,22 @@ export class LevelDesigner {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
   }
+  // Map a numeric setting key to its corresponding "UNLIMITED_*" toggle
+  // key, if one exists. Mirrors SettingsPanel.UNLIMITED_DEFS.
+  _getUnlimitedKeyFor(key) {
+    const map = {
+      MAX_INK: 'UNLIMITED_MAX_INK',
+      INK_REGEN_RATE: 'UNLIMITED_INK_REGEN',
+      CELL_MAX_AGE_TICKS: 'UNLIMITED_CELL_AGE',
+      MISSILE_MAX_AGE_TICKS: 'UNLIMITED_MISSILE_AGE',
+      MISSILE_CASCADE_TICKS: 'UNLIMITED_MISSILE_CASCADE',
+      DEFENSE_AGE_FRIENDLY: 'UNLIMITED_DEF_AGE_FRIENDLY',
+      DEFENSE_AGE_ENEMY: 'UNLIMITED_DEF_AGE_ENEMY',
+      MISSILE_AGE_FRIENDLY: 'UNLIMITED_MISS_AGE_FRIENDLY',
+      MISSILE_AGE_ENEMY: 'UNLIMITED_MISS_AGE_ENEMY',
+    };
+    return map[key] || null;
+  }
   // Push this.levelSettings into the UI.
   _syncSettingsPanelFromState() {
     if (!this._settingsInputs) return;
@@ -1871,7 +2202,19 @@ export class LevelDesigner {
       const v = this.levelSettings[key] != null ? this.levelSettings[key] : CONFIG[key];
       if (entry.type === 'slider') {
         entry.input.value = String(v);
-        if (entry.valueEl && entry.def) entry.valueEl.textContent = entry.def.format(v);
+        if (entry.numInput) entry.numInput.value = String(v);
+        if (entry.infCheckbox && entry.unlimitedKey) {
+          const inf = !!this.levelSettings[entry.unlimitedKey];
+          entry.infCheckbox.checked = inf;
+          entry.input.disabled = inf;
+          if (entry.numInput) entry.numInput.disabled = inf;
+          entry.input.style.opacity = inf ? '0.35' : '';
+          if (entry.numInput) entry.numInput.style.opacity = inf ? '0.35' : '';
+        }
+        if (entry.valueEl && entry.def) {
+          const inf = entry.infCheckbox && entry.infCheckbox.checked;
+          entry.valueEl.textContent = inf ? '∞' : entry.def.format(v);
+        }
       } else if (entry.type === 'bool') {
         entry.input.checked = !!v;
       }

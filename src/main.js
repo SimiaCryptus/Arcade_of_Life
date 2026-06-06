@@ -1642,25 +1642,43 @@ class Game {
       }
       Logger.info(`[Game] Applied ${Object.keys(level.settings).length} setting overrides.`);
     }
+    // Apply unlimited-toggle sentinels from the level's settings snapshot.
+    const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
+    const unlimitedMap = {
+      UNLIMITED_MAX_INK: ['MAX_INK', 'INITIAL_INK'],
+      UNLIMITED_INK_REGEN: ['INK_REGEN_RATE'],
+      UNLIMITED_CELL_AGE: ['CELL_MAX_AGE_TICKS'],
+      UNLIMITED_MISSILE_AGE: ['MISSILE_MAX_AGE_TICKS'],
+      UNLIMITED_MISSILE_CASCADE: ['MISSILE_CASCADE_TICKS'],
+      UNLIMITED_DEF_AGE_FRIENDLY: ['DEFENSE_AGE_FRIENDLY'],
+      UNLIMITED_DEF_AGE_ENEMY: ['DEFENSE_AGE_ENEMY'],
+      UNLIMITED_MISS_AGE_FRIENDLY: ['MISSILE_AGE_FRIENDLY'],
+      UNLIMITED_MISS_AGE_ENEMY: ['MISSILE_AGE_ENEMY'],
+    };
+    if (level.settings) {
+      for (const [flag, keys] of Object.entries(unlimitedMap)) {
+        if (level.settings[flag]) {
+          for (const k of keys) CONFIG[k] = UNLIMITED;
+        }
+      }
+    }
+    // Apply color theme overrides on top of the loaded settings.
+    if (level.colorTheme && typeof level.colorTheme === 'object') {
+      // Stash defaults so we can restore on exit.
+      if (!this._defaultColors) {
+        this._defaultColors = { ...CONFIG.COLORS };
+      }
+      for (const [k, v] of Object.entries(level.colorTheme)) {
+        if (k in CONFIG.COLORS) CONFIG.COLORS[k] = v;
+      }
+      Logger.info(
+        `[Game] Applied color theme overrides for ${Object.keys(level.colorTheme).length} keys.`
+      );
+    }
     // Apply level config overrides.
     CONFIG.GRID_WIDTH = level.gridWidth || CONFIG.GRID_WIDTH;
     CONFIG.GRID_HEIGHT = level.gridHeight || CONFIG.GRID_HEIGHT;
     if (level.ruleset) CONFIG.ACTIVE_RULESET = level.ruleset;
-    if (level.waveConfig) {
-      const wc = level.waveConfig;
-      if (wc.missilesPerWaveBase != null) CONFIG.MISSILES_PER_WAVE_BASE = wc.missilesPerWaveBase;
-      if (wc.missilesPerWaveInc != null) CONFIG.MISSILES_PER_WAVE_INC = wc.missilesPerWaveInc;
-      if (wc.spawnInterval != null) CONFIG.MISSILE_SPAWN_INTERVAL = wc.spawnInterval;
-      if (wc.gliderTypes) {
-        CONFIG.GLIDER_SE = !!wc.gliderTypes.se;
-        CONFIG.GLIDER_SW = !!wc.gliderTypes.sw;
-        CONFIG.GLIDER_HEAVY = !!wc.gliderTypes.heavy;
-        CONFIG.GLIDER_LWSS = !!wc.gliderTypes.lwss;
-        CONFIG.GLIDER_MWSS = !!wc.gliderTypes.mwss;
-        CONFIG.GLIDER_TWIN = !!wc.gliderTypes.twin;
-        CONFIG.GLIDER_GUN = !!wc.gliderTypes.gun;
-      }
-    }
     // Custom levels use ONLY the designed bases & spawners. Disable the
     // default per-wave base spawning and default missile spawning if the
     // level has its own. The presence of designed spawners completely
@@ -1721,6 +1739,19 @@ class Game {
     // Inject custom-designed bases & spawners into the missiles module.
     this.missiles.setCustomBases(level.bases || []);
     this.missiles.setCustomSpawners(level.spawners || []);
+    // Apply tool restrictions.
+    if (this.drawTools) {
+      if (level.allowedTools && typeof level.allowedTools === 'object') {
+        this.drawTools.setLevelToolRestriction(level.allowedTools);
+      } else {
+        this.drawTools.setLevelToolRestriction(null);
+      }
+      if (Array.isArray(level.allowedPatterns) && level.allowedPatterns.length > 0) {
+        this.drawTools.setLevelPatternRestriction(new Set(level.allowedPatterns));
+      } else {
+        this.drawTools.setLevelPatternRestriction(null);
+      }
+    }
     // Start wave 0. If the level has custom spawners, no default gliders
     // will spawn; otherwise default wave behavior takes over.
     this.missiles.startWave(0);
@@ -1791,6 +1822,17 @@ class Game {
       if (!confirmed) return;
     }
     Logger.info('Exiting to main menu.');
+    // Restore default colors if a custom level was active.
+    if (this._defaultColors) {
+      Object.assign(CONFIG.COLORS, this._defaultColors);
+      this._defaultColors = null;
+    }
+    // Clear any level-imposed tool/pattern restrictions.
+    if (this.drawTools) {
+      this.drawTools.setLevelToolRestriction(null);
+      this.drawTools.setLevelPatternRestriction(null);
+    }
+    this._activeCustomLevel = null;
     // Stop story mode if active.
     if (this.story && this.story.isActive()) {
       this.story.stopStory();

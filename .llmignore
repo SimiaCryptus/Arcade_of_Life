@@ -4,5 +4,5 @@
 *.generated.json
 src/story.js
 src/marked.min.js
-#*.md
-#test/
+*.md
+test/

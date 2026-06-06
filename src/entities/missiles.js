@@ -410,7 +410,20 @@ export class Missiles {
    * Tick each spawn point's cooldown and emit gliders when ready.
    */
   _updateSpawnPoints(deltaMs) {
-    for (const sp of this.spawnPoints) {
+    // Shuffle the order each tick so no single spawn point dominates
+    // when multiple are due simultaneously. Helps when one spawn point
+    // keeps getting blocked.
+    const indices = [];
+    for (let i = 0; i < this.spawnPoints.length; i++) indices.push(i);
+    // Fisher-Yates shuffle.
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      const tmp = indices[i];
+      indices[i] = indices[j];
+      indices[j] = tmp;
+    }
+    for (const idx of indices) {
+      const sp = this.spawnPoints[idx];
       if (!sp.enabled) continue;
       if (this.emittedMissiles >= this.targetMissiles) break;
 
@@ -451,19 +464,12 @@ export class Missiles {
     const g = this.grid;
     const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
 
-    // Check spawn area is clear (pattern footprint + 1-cell halo).
-    for (let dy = -1; dy <= sp.patternHeight; dy++) {
-      for (let dx = -1; dx <= sp.patternWidth; dx++) {
-        const px = sp.x + dx;
-        const py = sp.y + dy;
-        if (py < 0 || py >= g.height) continue;
-        if (px < 0 || px >= g.width) continue;
-        const t = g.get(px, py);
-        if (t === CELL_TYPE.MISSILE || t === CELL_TYPE.DEFENSE) {
-          Logger.debug(`[Missiles] ${sp.id} spawn blocked: cell at (${px},${py}) is type ${t}.`);
-          return false;
-        }
-      }
+    // Use the shared clearance check (footprint + halo + recent-spawn
+    // distance) so default wave spawns don't pile gliders on top of
+    // each other or onto existing patterns.
+    if (!this._isSpawnClear(sp.x, sp.y, sp.patternWidth, sp.patternHeight, 2)) {
+      Logger.debug(`[Missiles] ${sp.id} spawn blocked: area not clear.`);
+      return false;
     }
 
     // Stamp the glider.

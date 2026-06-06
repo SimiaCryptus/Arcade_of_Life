@@ -41,6 +41,10 @@ export class DrawToolsPanel {
     // Callback for external coordination (e.g., main.js syncing speed slider).
     this.onEditorOpen = null;
     this.onEditorClose = null;
+    // Level-imposed restrictions (set by main.js when a custom level starts).
+    // null = no restriction.
+    this._levelToolRestriction = null; // object { freehand: bool, line: bool, ... }
+    this._levelPatternRestriction = null; // Set<string> of allowed preset ids
     // Diagnostic: verify critical DOM elements exist before wiring.
     const diagIds = [
       'pattern-editor-toggle',
@@ -83,10 +87,28 @@ export class DrawToolsPanel {
   }
 
   _isToolUnlocked(mode) {
+    // Level-imposed restriction takes precedence over story mode unlocks.
+    if (
+      this._levelToolRestriction &&
+      Object.prototype.hasOwnProperty.call(this._levelToolRestriction, mode)
+    ) {
+      if (!this._levelToolRestriction[mode]) return false;
+    }
     if (!this.storyEngine || !this.storyEngine.isActive()) return true;
     const unlocked = this.storyEngine.unlockedTools;
     if (!unlocked) return true;
     return unlocked.has(mode);
+  }
+  // Public API: set per-level tool restrictions. Pass null to clear.
+  setLevelToolRestriction(restrictions) {
+    this._levelToolRestriction = restrictions;
+    this.refreshToolLockState();
+    if (this.refreshPatternLockState) this.refreshPatternLockState();
+  }
+  // Public API: set per-level allowed pattern set. Pass null to clear.
+  setLevelPatternRestriction(allowedSet) {
+    this._levelPatternRestriction = allowedSet;
+    if (this.refreshPatternLockState) this.refreshPatternLockState();
   }
 
   // Called by StoryEngine when tool unlocks change or story starts/stops.
@@ -330,6 +352,18 @@ export class DrawToolsPanel {
         presetSelect.blur();
         return;
       }
+      // Block level-restricted patterns.
+      if (
+        this._levelPatternRestriction &&
+        this._levelPatternRestriction.size > 0 &&
+        !name.startsWith('custom_') &&
+        !this._levelPatternRestriction.has(name)
+      ) {
+        Logger.info(`Pattern "${name}" is not allowed in this level.`);
+        presetSelect.value = '';
+        presetSelect.blur();
+        return;
+      }
       // In story mode, block patterns that aren't unlocked yet.
       if (
         this.storyEngine &&
@@ -380,11 +414,22 @@ export class DrawToolsPanel {
   _filterPresetDropdown(sel) {
     const storyActive = this.storyEngine && this.storyEngine.isActive();
     const unlocked = storyActive ? this.storyEngine.unlockedPatterns : null;
+    const levelAllowed = this._levelPatternRestriction;
     for (const opt of sel.options) {
       if (!opt.value) {
         opt.hidden = false;
         opt.disabled = false;
         continue;
+      }
+      // Level restriction first.
+      if (levelAllowed && levelAllowed.size > 0) {
+        // Custom patterns (prefix custom_) are always allowed.
+        const isCustom = opt.value.startsWith('custom_');
+        if (!isCustom && !levelAllowed.has(opt.value)) {
+          opt.hidden = true;
+          opt.disabled = true;
+          continue;
+        }
       }
       if (storyActive && unlocked && !unlocked.has(opt.value)) {
         opt.hidden = true;

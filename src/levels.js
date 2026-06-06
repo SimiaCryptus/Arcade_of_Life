@@ -15,15 +15,12 @@
  *     defenses: [[x, y], ...],         // pre-placed defense cells
  *     bases: [{patternId, name, x, y, width, height, cells}],  // zoo-pattern bases
  *     spawners: [{patternId, name, x, y, width, height, cells, interval}],  // missile spawners
- *     waveConfig: {
- *       missilesPerWaveBase: number,
- *       missilesPerWaveInc: number,
- *       spawnInterval: number,
- *       gliderTypes: { se, sw, heavy, lwss, mwss, twin, gun },
- *     },
  *     ruleset: string,                  // ruleset id, e.g. 'conway'
  *     description: string,
  *     settings: { ... },                // full CONFIG snapshot overrides (optional)
+ *     allowedTools: { freehand, line, pattern, fill },  // tool restrictions
+ *     allowedPatterns: string[],        // allowed preset ids (empty = all)
+ *     colorTheme: { BACKGROUND, CELL_CITY, ... },  // color overrides
  *   }
  */
 

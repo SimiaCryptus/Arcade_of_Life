@@ -1,0 +1,11 @@
+- Settings in level designer should mirror normal settings panel; particularly support for infinities via checkboxes. Also need the ability to enter in numeric values for all settings
+- Level designer should be able to enable/disable each drawing tool
+- Level designer should configure the available patterns for the pattern tool, selected from the zoo
+- There is no need to select missile types from settings; these are defined by spawn points
+- The level designer should be able to customize the color theme of the level
+- The normal game mode needs to be fixed - it seems to only use a single missile spawn point and it does not check for clearance when placing missiles
+
+- in games, the pattern tool should be selected in order to make the "edit pattern" button appear; it should be hidden when the pattern tool is not selected
+- prettyify the fill tool's pattern selection menu, and move it to where the edit pattern button is for the pattern tool
+-
+-
