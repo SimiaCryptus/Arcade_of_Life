@@ -86,6 +86,24 @@ export class InputManager {
       this.cancelDrawing();
     }
   }
+  /**
+   * Detach all event listeners. Call before discarding this InputManager
+   * to prevent stale listeners from firing on the canvas/window.
+   */
+  destroy() {
+    if (this._listeners) {
+      for (const { target, type, fn, opts } of this._listeners) {
+        try {
+          target.removeEventListener(type, fn, opts);
+        } catch (_e) {
+          /* ignore */
+        }
+      }
+      this._listeners = [];
+    }
+    this.cancelDrawing();
+    this.suspended = true;
+  }
 
   setMode(mode) {
     if (!Object.values(DRAW_MODE).includes(mode)) return;
@@ -173,11 +191,20 @@ export class InputManager {
         Logger.error(`Input handler "${name}" failed.`, err);
       }
     };
-    this.canvas.addEventListener(
+
+    // Track all bindings so destroy() can detach them cleanly.
+    this._listeners = [];
+    const add = (target, type, fn, opts) => {
+      target.addEventListener(type, fn, opts);
+      this._listeners.push({ target, type, fn, opts });
+    };
+    add(
+      this.canvas,
       'mousedown',
       safe((e) => this._onStart(this._getPos(e)), 'mousedown')
     );
-    this.canvas.addEventListener(
+    add(
+      this.canvas,
       'mousemove',
       safe((e) => {
         const pos = this._getPos(e);
@@ -185,19 +212,21 @@ export class InputManager {
         this._onMove(pos);
       }, 'mousemove')
     );
-    window.addEventListener(
+    add(
+      window,
       'mouseup',
       safe(() => this._onEnd(), 'mouseup')
     );
-    this.canvas.addEventListener(
+    add(
+      this.canvas,
       'mouseleave',
       safe(() => {
         this.hoverCell = null;
         if (this.drawing && this.mode === DRAW_MODE.FREEHAND) this.cancelDrawing();
       }, 'mouseleave')
     );
-
-    this.canvas.addEventListener(
+    add(
+      this.canvas,
       'touchstart',
       safe((e) => {
         e.preventDefault();
@@ -208,7 +237,8 @@ export class InputManager {
       }, 'touchstart'),
       { passive: false }
     );
-    this.canvas.addEventListener(
+    add(
+      this.canvas,
       'touchmove',
       safe((e) => {
         e.preventDefault();
@@ -223,15 +253,18 @@ export class InputManager {
       }, 'touchmove'),
       { passive: false }
     );
-    window.addEventListener(
+    add(
+      window,
       'touchend',
       safe(() => this._onEnd(), 'touchend')
     );
-    window.addEventListener(
+    add(
+      window,
       'touchcancel',
       safe(() => this.cancelDrawing(), 'touchcancel')
     );
-    window.addEventListener(
+    add(
+      window,
       'keydown',
       safe((e) => {
         if (e.key === 'Escape' && this.drawing) {

@@ -190,8 +190,31 @@ export class DrawToolsPanel {
       });
     }
     // Fill pattern selector — visual swatch grid.
+    const fillPicker = document.getElementById('fill-pattern-picker');
+    const fillTrigger = document.getElementById('fill-pattern-trigger');
+    const fillTriggerPreview = document.getElementById('fill-pattern-trigger-preview');
+    const fillTriggerLabel = document.getElementById('fill-pattern-trigger-label');
     const fillGrid = document.getElementById('fill-pattern-grid');
-    if (fillGrid) {
+    if (fillGrid && fillPicker && fillTrigger) {
+      // Toggle dropdown open/closed.
+      const setOpen = (open) => {
+        fillPicker.classList.toggle('open', open);
+        fillTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      };
+      fillTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setOpen(!fillPicker.classList.contains('open'));
+      });
+      // Close on outside click.
+      document.addEventListener('click', (e) => {
+        if (!fillPicker.contains(e.target)) setOpen(false);
+      });
+      // Close on Esc.
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && fillPicker.classList.contains('open')) {
+          setOpen(false);
+        }
+      });
       const swatches = fillGrid.querySelectorAll('.fill-swatch');
       swatches.forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -199,6 +222,25 @@ export class DrawToolsPanel {
           if (!pat) return;
           this.input.setFillPattern(pat);
           swatches.forEach((b) => b.classList.toggle('active', b === btn));
+          // Update the trigger to reflect the new selection.
+          if (fillTriggerPreview) {
+            // Replace the preview's class to match the chosen pattern.
+            const preview = btn.querySelector('.fill-swatch-preview');
+            if (preview) {
+              // Find the fp-* class on the picked swatch and copy it.
+              const fpClass = Array.from(preview.classList).find((c) => c.startsWith('fp-'));
+              // Strip any existing fp-* class from the trigger preview.
+              fillTriggerPreview.classList.forEach((c) => {
+                if (c.startsWith('fp-')) fillTriggerPreview.classList.remove(c);
+              });
+              if (fpClass) fillTriggerPreview.classList.add(fpClass);
+            }
+          }
+          if (fillTriggerLabel) {
+            const labelEl = btn.querySelector('.fill-swatch-label');
+            fillTriggerLabel.textContent = labelEl ? labelEl.textContent : pat;
+          }
+          setOpen(false);
         });
       });
     }

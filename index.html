@@ -112,51 +112,65 @@
         </div>
         <div class="tool-group" id="fill-tools" style="display: none">
           <label for="fill-pattern">Fill Pattern:</label>
-          <div class="fill-pattern-grid" id="fill-pattern-grid">
-            <button class="fill-swatch active" data-pattern="solid" title="Solid">
-              <span class="fill-swatch-preview fp-solid"></span>
-              <span class="fill-swatch-label">Solid</span>
+          <div class="fill-pattern-picker" id="fill-pattern-picker">
+            <button
+              class="fill-pattern-trigger"
+              id="fill-pattern-trigger"
+              type="button"
+              aria-haspopup="true"
+              aria-expanded="false"
+              title="Select fill pattern"
+            >
+              <span class="fill-swatch-preview fp-solid" id="fill-pattern-trigger-preview"></span>
+              <span class="fill-pattern-trigger-label" id="fill-pattern-trigger-label">Solid</span>
+              <span class="fill-pattern-trigger-arrow">▾</span>
             </button>
-            <button class="fill-swatch" data-pattern="checker" title="Checker">
-              <span class="fill-swatch-preview fp-checker"></span>
-              <span class="fill-swatch-label">Checker</span>
-            </button>
-            <button class="fill-swatch" data-pattern="stripes_h" title="Horizontal stripes">
-              <span class="fill-swatch-preview fp-stripes-h"></span>
-              <span class="fill-swatch-label">Stripes ─</span>
-            </button>
-            <button class="fill-swatch" data-pattern="stripes_v" title="Vertical stripes">
-              <span class="fill-swatch-preview fp-stripes-v"></span>
-              <span class="fill-swatch-label">Stripes │</span>
-            </button>
-            <button class="fill-swatch" data-pattern="diagonal" title="Diagonal">
-              <span class="fill-swatch-preview fp-diagonal"></span>
-              <span class="fill-swatch-label">Diagonal</span>
-            </button>
-            <button class="fill-swatch" data-pattern="dots_sparse" title="Dots (sparse)">
-              <span class="fill-swatch-preview fp-dots-sparse"></span>
-              <span class="fill-swatch-label">Dots ·</span>
-            </button>
-            <button class="fill-swatch" data-pattern="dots_dense" title="Dots (dense)">
-              <span class="fill-swatch-preview fp-dots-dense"></span>
-              <span class="fill-swatch-label">Dots ∷</span>
-            </button>
-            <button class="fill-swatch" data-pattern="grid" title="Grid">
-              <span class="fill-swatch-preview fp-grid"></span>
-              <span class="fill-swatch-label">Grid</span>
-            </button>
-            <button class="fill-swatch" data-pattern="cross" title="Cross">
-              <span class="fill-swatch-preview fp-cross"></span>
-              <span class="fill-swatch-label">Cross</span>
-            </button>
-            <button class="fill-swatch" data-pattern="random50" title="Random 50%">
-              <span class="fill-swatch-preview fp-random50"></span>
-              <span class="fill-swatch-label">Rand 50%</span>
-            </button>
-            <button class="fill-swatch" data-pattern="random25" title="Random 25%">
-              <span class="fill-swatch-preview fp-random25"></span>
-              <span class="fill-swatch-label">Rand 25%</span>
-            </button>
+            <div class="fill-pattern-grid" id="fill-pattern-grid" role="menu">
+              <button class="fill-swatch active" data-pattern="solid" title="Solid">
+                <span class="fill-swatch-preview fp-solid"></span>
+                <span class="fill-swatch-label">Solid</span>
+              </button>
+              <button class="fill-swatch" data-pattern="checker" title="Checker">
+                <span class="fill-swatch-preview fp-checker"></span>
+                <span class="fill-swatch-label">Checker</span>
+              </button>
+              <button class="fill-swatch" data-pattern="stripes_h" title="Horizontal stripes">
+                <span class="fill-swatch-preview fp-stripes-h"></span>
+                <span class="fill-swatch-label">Stripes ─</span>
+              </button>
+              <button class="fill-swatch" data-pattern="stripes_v" title="Vertical stripes">
+                <span class="fill-swatch-preview fp-stripes-v"></span>
+                <span class="fill-swatch-label">Stripes │</span>
+              </button>
+              <button class="fill-swatch" data-pattern="diagonal" title="Diagonal">
+                <span class="fill-swatch-preview fp-diagonal"></span>
+                <span class="fill-swatch-label">Diagonal</span>
+              </button>
+              <button class="fill-swatch" data-pattern="dots_sparse" title="Dots (sparse)">
+                <span class="fill-swatch-preview fp-dots-sparse"></span>
+                <span class="fill-swatch-label">Dots ·</span>
+              </button>
+              <button class="fill-swatch" data-pattern="dots_dense" title="Dots (dense)">
+                <span class="fill-swatch-preview fp-dots-dense"></span>
+                <span class="fill-swatch-label">Dots ∷</span>
+              </button>
+              <button class="fill-swatch" data-pattern="grid" title="Grid">
+                <span class="fill-swatch-preview fp-grid"></span>
+                <span class="fill-swatch-label">Grid</span>
+              </button>
+              <button class="fill-swatch" data-pattern="cross" title="Cross">
+                <span class="fill-swatch-preview fp-cross"></span>
+                <span class="fill-swatch-label">Cross</span>
+              </button>
+              <button class="fill-swatch" data-pattern="random50" title="Random 50%">
+                <span class="fill-swatch-preview fp-random50"></span>
+                <span class="fill-swatch-label">Rand 50%</span>
+              </button>
+              <button class="fill-swatch" data-pattern="random25" title="Random 25%">
+                <span class="fill-swatch-preview fp-random25"></span>
+                <span class="fill-swatch-label">Rand 25%</span>
+              </button>
+            </div>
           </div>
         </div>
         <span class="tool-hint"

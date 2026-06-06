@@ -1,3 +1,2 @@
 - after resizing the window in normal game mode, ink starts to be used at a multiplied rate; the browser window needs to be reloaded to fix it
-
-
+- the fill tool's pattern selection looks nice but takes too much room - it should be an expandable combobox-like thing instead of a full grid of patterns (otherwise keep the selector graphics, just reorganize for better use of space)
