@@ -312,10 +312,15 @@ export async function loadGeneratedLibrary(source) {
     if (typeof fetch !== 'function') return;
     const res = await fetch(generatedUrl);
     if (!res.ok) {
-      console.warn(
-        `Generated pattern library not found at ${generatedUrl}; ` +
-          'run lifewikiImporter.js to generate it.'
-      );
+      // 404 is a common case during dev — only warn at info level.
+      if (res.status === 404) {
+        console.info(
+          `Generated pattern library not found (${res.status}); ` +
+            'run lifewikiImporter.js to generate it.'
+        );
+      } else {
+        console.warn(`Generated pattern library fetch failed: ${res.status} ${res.statusText}`);
+      }
       return;
     }
     const doc = await res.json();

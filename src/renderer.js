@@ -1,7 +1,6 @@
 import { CONFIG, CELL_TYPE } from './config.js';
 import { Logger } from './logger.js';
 import { getTopology } from './topology.js';
-import { getRuleset } from './rules/ruleset.js';
 // VFX rate-limit configuration. Tuned to keep the renderer responsive
 // even under chaotic game modes (e.g. Chaos, Apocalypse) where dozens
 // of collisions can occur per tick.
@@ -102,6 +101,10 @@ export class Renderer {
       this._vfxStats.floatersDropped++;
       return;
     }
+    if (!Number.isFinite(gx) || !Number.isFinite(gy)) {
+      Logger.warn('addFloater: invalid coordinates', { gx, gy });
+      return;
+    }
     const cs = CONFIG.CELL_SIZE;
     const canvasX = gx * cs + cs / 2;
     const canvasY = gy * cs + CONFIG.HUD_HEIGHT;
@@ -129,6 +132,10 @@ export class Renderer {
     if (CONFIG.VFX_FLOATERS === false) return;
     if (this._frameFloaterSpawns >= VFX_LIMITS.FLOATERS_PER_FRAME) {
       this._vfxStats.floatersDropped++;
+      return;
+    }
+    if (!Number.isFinite(gx) || !Number.isFinite(gy)) {
+      Logger.warn('addBigFloater: invalid coordinates', { gx, gy });
       return;
     }
     const cs = CONFIG.CELL_SIZE;
@@ -165,6 +172,11 @@ export class Renderer {
     // Hard cap check.
     if (this.particles.length >= VFX_LIMITS.MAX_PARTICLES) {
       this._vfxStats.particlesDropped += opts.count != null ? opts.count : 12;
+      return;
+    }
+    // Validate grid coordinates to prevent NaN propagation.
+    if (!Number.isFinite(gx) || !Number.isFinite(gy)) {
+      Logger.warn('addParticleBurst: invalid coordinates', { gx, gy });
       return;
     }
     // Adaptive throttling: if we're in the overload zone, scale down.
@@ -231,6 +243,10 @@ export class Renderer {
     if (CONFIG.VFX_SHOCKWAVES === false) return;
     if (this._frameShockwaveSpawns >= VFX_LIMITS.SHOCKWAVES_PER_FRAME) {
       this._vfxStats.shockwavesDropped++;
+      return;
+    }
+    if (!Number.isFinite(gx) || !Number.isFinite(gy)) {
+      Logger.warn('addShockwave: invalid coordinates', { gx, gy });
       return;
     }
     if (this.shockwaves.length >= VFX_LIMITS.MAX_SHOCKWAVES) {

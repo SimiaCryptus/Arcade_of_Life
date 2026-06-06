@@ -131,6 +131,11 @@ export class FreeplayAbilityManager {
     this._buttonEls = []; // parallel to activeAbilities
     this._installed = false;
     this._hotkeyBound = false;
+    // Initialize freeze timer slot on the game object so the cheats
+    // dispatch in main.js doesn't trip over an undefined property.
+    if (game && game._freezeTimer === undefined) {
+      game._freezeTimer = null;
+    }
   }
 
   // Apply enabled passives and bind ALL enabled active abilities.

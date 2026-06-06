@@ -33,6 +33,7 @@ export function registerServiceWorker() {
       // Notify user when a new version is waiting.
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
+        if (!newWorker) return;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             showUpdateBanner(reg);

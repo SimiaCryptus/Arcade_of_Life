@@ -867,6 +867,11 @@ export class PatternZoo {
       this._stashedSpeed = null;
       if (this.game._applySpeedFromSlider) this.game._applySpeedFromSlider();
     }
+    // Clear debounce timer to prevent stale rebuilds after hide.
+    if (this._searchDebounceTimer) {
+      clearTimeout(this._searchDebounceTimer);
+      this._searchDebounceTimer = null;
+    }
   }
 
   toggle() {

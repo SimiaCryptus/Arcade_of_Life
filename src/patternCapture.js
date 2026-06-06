@@ -82,7 +82,7 @@ export class PatternCapture {
     this._onTouchMove = this._onTouchMove.bind(this);
     this._onTouchEnd = this._onTouchEnd.bind(this);
     this._onKey = this._onKey.bind(this);
-    // Bind inference fn for use in _savePattern.
+    // Bind inference fn for use in _savePattern. Imported at top of file.
     this._inferFn = inferPatternMetadata;
   }
 
@@ -686,18 +686,23 @@ export class PatternCapture {
   // Uses dynamic import so the inference module is only loaded when needed
   // (and so we don't pull Node-only path/fs imports into the browser bundle).
   _inferMetadata(normCells) {
-    // We import synchronously via the module graph since inferMetadata.js
-    // is browser-safe (only depends on rules/* and library.js).
-    // Note: this requires the import at module top-level.
+    // inferMetadata.js is browser-safe (only depends on rules/* and library.js)
+    // so we import it at the top of this module and bind the function to
+    // this._inferFn in the constructor.
     if (!this._inferFn) {
-      // Lazy bind on first use.
       return null;
     }
-    const result = this._inferFn(normCells, {
-      maxPeriod: 30,
-      methuselahGens: 100,
-      populationCap: 5000,
-    });
+    let result;
+    try {
+      result = this._inferFn(normCells, {
+        maxPeriod: 30,
+        methuselahGens: 100,
+        populationCap: 5000,
+      });
+    } catch (e) {
+      Logger.warn('[PatternCapture] inferMetadata threw:', e);
+      return null;
+    }
     if (!result) return null;
     const tags = ['custom', 'user'];
     if (result.category) tags.push(result.category);

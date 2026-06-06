@@ -202,7 +202,6 @@ export class CpuSimBackend {
     const offsets = this._neighborhood.offsets;
     const nOff = offsets.length;
     for (let r = 0; r < h; r++) {
-      const rowBase = r * w;
       for (let q = 0; q < w; q++) {
         let life = 0,
           miss = 0,
@@ -224,9 +223,10 @@ export class CpuSimBackend {
             def++;
           }
         }
-        lifeOut[rowBase + q] = life;
-        missOut[rowBase + q] = miss;
-        defOut[rowBase + q] = def;
+        const idx = r * w + q;
+        lifeOut[idx] = life;
+        missOut[idx] = miss;
+        defOut[idx] = def;
       }
     }
   }

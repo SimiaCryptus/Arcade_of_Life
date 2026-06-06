@@ -9,6 +9,9 @@ annihilate the gliders descending toward your cities.
 > **Genre:** Action / Puzzle / Strategy
 > **Engine:** Pure HTML5 Canvas + ES Modules — no frameworks, no dependencies.
 > **Sim Backends:** CPU (bitpacked) or GPU (WebGL2) — auto-selected by grid size.
+> **Rulesets:** 30+ cellular automaton rules including Conway, HighLife, exotic
+> neighborhoods (hex, triangular, Euclidean radius), TCA (teleological CA),
+> time-integrated rules, and fractional lightcones.
 
 ---
 
@@ -33,18 +36,26 @@ between coverage and chaos. Master the rules — or watch your cities burn.
 
 ## Core Concept
 
-The grid is divided into **two halves**:
+The grid is divided into **zones**:
 
-- The **upper half** belongs to the enemy. Hostile patterns spawn here as
-  gliders and descend toward your cities. You cannot draw here.
-- The **lower half** is yours to paint. Anything you draw becomes part of
-  the same Game of Life simulation — your cells evolve, reproduce, and die
-  under Conway's rules just like the enemy patterns do.
+- The **top dead zone** (rows 0–4) — Nothing spawns here. Used to detect
+  "return fire" when your defenses send cells back upward.
+- The **base zone** (amber tint) — Where static enemy bases and horizontal
+  cruisers spawn. Bases must be destroyed to clear the wave.
+- The **missile spawn line** — Where new gliders are launched downward.
+- The **neutral combat zone** — Where enemy patterns descend and combat
+  happens. You cannot draw here.
+- The **draw zone** (green tint, bottom half by default) — Where you paint
+  defenses. The dotted boundary line shows where you're allowed to draw.
+- The **rear dead zone** (red tint, very bottom) — If a hostile cell slips
+  into this strip, it counts as a **BREACH!** — score penalty + explosion.
+- **Cities** (yellow blocks) — Your win condition. Lose them all and the
+  game ends.
 
 When a **hostile cell** (red/orange) and a **defense cell** (green/cyan)
 end up adjacent in the same tick, they **annihilate** each other in a
 small explosion. Your job is to engineer those collisions before missiles
-reach your **cities** (yellow blocks at the bottom).
+reach your cities.
 
 But the simulation doesn't care who you are. A poorly-placed defense will
 die of loneliness on the next tick. A dense cluster will overpopulate and
@@ -57,14 +68,17 @@ ones kill.
 
 ## How to Play
 
-1. **Click Start Game** from the main menu (or **Story Mode** for the
-   narrative campaign).
+1. **Click Start Game** from the main menu, or explore the side options:
+   - **🦓 Pattern Zoo** — Browse the full pattern library with live previews
+   - **🛠 Level Designer** — Craft custom scenarios with designer-placed bases
+   - **How to Play** — This guide
+   - **Console Hacking Guide** — DevTools cheats and API reference
 2. **Click and drag** in the bottom half of the screen to paint defensive
    ink. The dotted boundary line shows where you're allowed to draw.
 3. **Release the mouse** to commit your ink. It will briefly _dry_
    (deepening green) before becoming an active defense cell.
 4. **Watch the simulation evolve.** Your defenses will reproduce, decay,
-   or stabilize based on Conway's rules.
+   or stabilize based on the active ruleset (Conway by default).
 5. **Engineer collisions.** When red enemy cells touch your green cells,
    both die in an explosion.
 6. **Protect your cities.** If even one missile cell touches a city, you
@@ -95,19 +109,18 @@ A single dark strip across the top displays your vital stats:
 
 The main grid where the game happens. Visual zones are clearly marked:
 
-- **Draw Zone** (subtle green tint, bottom) — Where you paint defenses.
-- **Top sliver** — Enemy spawn line. Hostile patterns appear here.
-- **Base Zone** (amber tint, top) — Static enemy bases and horizontal
-  cruisers spawn here. Bases must be destroyed to clear the wave.
-- **Middle** — Neutral combat zone. Enemy patterns descend; defenses cannot
+- **Top dead zone** (subtle gray tint) — Nothing spawns here. Return-fire
+  detection zone.
+- **Base zone** (amber tint) — Static enemy bases and horizontal cruisers
+  spawn here.
+- **Missile spawn line** — Where new gliders are launched downward.
+- **Neutral combat zone** — Enemy patterns descend; defenses cannot
   be drawn here. Most explosions happen here.
-  A pulsing dashed cyan line marks the top boundary; a dashed red line
-  marks the rear dead zone above the cities.
-- **Cities** (yellow blocks) — Your win condition. Lose them all and the
-  game ends.
-- **Rear Dead Zone** (red tint, very bottom) — If a hostile cell slips into
-  this strip, it counts as a **BREACH!** — you lose score and the
-  cell explodes.
+- **Draw zone** (green tint, bottom) — Where you paint defenses. A
+  pulsing dashed cyan line marks the top boundary.
+- **Cities** (yellow blocks) — Your win condition.
+- **Rear dead zone** (red tint, very bottom) — If a hostile cell slips
+  into this strip, it counts as a **BREACH!**
 
 Visual feedback is everywhere:
 
@@ -115,8 +128,8 @@ Visual feedback is everywhere:
 - **Drying ink** (darkening green) → committing in real time.
 - **Active defenses** (bright green/cyan) → alive and evolving.
 - **Explosions** (orange flash) → annihilation events.
-- **Particles, shockwaves, screen shake** → fire feedback for impacts,
 - **Enemy cells** (red/orange with glow) → hostile patterns, descending.
+- **Particles, shockwaves, screen shake** → fire feedback for impacts,
   ricochets, and base destruction.
 - **Floating text** ("RETURN FIRE!", "RICOCHET!", "CITY HIT!") →
   narrates significant events as they happen.
@@ -125,23 +138,34 @@ Visual feedback is everywhere:
 
 Just below the canvas, a control strip with:
 
-- **Speed slider** (0× paused → 16× hyper) with named presets.
-- **Clear Defenses** button — wipes your defenses for a 50% ink refund.
+- **Speed slider** (0× paused → 256× ultra) with named presets.
+- **Step button** (⏭) — Advance simulation by one tick when paused.
 - **Settings (⚙)** — opens the in-play settings menu (pauses the game).
+- **Help** — opens the How to Play guide.
+- **🦓 Zoo** — opens the Pattern Zoo browser.
+- **🛠 Designer** — opens the Level Designer.
 - **Guide** — opens the Console Hacking Guide.
-- **Ability buttons** — active abilities (EMP Burst, Ink Surge, Time
-  Stop, etc.) appear here when equipped, with cooldown indicators.
+- **⛶** — Toggles fullscreen.
+- **✕ Exit** — Returns to main menu.
 
 ### 4. Drawing Tools Bar
 
 Below the speed bar, your painting toolkit:
 
-- **Mode buttons** — Freehand, Line, Pattern.
+- **Mode buttons** — Freehand, Line, Pattern, Fill.
 - **Line tools** — Width slider (1–8 cells) and dash pattern selector
   (solid / dashed / dotted / sparse).
-- **Pattern editor** — A 12×12 mini-canvas where you can hand-draw a
-  custom pattern, or load presets (Glider, Pulsar, Gosper Gun, etc.)
-  from a dropdown.
+- **Pattern preset** — Dropdown to load classic patterns.
+- **✏ Edit Pattern** — Opens the pattern editor overlay with a 16×16
+  grid where you can hand-draw a custom pattern, save it with metadata,
+  and import/export as JSON.
+- **Fill tools** — Pattern selector for region fills (solid, checker,
+  stripes, diagonal, dots, grid, cross, random).
+- **Clear Defenses** button — wipes your defenses for a 50% ink refund.
+- **◧ Capture Pattern** — Drag-select a region of the grid to save as
+  a reusable custom pattern.
+- **Ability buttons** — active abilities (EMP Burst, Ink Surge, Time
+  Stop, etc.) appear here when enabled, with cooldown indicators.
 
 ---
 
@@ -149,7 +173,7 @@ Below the speed bar, your painting toolkit:
 
 ### The Grid & Zones
 
-The grid is a 2D array of cells (default 120×80, resizable up to 400×250
+The grid is a 2D array of cells (default 120×80, resizable up to 800×600
 or "Auto Fit Window"). Horizontally, the world **wraps around** like a
 cylinder — cells at the right edge are neighbors of cells at the left
 edge. Vertically, the top and bottom are hard boundaries.
@@ -159,9 +183,9 @@ Each row of the grid has a specific role:
 | Zone                  | Default Rows     | Behavior                                           |
 | --------------------- | ---------------- | -------------------------------------------------- |
 | **Top Dead Zone**     | 0–4              | Nothing spawns here. Used to detect "return fire". |
-| **Base Zone**         | 5–12             | Enemy bases & horizontal cruisers spawn here.      |
-| **Missile Spawn Row** | 13               | Where new gliders are launched downward.           |
-| **Neutral Combat**    | 14 to draw-zone  | Combat happens here. No one can place new cells.   |
+| **Base Zone**         | 5–16             | Enemy bases & horizontal cruisers spawn here.      |
+| **Missile Spawn Row** | 17               | Where new gliders are launched downward.           |
+| **Neutral Combat**    | 18 to draw-zone  | Combat happens here. No one can place new cells.   |
 | **Draw Zone**         | bottom half      | Where you paint defenses.                          |
 | **Rear Dead Zone**    | bottom 2 rows    | No-man's land. Missiles here = BREACH.             |
 | **Cities**            | within draw zone | Yellow blocks you must protect.                    |
@@ -177,6 +201,8 @@ All of these are tunable in **Settings** if you want a different feel.
 - You also get a **regen boost** at the start of each new wave.
 - Clearing your defenses gives a partial **refund** (50% default), and
   undoing a stroke refunds the full ink cost.
+- **Unlimited ink toggle** — In Settings, you can mark ink and regen as
+  "∞" for unlimited supply.
 
 Running out of ink mid-stroke isn't lethal — you just can't draw more
 until it regenerates. But timing matters: a wave of hostile patterns can
@@ -200,7 +226,7 @@ once_ into a single coordinated structure. Pending cells take up no
 Conway-neighbor space, so a half-drawn glider won't get killed by Life
 rules before it's complete.
 
-### Conway's Rules in Combat
+### Conway's Rules in Combat (Default)
 
 The Game of Life has just three rules:
 
@@ -220,6 +246,67 @@ Internalize them or perish:
   vertical. **Annoying but defensive.**
 - A diagonal line of 3 cells becomes a "blinker" that immediately stops.
 - A glider pattern travels across the grid. **You can shoot back!**
+
+### Alternative Rulesets
+
+The game supports **30+ cellular automaton rulesets** beyond Conway,
+selectable in Settings → CA Ruleset:
+
+**Standard square-grid rules:**
+
+- **Conway** (B3/S23) — The classic
+- **HighLife** (B36/S23) — Contains a replicator
+- **Day & Night** (B3678/S34678) — Symmetric on/off behavior
+- **Seeds** (B2/S) — No survival, explosive chaos
+- **Life Without Death** (B3/S012345678) — Cells never die
+- **Maze**, **Mazectric** — Forms maze-like corridors
+- **Replicator** — Every pattern replicates itself
+- **DryLife**, **Pedestrian Life**, **Move/Morley**, **Coral**,
+  **Anneal**, **Diamoeba**, **Stains**, **Flock**, **Gnarl**, **Long Life**
+
+**Hexagonal grid rules** (6 edge neighbors):
+
+- **HexLife** (B2/S34), **Hex B24/S35**, **Hex Replicator**,
+  **Hex Snowflakes**, **Hex Maze**
+
+**Triangular grid rules** (12 vertex+edge neighbors):
+
+- **TriLife** (B45/S456), **Tri B4/S345**, **Tri Maze**, **Tri Coral**,
+  **Tri Edge**
+
+**Exotic Euclidean-radius rules** (fractional neighborhood radii):
+
+- **Conway (r=2.0, 12-cell)** — Smoother, more circular fronts
+- **Isotropic Life (r=3)** — PDE-like wave propagation
+- **Bugs (r=√5)** — Wandering bug-like creatures
+- **Globe (r=2.6)** — Pulsing cellular blobs
+
+**Anisotropic rules** (transformed neighborhoods):
+
+- **Wind** (horizontal stretch), **Gravity** (vertical stretch),
+  **Current** (sheared), **Diagonal Drift** (rotated)
+
+**Teleological CA (TCA)** — Multi-proposal rules with lookahead scoring:
+
+- **TCA: Survivor** — Picks variant that maximizes survival
+- **TCA: Aesthetic** — Drifts toward symmetric configurations
+- **TCA: Glider Seeker** — Rewards small moving clusters
+- **TCA: Minimal Entropy** — Collapses toward ordered structures
+
+**Time-Integrated rules** — Cells remember past states:
+
+- **Momentum**, **Persistence**, **Drag**
+
+**Fractional Lightcone rules** — Continuous spatial+temporal decay:
+
+- **Relativistic**, **Diffusive**, **Compact**
+
+**Custom neighborhoods** — Build your own with the in-Settings
+neighborhood builder (Euclidean, ellipse, rotated, shear).
+
+⚠ Non-Conway rulesets change how all cells evolve. Some patterns may
+behave unexpectedly. Hex/Tri topologies use entirely different grid
+geometries — the game rebuilds the world when you switch.
 
 ### Collisions & Annihilation
 
@@ -244,18 +331,23 @@ City cells follow special rules:
 ### Cell Aging & Cascades
 
 To prevent permanent "fortress" walls and endless missile clouds, every
-cell ages:
+cell can age:
 
-- **Defense cells** die after **200 ticks** (~20 seconds at default speed).
-- **Enemy cells** die after **150 ticks** (~15 seconds).
+- **Defense cells** can die after a configurable number of ticks
+  (default unlimited).
+- **Enemy cells** can die after a configurable number of ticks
+  (default unlimited).
+- **Region-specific aging** — Set different max ages for friendly vs.
+  enemy regions, separately for defense and missile cells. Configurable
+  in Settings → Aging Matrix tab.
 - **Cascade despawn**: when an enemy cell expires, any neighboring enemy
-  cell within **20 ticks** of its own expiry _also_ despawns. This
-  creates dramatic chain reactions when you bait enemy formations into
-  tangling with each other.
+  cell within `MISSILE_CASCADE_TICKS` of its own expiry _also_ despawns.
+  This creates dramatic chain reactions when you bait enemy formations
+  into tangling with each other.
 
 Cells visibly never change color due to age — the timer is silent — but
-you can feel the rhythm: defenses you draw won't last forever, so you
-must keep painting and reinforcing.
+you can feel the rhythm: if aging is enabled, defenses you draw won't
+last forever, so you must keep painting and reinforcing.
 
 ### Return Fire & Ricochets
 
@@ -312,8 +404,8 @@ Recommended for veterans only. Not the default.
 
 ### M:N Timestep Ratio
 
-A hidden lever for advanced play: configure how often **defenders**
-tick vs. **attackers**.
+A configurable lever for advanced play: how often **defenders** tick
+vs. **attackers**.
 
 - Default is `1:1` — both tick together.
 - `DEFENDER_TICKS = 2, ATTACKER_TICKS = 1` → your defenses evolve
@@ -321,13 +413,38 @@ tick vs. **attackers**.
 - `DEFENDER_TICKS = 1, ATTACKER_TICKS = 2` → enemy patterns evolve
   twice as fast. Brutal.
 
-Settable in the Settings panel.
+Settable in the Settings panel → Advanced tab.
+
+---
+
+## Game Mode Presets
+
+The Settings panel includes 15+ preset game modes that patch multiple
+config values at once:
+
+| Mode               | Description                                                       |
+| ------------------ | ----------------------------------------------------------------- |
+| **Custom**         | Your current settings (no preset applied).                        |
+| **🌱 Tutorial**    | Very slow, generous ink, few enemies. Conway rules.               |
+| **🎮 Classic**     | Balanced default. Conway, SE + SW gliders, moderate pace.         |
+| **⚡ Blitz**       | Fast spawns, short-lived cells, DryLife rules. Reflexes required. |
+| **🛸 Armada**      | Spaceships and twin formations. HighLife rules, replicators.      |
+| **🏰 Siege**       | Heavy bases dominate. Maze rules create defensive corridors.      |
+| **💀 Hardcore**    | Friendly fire ON. Be precise.                                     |
+| **🕊 Pacifist**    | Slow and contemplative. Long Life rules.                          |
+| **🌀 Chaos**       | Everything enabled. Glider guns, spaceships, bases. Pure mayhem.  |
+| **🧩 Maze Runner** | Mazectric rules. Strategic positioning.                           |
+| **☄️ Apocalypse**  | Seeds rule. Every cell dies each tick. Very short lifespans.      |
+| **🛡️ Fortress**    | Life Without Death. Your defenses are permanent.                  |
+| **🔁 Replicators** | HighLife with glider guns. Asymmetric warfare.                    |
+| **🐢 Turtle**      | Defender-favored timestep (3:1). Strategic mastermind mode.       |
+| **⚡⚡ Lightning** | Attacker-favored timestep (1:3). Brutal speed test.               |
 
 ---
 
 ## Drawing Tools
 
-Three drawing modes, switchable on the toolbar or via hotkeys:
+Four drawing modes, switchable on the toolbar or via hotkeys:
 
 ### Freehand Mode (F)
 
@@ -354,66 +471,118 @@ commit. Honors width and dash settings.
 
 Click anywhere in the draw zone to **stamp** a pre-designed pattern.
 
-- The 12×12 **pattern editor** lets you click cells to toggle and
-  design your own custom pattern.
+- The **Pattern Editor** overlay (✏ Edit Pattern button) provides a
+  16×16 mini-canvas where you can hand-draw a custom pattern, with full
+  metadata support (name, category, period, direction, tags, description).
+- Patterns can be saved as custom patterns or exported as JSON.
 - **Preset dropdown** offers Game-of-Life classics:
   - **Still lifes**: Block, Beacon.
   - **Oscillators**: Blinker, Toad, Pulsar, Penta-Decathlon.
-  - **Spaceships**: Glider (4 directions), LWSS, MWSS, HWSS, Copperhead.
+  - **Spaceships**: Glider, LWSS, MWSS, HWSS, Copperhead.
   - **Methuselahs**: R-Pentomino, Acorn, Diehard.
   - **Glider guns**: ★ Gosper Glider Gun (the legendary infinite weapon).
 
-Press **R** to rotate the pattern 90°, **X** to mirror it. Stamping
-aims pieces at the cursor (centered on bounding box).
+Press **R** to rotate the pattern 90°, **X** to mirror it horizontally,
+**Y** to mirror vertically. Stamping aims pieces at the cursor (centered
+on bounding box).
 
 Pattern mode is the **highest-skill** option: a well-placed glider stamp
 can be fired upward as a counter-attack, while a stamped pulsar acts
 as a long-lived defensive wall.
 
+### Fill Mode (B)
+
+Click and drag to draw a rectangle that gets filled with a pattern:
+
+- **Solid** — Every cell in the rectangle.
+- **Checker** — Alternating cells.
+- **Stripes (h/v)** — Horizontal or vertical stripes.
+- **Diagonal** — Diagonal stripe pattern.
+- **Dots (sparse/dense)** — Dotted patterns at varying density.
+- **Grid** — Grid lines.
+- **Cross** — Cross intersection pattern.
+- **Random 50% / 25%** — Stochastic fills.
+
+Useful for creating starting configurations for cellular automaton
+experiments or quick-fill defenses.
+
 ---
 
-## Game Modes
+## Pattern Zoo
 
-### Free-Play
+Press **Z** or click **🦓 Pattern Zoo** from the main menu (or in-game)
+to browse the entire pattern library:
 
-The default mode. Press **Start Game** for endless waves.
+- **Filter** by category, ruleset, tag, or source (built-in vs. custom).
+- **Search** by name, id, or tag.
+- **Live previews** — Each card runs a tiny toroidal simulation showing
+  the pattern in action.
+- **Per-card controls** — Speed, reset, pause individual previews.
+- **Detail view** — Click any pattern for a larger preview with stats:
+  generation count, population, max bounds, period, direction, etc.
+- **Place in Game** — Load a pattern directly into the pattern editor
+  for stamping.
+- **Custom patterns** — Edit, rename, or delete your saved patterns.
+- **New Pattern** — Open the editor to create one from scratch.
 
-- All glider types you've enabled in Settings appear.
-- All drawing tools and patterns are unlocked from the start.
-- All abilities enabled in Settings install automatically.
-- Difficulty scales smoothly: more missiles per wave, faster spawns.
-- High score persists across runs.
+The zoo includes **1800+ patterns** when the LifeWiki dataset is
+imported (see `npm run import:lifewiki`). Patterns are characterized
+automatically — category, period, direction, stabilization point, etc.
 
-### Story Mode
+---
 
-Click **Story Mode** from the main menu for a 12-chapter narrative
-campaign with:
+## Level Designer
 
-- **Themed chapters** — each with a unique visual palette and mechanical
-  twist (Frostbite slows everything down, Inferno speeds it up, Toxic
-  Bloom cascades, Crimson is hardcore mode, etc.).
-- **Dialogue** from Cmdr. Vance, Dr. Hale, and other characters between
-  chapters, telling a story of escalating threat.
-- **Perk selection** between chapters — choose 1 of 3 cards:
-  - **STAT** perks (permanent buffs: +ink, +regen, +cell longevity).
-  - **PATTERN** perks (unlock new stamps: Pulsar, Acorn, Gosper Gun…).
-  - **ABILITY** perks (passive or active powers — see below).
-- **Adaptive difficulty** — if you're struggling, the game eases the
-  pressure; if you're dominating, it ramps up.
-- **Tool unlocks** — Story Mode starts with only Freehand. Line mode
-  unlocks in Chapter 2, Pattern mode in Chapter 3.
-- **Pattern locks** — only patterns you've explicitly unlocked via
-  perks appear in the dropdown during Story Mode.
+Press **D** or click **🛠 Level Designer** to craft custom scenarios:
 
-Story Mode is the recommended first experience — it teaches the
-mechanics gradually through tutorials and themed challenges.
+**Modes:**
+
+- **🏙 City** — Place city blocks
+- **✏ Defense** — Paint pre-placed defense cells
+- **📏 Line** — Straight line with width/dash options
+- **🪣 Fill** — Region fill with pattern selector
+- **🧬 Pattern** — Stamp any zoo pattern as defenses
+- **⚔ Base** — Stamp zoo patterns as enemy bases
+- **🚀 Spawner** — Place missile spawn points (limited to spaceships)
+- **🧹 Erase** — Remove anything
+
+**Settings tab** lets you override the full CONFIG for the level:
+grid size, ruleset, wave config, glider types, abilities, aging,
+base spawning, etc.
+
+**Save/Load:**
+
+- Save levels by name to local storage.
+- Export/import as JSON for sharing.
+- **Save & Play** — Launch the level immediately (paused for inspection).
+
+Custom levels with designed bases and spawners completely override the
+default per-wave base spawning and glider waves, giving you full
+creative control.
+
+---
+
+## Pattern Capture
+
+Press **Shift+C** or click **◧ Capture Pattern** to drag-select a
+region of the live grid and save it as a reusable pattern:
+
+1. Capture mode pauses the game and shows a dashed amber overlay.
+2. Drag to draw a selection rectangle.
+3. Release to capture all DEFENSE cells (and pending ink) in the region.
+4. Enter a name and save — the pattern is added to the dropdown and the
+   Pattern Zoo.
+5. Captured patterns are automatically characterized (category, period,
+   direction) and flagged as duplicates of built-in patterns if they match.
+
+Captured patterns are saved to localStorage and persist across sessions.
 
 ---
 
 ## Abilities
 
-Some abilities are **passive** (always-on once acquired), others are
-**active** (have a cooldown and a button + hotkey to trigger).
+Some abilities are **passive** (always-on once enabled in settings),
+others are **active** (have a cooldown and a button + hotkey to trigger).
 
 ### Passive Abilities
 
@@ -428,8 +597,8 @@ Some abilities are **passive** (always-on once acquired), others are
 ### Active Abilities
 
 Active abilities show as buttons in the speed control bar with cooldown
-timers. Click or press the corresponding hotkey (**Q**, **W**, **E** in
-free-play; **A** in story mode) to trigger.
+timers. Click or press the corresponding hotkey (**Q**, **W**, **E**) to
+trigger.
 
 | Icon | Name      | Cooldown | Effect                                                          |
 | ---- | --------- | -------- | --------------------------------------------------------------- |
@@ -442,23 +611,24 @@ particular is a god-tier ability — freezing missile evolution while
 your defenses continue lets you reshape the entire battlefield in
 seconds.
 
-In Free-Play, **all enabled abilities** install simultaneously. In Story
-Mode, you pick one per chapter via perks — making each run feel unique.
+All enabled abilities install simultaneously. Toggle individual
+abilities on/off in Settings → Abilities tab.
 
 ---
 
 ## Keyboard Shortcuts
 
-Press **?** or **H** in-game to bring up the full hotkey overlay.
+Press **?** in-game to bring up the full hotkey overlay.
 
 ### Simulation
 
 | Key     | Action                         |
 | ------- | ------------------------------ |
 | `Space` | Pause / resume                 |
+| `N`     | Step forward one tick (paused) |
 | `[` `,` | Slower (previous speed preset) |
 | `]` `.` | Faster (next speed preset)     |
-| `0`–`7` | Jump to speed preset by index  |
+| `0`–`9` | Jump to speed preset by index  |
 
 ### Drawing
 
@@ -467,32 +637,39 @@ Press **?** or **H** in-game to bring up the full hotkey overlay.
 | `F`                 | Freehand mode                 |
 | `L`                 | Line mode                     |
 | `P`                 | Pattern mode                  |
+| `B`                 | Fill mode                     |
 | `Tab` / `Shift+Tab` | Cycle modes                   |
 | `R`                 | Rotate pattern (Pattern mode) |
 | `X`                 | Mirror pattern horizontally   |
+| `Y`                 | Mirror pattern vertically     |
 | `+` / `=`           | Increase brush width          |
 | `-` / `_`           | Decrease brush width          |
 | `Shift+1`–`8`       | Load pattern preset by index  |
 
 ### Actions
 
-| Key             | Action                                        |
-| --------------- | --------------------------------------------- |
-| `Z`             | Undo last stroke (refunds ink)                |
-| `C`             | Clear all defenses (50% refund)               |
-| `Esc`           | Cancel current draw / close menu              |
-| `Q` / `W` / `E` | Trigger ability slot 1 / 2 / 3 (free-play)    |
-| `A`             | Trigger ability (story mode, or slot 1 alias) |
+| Key             | Action                           |
+| --------------- | -------------------------------- |
+| `Ctrl+Z`        | Undo last stroke (refunds ink)   |
+| `C`             | Clear all defenses (50% refund)  |
+| `Shift+C`       | Toggle pattern capture mode      |
+| `Esc`           | Cancel current draw / close menu |
+| `Q` / `W` / `E` | Trigger ability slot 1 / 2 / 3   |
+| `A`             | Trigger ability slot 1 (alias)   |
 
-### Menus
+### Menus & Tools
 
 | Key        | Action                           |
 | ---------- | -------------------------------- |
 | `Enter`    | Start game from menu / game over |
 | `S`        | Open settings (during play)      |
+| `Z`        | Open Pattern Zoo                 |
+| `D`        | Open Level Designer              |
 | `M`        | Mute / unmute audio              |
+| `H`        | Open How to Play guide           |
 | `G` / `F1` | Open Console Hacking Guide       |
-| `?` / `H`  | Open hotkey help overlay         |
+| `F11`      | Toggle fullscreen                |
+| `?`        | Open hotkey help overlay         |
 
 ---
 
@@ -523,6 +700,8 @@ cheats.spawnPattern(x, y, [
   [2, 0],
 ]);
 cheats.dump(); // print live game stats
+cheats.setMode('chaos'); // apply a game mode preset
+cheats.vfxStats(); // VFX throttling diagnostics
 ```
 
 See the in-game **Console Hacking Guide** (press G or F1) for the
@@ -536,24 +715,62 @@ swap simulation backends, hook the game's event callbacks, and more.
 Open Settings from the main menu, or with the **⚙ Settings** button /
 **S** hotkey during play (auto-pauses).
 
-Tunable parameters include:
+Settings are organized into tabs:
 
-- **Resolution** — Auto-fit, fixed presets, or custom (60×40 to 800×600).
-- **Starting Ink / Max Ink / Regen Rate** — your economy.
-- **Tick Rate** — 40 to 300 ms per simulation step.
-- **Defender/Attacker Ticks** — the M:N timestep ratio.
-- **Missiles per Wave + scaling** — wave intensity.
-- **Missile Spawn Interval + decrement** — how fast they come.
-- **Cell & Missile Max Age** — longevity tuning.
-- **City Count** — how many cities to defend.
-- **Clear Refund Fraction** — penalty for hitting Clear.
-- **Ink Drying Time** — how long pending cells take to set.
-- **Draw Zone Size** — how much of the board you control.
-- **Rear Dead Zone / Base Zone Height** — battlefield geometry.
-- **Enabled Glider Types** — pick your enemy roster.
-- **Hardcore Mode (Friendly Fire)**.
-- **Enabled Abilities** — which abilities can appear / install.
-- **Show Draw Zone Indicator** — visual aid toggle.
+### 🎮 Gameplay
+
+- Game mode preset selector
+- CA Ruleset (with custom neighborhood builder)
+- Resolution preset (Auto-fit, presets, or custom)
+- City count, starting ink, max ink, ink regen
+- Clear refund fraction, hardcore mode
+
+### 🚀 Enemies
+
+- Enabled glider types (SE, SW, targets, LWSS, MWSS, twin, gun)
+- Missiles per wave (base + increment)
+- Spawn interval, decrement per wave, minimum interval
+- Missile max age, cascade window
+- Base spawning: enabled, zone height, count, max
+
+### ✏️ Drawing
+
+- Ink drying time
+- Draw zone size, rear dead zone height
+- Defense cell max age
+- Draw zone display toggle
+
+### ⏳ Aging Matrix
+
+- Region-specific aging: friendly vs. enemy region × defense vs. missile
+- Each cell has independent max age + ∞ unlimited toggle
+
+### ⚡ Abilities
+
+- Passive abilities (Combat Bonuses, Instant Set, Veteran Pay,
+  Demilitarized Zone, Atmospheric Drag)
+- Active abilities (EMP Burst, Ink Surge, Time Stop)
+
+### 🖥️ Display
+
+- Resolution preset (mirrored)
+- Show draw zone indicator
+
+### ⚙️ Advanced
+
+- Tick rate (40–300 ms)
+- Defender/Attacker ticks (M:N timestep ratio)
+- Cell max age (mirrored)
+- Hashlife cache toggle
+- Base↔glider buffer
+- Visual effects toggles (particles, shockwaves, floaters, screen
+  shake, cell glow, draw zone tint)
+
+### 💾 Profiles
+
+- Save named configuration profiles
+- Load/delete saved profiles
+- Import/export full config as JSON
 
 All settings persist in `localStorage` and apply immediately. The
 "Reset to Defaults" button restores factory values.
@@ -570,26 +787,29 @@ All settings persist in `localStorage` and apply immediately. The
 - **Watch where missiles spawn.** Walls placed _under_ spawn columns
   are vastly more effective than walls everywhere.
 - **Use the speed slider.** Slow down (0.5×) to study enemy patterns,
-  then speed up (2×, 4×) to grind ink and score.
+  then speed up (2×, 4×) to grind ink and score. Press **N** to step
+  one tick at a time when paused.
 
 ### Intermediate
 
-- **Cell aging matters.** Don't paint a wall on wave 1 and expect it
-  to last to wave 5. Reinforce constantly.
+- **Cell aging matters.** If enabled, don't paint a wall on wave 1 and
+  expect it to last to wave 5. Reinforce constantly.
 - **Bait cascades.** If you can get an enemy glider cluster to
   tangle, the cascade despawn rule clears huge swaths at once.
-- **Use undo (Z) liberally.** Misplaced a stamp? Undo refunds the full
-  pending ink — no waste.
+- **Use undo (Ctrl+Z) liberally.** Misplaced a stamp? Undo refunds the
+  full pending ink — no waste.
 - **Learn the Block stamp.** A pattern-mode Block stamp is a perfect
   4-cell still-life that never dies, for the same ink cost as 4
   freehand cells but with guaranteed stability.
+- **Capture patterns** that work well in your gameplay so you can
+  stamp them later.
 
 ### Advanced
 
 - **Counter-attack with gliders.** Stamp a glider pointed _upward_
   (rotate with R until it heads north) and watch it sail into the
   enemy spawn line for a Ricochet bonus + base destruction.
-- **Plant a Gosper Gun in your draw zone.** Once unlocked, it's a
+- **Plant a Gosper Gun in your draw zone.** Once available, it's a
   permanent glider factory firing toward the enemy. Massive risk
   (eats huge ink, can be destroyed) but enormous reward.
 - **Use Time Stop strategically.** Freeze the enemy, then _carefully_
@@ -597,6 +817,10 @@ All settings persist in `localStorage` and apply immediately. The
   no missiles will arrive while you work.
 - **Tune the M:N ratio.** Set defenders to 2× attacker speed in
   Settings for a more puzzle-y, less reflexive experience.
+- **Experiment with rulesets.** HighLife adds replicators. Maze
+  builds corridors automatically. Each ruleset is a different game.
+- **Design your own levels** with the Level Designer for custom
+  challenges — share JSON exports with friends.
 - **Hardcore + Glider Gun is the ultimate challenge.** Your own
   ammunition can kill your cities. May the rules be ever in your
   favor.
@@ -607,10 +831,19 @@ All settings persist in `localStorage` and apply immediately. The
 
 Built with vanilla HTML5 Canvas and ES Modules. Conway's Game of Life
 invented by John Horton Conway, 1970. Famous Life patterns (Gosper Gun,
-Pulsar, LWSS, Diehard, Acorn, R-Pentomino) are part of the public
-cellular automaton canon.
+Pulsar, LWSS, Diehard, Acorn, R-Pentomino, Copperhead) are part of the
+public cellular automaton canon.
+
+Pattern library can be augmented with the **LifeWiki** dataset
+(1800+ patterns) via the importer script. See `docs/lifewiki-import.md`.
+
+Exotic ruleset categories (TCA, time-integrated, fractional lightcones,
+hex/triangular topologies, anisotropic neighborhoods) extend the
+classical CA framework into new territory.
 
 Synthesized SFX via Web Audio API — no external assets.
+
+Source code: https://github.com/SimiaCryptus/Arcade_of_Life
 
 ---
 

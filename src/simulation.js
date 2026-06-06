@@ -746,6 +746,10 @@ export class Simulation {
     const h = g.height;
     const cells = g.cells;
     const fired = this.returnFireFired;
+    // Bounds sanity check.
+    if (minY < 0) minY = 0;
+    if (maxY >= h) maxY = h - 1;
+    if (minY > maxY) return;
     for (let i = 0; i < fired.length; i++) {
       if (fired[i] && cells[i] !== CELL_TYPE.MISSILE && cells[i] !== CELL_TYPE.DEFENSE) {
         fired[i] = 0;

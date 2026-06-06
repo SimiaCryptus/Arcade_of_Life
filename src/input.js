@@ -72,6 +72,9 @@ export class InputManager {
 
     // Pointer position cache for rendering previews.
     this.hoverCell = null;
+    // Suspended flag — when true, all input is ignored. Set by external
+    // systems (e.g. pattern capture mode) to temporarily disable input.
+    this.suspended = false;
 
     this._bind();
   }
@@ -241,17 +244,20 @@ export class InputManager {
   _getPos(e) {
     const cs = CONFIG.CELL_SIZE > 0 ? CONFIG.CELL_SIZE : 1;
     const rect = this.canvas.getBoundingClientRect();
+    // Scale for CSS-resized canvas.
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
     const x = (e.clientX || 0) - rect.left;
     const y = (e.clientY || 0) - rect.top - CONFIG.HUD_HEIGHT;
     const topologyId = this.grid && this.grid.topologyId ? this.grid.topologyId : 'square';
     if (topologyId === 'square') {
-      const gx = Math.floor(x / cs);
-      const gy = Math.floor(y / cs);
+      const gx = Math.floor((x * scaleX) / cs);
+      const gy = Math.floor((y * scaleY) / cs);
       return { gx, gy };
     }
     // Hex / Tri: use topology helper.
     const topology = getTopology(topologyId);
-    const result = topology.pixelToCell(x, y, cs);
+    const result = topology.pixelToCell(x * scaleX, y * scaleY, cs);
     if (topologyId === 'tri') {
       // For tri, we encode (x, y, orient) into gx/gy by packing orient
       // into the low bit of gx*2.

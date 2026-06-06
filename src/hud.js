@@ -19,10 +19,14 @@ export class HUD {
   addScore(amount) {
     if (!Number.isFinite(amount)) return;
     this.score += amount;
+    // Clamp to non-negative.
+    if (this.score < 0) this.score = 0;
     if (this.score > this.highScore) {
       this.highScore = this.score;
       // Throttle disk writes to avoid spamming localStorage during fast play.
-      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      // Use Date.now() for wall-clock throttling; performance.now() resets
+      // between page loads so it's not appropriate here.
+      const now = Date.now();
       if (now - this._lastHighScoreSave > 1000) {
         saveString('missileDefenseHighScore', this.highScore);
         this._lastHighScoreSave = now;
@@ -36,5 +40,7 @@ export class HUD {
     this.score = 0;
     this.wave = 1;
     this.citiesAlive = 0;
+    // Reset throttle so the next big score gets saved promptly.
+    this._lastHighScoreSave = 0;
   }
 }

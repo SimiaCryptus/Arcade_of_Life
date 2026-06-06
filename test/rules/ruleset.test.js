@@ -73,6 +73,8 @@ test('parseBSNotation: returns null on bad input', () => {
   assert.equal(parseBSNotation(''), null);
   assert.equal(parseBSNotation(null), null);
   assert.equal(parseBSNotation('B9/S3'), null); // 9 is invalid
+  assert.equal(parseBSNotation('   '), null); // whitespace only
+  assert.equal(parseBSNotation('/'), null); // empty both sides
 });
 
 test('formatBSNotation: round-trips', () => {

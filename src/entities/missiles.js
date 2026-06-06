@@ -432,6 +432,16 @@ export class Missiles {
       }
     }
   }
+  /**
+   * Force-complete the current wave's spawning. Used by cheats / debug.
+   */
+  forceCompleteSpawning() {
+    this.emittedMissiles = this.targetMissiles;
+    // Also disable all spawn points so nothing more leaks out.
+    for (const sp of this.spawnPoints) {
+      sp.enabled = false;
+    }
+  }
 
   /**
    * Emit one glider from the given spawn point. Returns true if
@@ -919,7 +929,6 @@ export class Missiles {
   _updateDesignedBases(_deltaMs) {
     if (this._designedBases.length === 0) return;
     const g = this.grid;
-    const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
     for (let i = this._designedBases.length - 1; i >= 0; i--) {
       const b = this._designedBases[i];
       if (!b.alive) continue;
@@ -988,7 +997,6 @@ export class Missiles {
   _updateDesignedSpawners(deltaMs) {
     if (this._designedSpawners.length === 0) return;
     const g = this.grid;
-    const variants = CONFIG.COLORS.MISSILE_VARIANTS.length;
     for (let i = this._designedSpawners.length - 1; i >= 0; i--) {
       const s = this._designedSpawners[i];
       if (!s.alive) continue;

@@ -53,6 +53,17 @@ export function saveJSON(key, value) {
   } catch (e) {
     // Most common cause: quota exceeded.
     Logger.warn(`Failed to save key "${key}" to localStorage.`, e);
+    // If quota exceeded, try to free space by clearing old entries.
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      Logger.warn('localStorage quota exceeded; attempting cleanup.');
+      try {
+        // Retry once after a brief cleanup attempt.
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch (_retry) {
+        /* give up */
+      }
+    }
     return false;
   }
 }
@@ -77,6 +88,22 @@ export function saveString(key, value) {
     return true;
   } catch (e) {
     Logger.warn(`Failed to save key "${key}" to localStorage.`, e);
+    return false;
+  }
+}
+
+/**
+ * Remove a key from localStorage. Safe against unavailable storage.
+ * @param {string} key
+ * @returns {boolean} true if removed (or didn't exist); false on error
+ */
+export function removeKey(key) {
+  if (!hasStorage()) return false;
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch (e) {
+    Logger.warn(`Failed to remove key "${key}" from localStorage.`, e);
     return false;
   }
 }

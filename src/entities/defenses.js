@@ -28,6 +28,7 @@ export class Defenses {
       this.ink = this.maxInk;
       return;
     }
+    if (!Number.isFinite(amount) || amount < 0) return;
     this.ink = Math.max(0, this.ink - amount);
   }
 
@@ -36,6 +37,7 @@ export class Defenses {
       this.ink = this.maxInk;
       return;
     }
+    if (!Number.isFinite(amount) || amount < 0) return;
     this.ink = Math.min(this.maxInk, this.ink + amount);
   }
 
@@ -44,6 +46,7 @@ export class Defenses {
       this.ink = this.maxInk;
       return;
     }
+    if (!Number.isFinite(amount) || amount < 0) return;
     this.ink = Math.min(this.maxInk, this.ink + amount);
   }
 
@@ -61,6 +64,7 @@ export class Defenses {
   // of ink per cleared cell. Also clears any pending (uncommitted) cells
   // with a full ink refund. Returns the count of cells cleared.
   clearAll(grid) {
+    if (!grid || !grid.cells) return 0;
     const cells = grid.cells;
     const pending = grid.pending;
     const refundFrac = Math.max(0, Math.min(1, CONFIG.CLEAR_REFUND_FRACTION));
@@ -70,6 +74,8 @@ export class Defenses {
       if (cells[i] === CELL_TYPE.DEFENSE) {
         cells[i] = CELL_TYPE.EMPTY;
         if (grid.cellAge) grid.cellAge[i] = 0;
+        if (grid.cellColor) grid.cellColor[i] = 0;
+        if (grid.cellDir) grid.cellDir[i] = 0;
         defenseCleared++;
       }
       if (pending[i]) {

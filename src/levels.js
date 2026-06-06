@@ -49,11 +49,21 @@ function notifyLevelsChanged() {
 }
 
 export function loadAllLevels() {
-  return loadJSON(STORAGE_KEY, {});
+  const data = loadJSON(STORAGE_KEY, {});
+  // Defensive: ensure result is an object.
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    Logger.warn('Stored levels data is not an object; resetting.');
+    return {};
+  }
+  return data;
 }
 
 export function saveLevel(name, level) {
   if (!name || typeof name !== 'string') return false;
+  if (!level || typeof level !== 'object') {
+    Logger.warn(`saveLevel: invalid level object for "${name}".`);
+    return false;
+  }
   const all = loadAllLevels();
   all[name] = { ...level, name, savedAt: Date.now() };
   saveJSON(STORAGE_KEY, all);
@@ -91,8 +101,24 @@ export function exportLevelJSON(name) {
 export function importLevelJSON(jsonStr) {
   try {
     const parsed = JSON.parse(jsonStr);
-    if (!parsed.name || !Array.isArray(parsed.cities)) {
+    if (!parsed || typeof parsed !== 'object') {
+      return { ok: false, error: 'Invalid level: not a JSON object.' };
+    }
+    if (!parsed.name || typeof parsed.name !== 'string') {
+      return { ok: false, error: 'Invalid level: missing or invalid name.' };
+    }
+    if (!Array.isArray(parsed.cities)) {
       return { ok: false, error: 'Invalid level: missing name or cities.' };
+    }
+    // Sanity-check grid dimensions if present.
+    if (parsed.gridWidth != null && (!Number.isInteger(parsed.gridWidth) || parsed.gridWidth < 1)) {
+      return { ok: false, error: 'Invalid gridWidth.' };
+    }
+    if (
+      parsed.gridHeight != null &&
+      (!Number.isInteger(parsed.gridHeight) || parsed.gridHeight < 1)
+    ) {
+      return { ok: false, error: 'Invalid gridHeight.' };
     }
     saveLevel(parsed.name, parsed);
     return { ok: true, name: parsed.name };

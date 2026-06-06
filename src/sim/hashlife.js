@@ -22,7 +22,7 @@
 export class HashlifeCache {
   constructor(maxSize = 65536) {
     this.cache = new Map();
-    this.maxSize = maxSize;
+    this.maxSize = Math.max(1, maxSize | 0);
     this.hits = 0;
     this.misses = 0;
   }

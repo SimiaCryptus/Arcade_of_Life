@@ -3,7 +3,7 @@
  * Strategy: Cache-first for static assets, network-first for markdown docs.
  */
 
-    const CACHE_NAME = 'arcade-of-life-v7';
+const CACHE_NAME = 'arcade-of-life-v9';
 // Resolve the scope path so cache keys are relative to wherever the SW
 // is registered (root or subdirectory).
 const SCOPE_PATH = new URL(self.registration ? self.registration.scope : './', self.location).pathname;
@@ -23,20 +23,41 @@ const STATIC_ASSETS = [
     './src/guide.js',
     './src/drawTools.js',
     './src/story.js',
-    //'./src/logger.js',
+     './src/logger.js',
+     './src/storage.js',
+     './src/topology.js',
+     './src/patternZoo.js',
+     './src/patternCapture.js',
+     './src/levelDesigner.js',
+     './src/levels.js',
+     './src/abilities.js',
+     './src/pwa.js',
     './src/audio.js',
-    './src/abilities.js',
     './src/entities/cities.js',
     './src/entities/missiles.js',
     './src/entities/defenses.js',
+     './src/sim/cpuBackend.js',
+     './src/sim/gpuBackend.js',
+     './src/sim/hashlife.js',
+     './src/rules/index.js',
+     './src/rules/ruleset.js',
+     './src/rules/neighborhoods.js',
+     './src/rules/extraRulesets.js',
+     './src/rules/exoticEngines.js',
+     './src/rules/exoticRulesets.js',
+     './src/patterns/index.js',
+     './src/patterns/library.js',
+     './src/patterns/categories.js',
     './src/marked.min.js',
     './icons/icon-192.png',
     './icons/icon-512.png',
+     './manifest.json',
 ];
 
 const NETWORK_FIRST = [
      'README.md',
      'console_guide.md',
+      'lifewiki.generated.json',
 ];
 
 // ── Install: pre-cache all static assets ──────────────────────────────────
@@ -78,6 +99,9 @@ self.addEventListener('fetch', (event) => {
 
     // Only handle same-origin GET requests.
     if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+     // Skip chrome-extension and other non-http(s) schemes.
+     if (!url.protocol.startsWith('http')) return;
+
 
     const isNetworkFirst = NETWORK_FIRST.some((p) => url.pathname.endsWith(p));
 
@@ -93,12 +117,16 @@ async function cacheFirst(request) {
     if (cached) return cached;
     try {
         const response = await fetch(request);
-        if (response.ok) {
+         // Only cache successful, basic (same-origin) responses.
+         if (response.ok && response.type === 'basic') {
             const cache = await caches.open(CACHE_NAME);
-            cache.put(request, response.clone());
+             cache.put(request, response.clone()).catch((err) => {
+                 console.warn('[SW] Cache put failed:', err);
+             });
         }
         return response;
-    } catch {
+     } catch (err) {
+         console.warn('[SW] Network fetch failed for:', request.url, err);
         return new Response('Offline — asset not cached.', { status: 503 });
     }
 }
@@ -106,9 +134,11 @@ async function cacheFirst(request) {
 async function networkFirst(request) {
     try {
         const response = await fetch(request);
-        if (response.ok) {
+         if (response.ok && response.type === 'basic') {
             const cache = await caches.open(CACHE_NAME);
-            cache.put(request, response.clone());
+             cache.put(request, response.clone()).catch((err) => {
+                 console.warn('[SW] Cache put failed:', err);
+             });
         }
         return response;
     } catch {

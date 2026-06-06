@@ -28,6 +28,34 @@ class SfxEngine {
     this._lastPlayTime = new Map(); // throttle by sound key
     this._unlocked = false;
     this._bindUnlock();
+    // Periodically clean stale throttle entries to prevent unbounded growth.
+    if (typeof setInterval === 'function') {
+      this._cleanupTimer = setInterval(() => this._cleanupThrottleMap(), 30000);
+      // Don't keep the Node event loop alive in test environments.
+      if (this._cleanupTimer && typeof this._cleanupTimer.unref === 'function') {
+        this._cleanupTimer.unref();
+      }
+    }
+  }
+  /**
+   * Tear down the engine. Stops the cleanup timer and closes the
+   * AudioContext. Safe to call multiple times.
+   */
+  destroy() {
+    if (this._cleanupTimer) {
+      clearInterval(this._cleanupTimer);
+      this._cleanupTimer = null;
+    }
+    if (this.ctx && typeof this.ctx.close === 'function') {
+      try {
+        this.ctx.close();
+      } catch (_e) {
+        /* ignore */
+      }
+    }
+    this.ctx = null;
+    this.masterGain = null;
+    this._lastPlayTime.clear();
   }
 
   _bindUnlock() {
@@ -86,6 +114,19 @@ class SfxEngine {
     if (now - last < minIntervalMs) return false;
     this._lastPlayTime.set(key, now);
     return true;
+  }
+  /**
+   * Periodically clean up the throttle map so it doesn't grow unbounded.
+   * Called automatically every ~30 seconds.
+   */
+  _cleanupThrottleMap() {
+    const now = performance.now();
+    const STALE_MS = 60000;
+    for (const [key, time] of this._lastPlayTime.entries()) {
+      if (now - time > STALE_MS) {
+        this._lastPlayTime.delete(key);
+      }
+    }
   }
 
   // ---------- Synth primitives ----------

@@ -8,7 +8,7 @@
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40, silent: 100 };
 const PREFIX = '[ArcadeOfLife]';
 
-let currentLevel = LEVELS.debug;
+let currentLevel = LEVELS.info;
 
 // Attempt to read level override from localStorage. Guarded because
 // localStorage may be unavailable (private mode, SSR contexts).
@@ -35,7 +35,9 @@ export const Logger = {
     if (LEVELS[level] != null) {
       currentLevel = LEVELS[level];
       try {
-        localStorage.setItem('missileDefenseLogLevel', level);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('missileDefenseLogLevel', level);
+        }
       } catch (_e) {
         /* ignore */
       }
@@ -46,6 +48,12 @@ export const Logger = {
       if (val === currentLevel) return name;
     }
     return 'info';
+  },
+  /**
+   * List available log levels.
+   */
+  levels() {
+    return Object.keys(LEVELS);
   },
   debug(...args) {
     if (shouldLog('debug')) console.debug(...fmt(args));
@@ -58,6 +66,19 @@ export const Logger = {
   },
   error(...args) {
     if (shouldLog('error')) console.error(...fmt(args));
+  },
+  /**
+   * Group helpers — useful for grouping related diagnostic output.
+   */
+  group(label) {
+    if (shouldLog('info') && typeof console.group === 'function') {
+      console.group(`${PREFIX} ${label}`);
+    }
+  },
+  groupEnd() {
+    if (typeof console.groupEnd === 'function') {
+      console.groupEnd();
+    }
   },
 };
 

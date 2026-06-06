@@ -11,6 +11,12 @@ import { getTopology } from './topology.js';
  */
 export class Grid {
   constructor(width, height, topologyId = 'square') {
+    if (!Number.isInteger(width) || width <= 0) {
+      throw new Error(`Grid: invalid width ${width}`);
+    }
+    if (!Number.isInteger(height) || height <= 0) {
+      throw new Error(`Grid: invalid height ${height}`);
+    }
     this.width = width;
     this.height = height;
     this.topologyId = topologyId;
@@ -79,6 +85,10 @@ export class Grid {
     const maxY = top + height - 1;
     // Ensure we don't overlap the draw zone.
     if (maxY >= this.drawZoneMinY()) return null;
+    // Sanity: ensure the band is at least 1 row tall and inside the grid.
+    if (minY < 0 || minY >= this.height || maxY < minY || maxY >= this.height) {
+      return null;
+    }
     return { minY, maxY };
   }
   // Row where regular gliders (missiles) spawn. Just below the base zone

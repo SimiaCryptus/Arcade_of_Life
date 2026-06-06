@@ -724,6 +724,11 @@ class Game {
       if (e.ctrlKey || e.altKey || e.metaKey) return;
       // If a pattern-capture name dialog is open, let it handle keys.
       if (this.patternCapture && this.patternCapture._nameDialog) return;
+      // Don't trigger while other overlays are open.
+      if (this.guidePanel && this.guidePanel.isVisible()) return;
+      if (this.helpGuidePanel && this.helpGuidePanel.isVisible()) return;
+      if (this.patternZoo && this.patternZoo.isVisible()) return;
+      if (this.levelDesigner && this.levelDesigner.isVisible()) return;
       if (e.shiftKey && (e.key === 'C' || e.key === 'c')) {
         e.preventDefault();
         this.patternCapture.toggle();
@@ -737,7 +742,12 @@ class Game {
     let topologyId = 'square';
     try {
       const ruleDef = getRuleset(CONFIG.ACTIVE_RULESET || 'conway');
-      const nbhd = ruleDef && ruleDef.neighborhood ? getNeighborhood(ruleDef.neighborhood) : null;
+      // Skip topology lookup for exotic rules — they don't expose a
+      // neighborhood field in the canonical form.
+      const nbhd =
+        ruleDef && ruleDef.neighborhood && !ruleDef._exoticType
+          ? getNeighborhood(ruleDef.neighborhood)
+          : null;
       if (nbhd && nbhd.topology) topologyId = nbhd.topology;
     } catch (e) {
       Logger.warn('Failed to determine topology; defaulting to square.', e);
@@ -760,6 +770,8 @@ class Game {
       this.input.setDashPattern(prevInput.dashPattern);
       this.input.pattern = new Set(prevInput.pattern);
       this.input.patternRotation = prevInput.patternRotation;
+      this.input.patternFlipH = prevInput.patternFlipH;
+      this.input.patternFlipV = prevInput.patternFlipV;
     }
     // Re-point renderer + drawTools at the new input.
     if (this.renderer) this.renderer.setInput(this.input);
@@ -1149,6 +1161,21 @@ class Game {
         const copyH = Math.min(oldH, newH);
         const srcYOff = oldH - copyH;
         const dstYOff = newH - copyH;
+        // Guard against topology mismatch (e.g. hex vs square)
+        // which would corrupt the buffer copy.
+        const sameTopology = oldGrid.topologyId === this.grid.topologyId;
+        if (!sameTopology) {
+          Logger.warn('Topology changed during resize; skipping state copy.');
+          if (this.renderer) this.renderer.setGrid(this.grid);
+          return;
+        }
+        // For triangular grids the stride is 2*w, so the basic row-by-row
+        // copy would be incorrect. Skip state copy in that case.
+        if (this.grid.topologyId === 'tri') {
+          Logger.warn('Tri topology resize: skipping state copy.');
+          if (this.renderer) this.renderer.setGrid(this.grid);
+          return;
+        }
         for (let y = 0; y < copyH; y++) {
           for (let x = 0; x < copyW; x++) {
             const si = (y + srcYOff) * oldW + x;
@@ -1945,19 +1972,22 @@ class Game {
     try {
       const dt = time - this.lastTime;
       this.lastTime = time;
+      // Guard against pathological dt values (e.g. tab backgrounding can
+      // produce huge gaps that would cause hundreds of sim ticks to run).
+      const safeDt = Math.max(0, Math.min(dt, 500));
 
       if (this.gameState.is(STATE.PLAYING)) {
-        this._update(dt);
+        this._update(safeDt);
       }
 
       this.hud.citiesAlive = this.cities.aliveCount();
       this.hud.ink = this.defenses.ink;
       this.hud.maxInk = this.defenses.maxInk;
       // Drive story progression each frame.
-      if (this.story) this.story.update(dt);
+      if (this.story) this.story.update(safeDt);
       // Tick free-play ability cooldowns.
       if (this.freeplayAbilities && !(this.story && this.story.isActive())) {
-        this.freeplayAbilities.update(dt);
+        this.freeplayAbilities.update(safeDt);
       }
 
       this.renderer.render(this.hud);

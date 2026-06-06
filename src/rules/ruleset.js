@@ -123,6 +123,7 @@ export function listRulesets() {
 export function parseBSNotation(notation) {
   if (typeof notation !== 'string') return null;
   const trimmed = notation.trim();
+  if (trimmed.length === 0) return null;
   // Standard B/S notation, e.g. "B3/S23".
   let m = trimmed.match(/^B([0-8]*)\/S([0-8]*)$/i);
   let birthStr;
@@ -137,6 +138,8 @@ export function parseBSNotation(notation) {
     survivalStr = m[1];
     birthStr = m[2];
   }
+  // Reject if BOTH parts are empty — that's not a valid rule.
+  if (birthStr.length === 0 && survivalStr.length === 0) return null;
   const birth = birthStr
     .split('')
     .map((c) => parseInt(c, 10))
