@@ -2943,7 +2943,7 @@ class Game {
   }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+const initGame = () => {
   // PWA bootstrap (runs independently of game init).
   registerServiceWorker();
   initInstallPrompt();
@@ -2981,5 +2981,63 @@ window.addEventListener('DOMContentLoaded', () => {
         'The game failed to start. ' + 'Open the browser console for details, then reload.';
       overlay.classList.remove('hidden');
     }
+  }
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  // ── Epilepsy / photosensitivity warning gate ──────────────────────
+  // Show a prominent warning before enabling the UI. The user can
+  // opt-in to "don't show again" which persists in localStorage.
+  const EPILEPSY_ACK_KEY = 'arcadeOfLifeEpilepsyAcknowledged';
+  const warningOverlay = document.getElementById('epilepsy-warning-overlay');
+  const warningAcceptBtn = document.getElementById('epilepsy-warning-accept');
+  const warningDontShow = document.getElementById('epilepsy-warning-dont-show');
+
+  let alreadyAcknowledged = false;
+  try {
+    alreadyAcknowledged = localStorage.getItem(EPILEPSY_ACK_KEY) === 'true';
+  } catch (_e) {
+    // localStorage unavailable (e.g. private browsing); show warning every time.
+  }
+
+  if (alreadyAcknowledged || !warningOverlay) {
+    // Already accepted (or overlay missing) — proceed immediately.
+    if (warningOverlay) warningOverlay.classList.add('hidden');
+    initGame();
+    return;
+  }
+
+  // Show warning and wait for acknowledgment.
+  if (warningAcceptBtn) {
+    const handleAccept = () => {
+      if (warningDontShow && warningDontShow.checked) {
+        try {
+          localStorage.setItem(EPILEPSY_ACK_KEY, 'true');
+        } catch (_e) {
+          // Storage unavailable; warning will reappear next session.
+        }
+      }
+      warningOverlay.classList.add('hidden');
+      initGame();
+    };
+    warningAcceptBtn.addEventListener('click', handleAccept);
+    // Also accept on Enter / Space key for keyboard users.
+    const keyHandler = (e) => {
+      if (warningOverlay.classList.contains('hidden')) {
+        window.removeEventListener('keydown', keyHandler);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleAccept();
+        window.removeEventListener('keydown', keyHandler);
+      }
+    };
+    window.addEventListener('keydown', keyHandler);
+    // Focus the accept button for accessibility.
+    setTimeout(() => warningAcceptBtn.focus(), 100);
+  } else {
+    // Fallback: button missing, proceed anyway.
+    initGame();
   }
 });

@@ -1,6 +1,6 @@
 {
   "name": "Pillbox",
-  "createdAt": 1780843025311,
+  "createdAt": 1780845236934,
   "gridWidth": 120,
   "gridHeight": 80,
   "cities": [
@@ -2621,7 +2621,260 @@
       ]
     }
   ],
-  "spawners": [],
+  "spawners": [
+    {
+      "patternId": "copperhead",
+      "name": "Copperhead",
+      "x": 10,
+      "y": 22,
+      "width": 8,
+      "height": 12,
+      "cells": [
+        [
+          1,
+          11
+        ],
+        [
+          2,
+          11
+        ],
+        [
+          5,
+          11
+        ],
+        [
+          6,
+          11
+        ],
+        [
+          3,
+          10
+        ],
+        [
+          4,
+          10
+        ],
+        [
+          3,
+          9
+        ],
+        [
+          4,
+          9
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          5,
+          8
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          0,
+          7
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ]
+      ],
+      "interval": 2000,
+      "emitLimit": 0,
+      "initialDelay": 2000,
+      "padding": 3
+    },
+    {
+      "patternId": "copperhead",
+      "name": "Copperhead",
+      "x": 104,
+      "y": 22,
+      "width": 8,
+      "height": 12,
+      "cells": [
+        [
+          1,
+          11
+        ],
+        [
+          2,
+          11
+        ],
+        [
+          5,
+          11
+        ],
+        [
+          6,
+          11
+        ],
+        [
+          3,
+          10
+        ],
+        [
+          4,
+          10
+        ],
+        [
+          3,
+          9
+        ],
+        [
+          4,
+          9
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          5,
+          8
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          0,
+          7
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ]
+      ],
+      "interval": 2000,
+      "emitLimit": 0,
+      "initialDelay": 2000,
+      "padding": 3
+    }
+  ],
   "ruleset": "conway",
   "enemyRuleset": null,
   "description": "",
@@ -2631,7 +2884,7 @@
     "INK_REGEN_RATE": 0.5,
     "TICK_RATE": 100,
     "STARTING_SPEED": 1,
-    "DEFENDER_TICKS": 2,
+    "DEFENDER_TICKS": 6,
     "ATTACKER_TICKS": 1,
     "MISSILES_PER_WAVE_BASE": 8,
     "MISSILES_PER_WAVE_INC": 3,
@@ -2641,9 +2894,9 @@
     "DEFENSE_AGE_FRIENDLY": 999999,
     "DEFENSE_AGE_ENEMY": 200,
     "DEFENSE_AGE_NEUTRAL": 200,
-    "MISSILE_AGE_FRIENDLY": 200,
-    "MISSILE_AGE_ENEMY": 100,
-    "MISSILE_AGE_NEUTRAL": 200,
+    "MISSILE_AGE_FRIENDLY": 50,
+    "MISSILE_AGE_ENEMY": 50,
+    "MISSILE_AGE_NEUTRAL": 50,
     "MISSILE_CASCADE_TICKS": 0,
     "AGE_CONTAGION_AMOUNT": 51,
     "CLEAR_REFUND_FRACTION": 0.5,
@@ -2665,14 +2918,14 @@
     "HARDCORE_MODE": false,
     "SHOW_DRAW_ZONE": true,
     "BASE_SPAWN_ENABLED": true,
-    "ABILITY_DOUBLE_SCORE": true,
-    "ABILITY_NO_DRY": true,
-    "ABILITY_WAVE_BONUS": true,
-    "ABILITY_SAFE_ZONE": true,
-    "ABILITY_SLOW_MISSILES": true,
-    "ABILITY_EMP_BURST": true,
-    "ABILITY_INK_SURGE": true,
-    "ABILITY_FREEZE": true,
+    "ABILITY_DOUBLE_SCORE": false,
+    "ABILITY_NO_DRY": false,
+    "ABILITY_WAVE_BONUS": false,
+    "ABILITY_SAFE_ZONE": false,
+    "ABILITY_SLOW_MISSILES": false,
+    "ABILITY_EMP_BURST": false,
+    "ABILITY_INK_SURGE": false,
+    "ABILITY_FREEZE": false,
     "SIM_HASHLIFE_ENABLED": true,
     "VFX_PARTICLES": true,
     "VFX_SHOCKWAVES": true,
@@ -2689,13 +2942,15 @@
     "EVENT_RICOCHET": false,
     "UNLIMITED_DEF_AGE_NEUTRAL": true,
     "UNLIMITED_MISS_AGE_NEUTRAL": false,
-    "VICTORY_ENEMY_THRESHOLD": 16
+    "VICTORY_ENEMY_THRESHOLD": 16,
+    "UNLIMITED_MAX_INK": true,
+    "UNLIMITED_INK_REGEN": true
   },
   "allowedTools": {
-    "freehand": false,
-    "line": false,
+    "freehand": true,
+    "line": true,
     "pattern": true,
-    "fill": false
+    "fill": true
   },
   "allowedPatterns": [
     "glider"

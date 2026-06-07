@@ -3,7 +3,61 @@
   padding: 0;
   box-sizing: border-box;
 }
-
+/* ============================================================
+    Epilepsy / Photosensitivity Warning Overlay
+    Shown before the UI is enabled. Blocks all interaction
+    until the user acknowledges it.
+    ============================================================ */
+#epilepsy-warning-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #000010;
+  z-index: 999999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  font-family: 'Courier New', monospace;
+  color: #e0e0ff;
+  animation: epilepsyFadeIn 0.3s ease-out;
+}
+#epilepsy-warning-overlay.hidden {
+  display: none;
+}
+#epilepsy-warning-content {
+  background: rgba(10, 10, 30, 0.98);
+  border: 3px solid #ffaa00;
+  border-radius: 10px;
+  padding: 32px 40px;
+  max-width: 640px;
+  width: 100%;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow:
+    0 0 40px rgba(255, 170, 0, 0.5),
+    0 0 80px rgba(255, 170, 0, 0.25);
+  text-align: center;
+}
+.epilepsy-warning-icon {
+  font-size: 64px;
+  color: #ffaa00;
+  text-shadow:
+    0 0 12px #ffaa00,
+    0 0 24px rgba(255, 170, 0, 0.6);
+  margin-bottom: 8px;
+  line-height: 1;
+  animation: epilepsyPulse 1.8s ease-in-out infinite;
+}
+#epilepsy-warning-title {
+  font-size: 26px;
+  color: #ffaa00;
+  margin-bottom: 18px;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255, 170, 0, 0.6);
+}
 body {
   background-color: #000010;
   color: #e0e0ff;
@@ -4236,5 +4290,120 @@ body {
 
   to {
     text-shadow: 0 0 12px #ff8888;
+  }
+}
+
+#epilepsy-warning-body {
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #d0d0e0;
+  margin-bottom: 20px;
+}
+#epilepsy-warning-body p {
+  margin: 10px 0;
+}
+#epilepsy-warning-body strong {
+  color: #ffdd66;
+}
+.epilepsy-warning-tip {
+  margin-top: 16px !important;
+  padding: 10px 14px;
+  background: rgba(0, 255, 255, 0.08);
+  border-left: 3px solid #00ffff;
+  border-radius: 0 4px 4px 0;
+  font-size: 13px !important;
+  color: #c0e0ff !important;
+}
+.epilepsy-warning-tip em {
+  color: #00ffff;
+  font-style: normal;
+  font-weight: bold;
+}
+.epilepsy-warning-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #c0c0d0;
+  cursor: pointer;
+  margin: 18px 0 20px;
+  padding: 10px;
+  background: rgba(64, 64, 160, 0.12);
+  border-radius: 4px;
+  user-select: none;
+  transition: background 0.15s;
+}
+.epilepsy-warning-checkbox:hover {
+  background: rgba(64, 64, 160, 0.22);
+}
+.epilepsy-warning-checkbox input[type='checkbox'] {
+  accent-color: #ffaa00;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+.epilepsy-warning-buttons {
+  display: flex;
+  justify-content: center;
+}
+#epilepsy-warning-accept {
+  background: #ffaa00;
+  color: #000010;
+  border: none;
+  padding: 14px 36px;
+  font-size: 16px;
+  font-family: inherit;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  box-shadow: 0 0 16px rgba(255, 170, 0, 0.4);
+}
+#epilepsy-warning-accept:hover {
+  background: #ffcc44;
+  box-shadow:
+    0 0 24px #ffaa00,
+    0 0 40px rgba(255, 170, 0, 0.5);
+  transform: translateY(-1px);
+}
+#epilepsy-warning-accept:active {
+  transform: translateY(0);
+}
+@keyframes epilepsyFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes epilepsyPulse {
+  0%,
+  100% {
+    text-shadow:
+      0 0 12px #ffaa00,
+      0 0 24px rgba(255, 170, 0, 0.6);
+  }
+  50% {
+    text-shadow:
+      0 0 18px #ffaa00,
+      0 0 36px rgba(255, 170, 0, 0.9);
+  }
+}
+@media (max-width: 600px) {
+  #epilepsy-warning-content {
+    padding: 24px 20px;
+  }
+  #epilepsy-warning-title {
+    font-size: 20px;
+  }
+  .epilepsy-warning-icon {
+    font-size: 48px;
+  }
+  #epilepsy-warning-body {
+    font-size: 13px;
   }
 }

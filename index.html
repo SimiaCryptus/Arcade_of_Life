@@ -25,6 +25,45 @@
     <link href="style.css" rel="stylesheet" />
   </head>
   <body>
+    <div id="epilepsy-warning-overlay">
+      <div id="epilepsy-warning-content">
+        <div class="epilepsy-warning-icon">⚠</div>
+        <h1 id="epilepsy-warning-title">Photosensitivity Warning</h1>
+        <div id="epilepsy-warning-body">
+          <p>
+            <strong
+              >This game contains flashing lights, rapidly changing patterns, bright colors, and
+              visual effects</strong
+            >
+            that may trigger seizures in people with photosensitive epilepsy or other photosensitive
+            conditions.
+          </p>
+          <p>
+            Symptoms may include lightheadedness, altered vision, eye or face twitching, involuntary
+            movements, disorientation, confusion, or convulsions.
+            <strong
+              >If you experience any of these symptoms, stop playing immediately and consult a
+              doctor.</strong
+            >
+          </p>
+          <p>
+            Players who have had a seizure, loss of awareness, or other epileptic symptom should
+            consult a physician before playing.
+          </p>
+          <p class="epilepsy-warning-tip">
+            💡 Tip: You can reduce visual effects in
+            <em>Settings → Advanced → Visual Effects</em> at any time.
+          </p>
+        </div>
+        <label class="epilepsy-warning-checkbox">
+          <input id="epilepsy-warning-dont-show" type="checkbox" />
+          <span>Don't show this warning again on this device</span>
+        </label>
+        <div class="epilepsy-warning-buttons">
+          <button id="epilepsy-warning-accept">I Understand — Continue</button>
+        </div>
+      </div>
+    </div>
     <div id="game-container">
       <canvas id="game-canvas"></canvas>
       <div id="threshold-display" class="threshold-display hidden">

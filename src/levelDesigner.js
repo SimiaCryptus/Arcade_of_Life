@@ -296,6 +296,9 @@ export class LevelDesigner {
                     <label>Default initial delay (ms):
                       <input id="ld-spawner-initial-delay" type="number" min="0" max="60000" step="100" value="2000" />
                     </label>
+                    <label title="Halo cells around spawn footprint that must be clear before next emission. Larger patterns (e.g. copperhead) need more clearance to avoid collisions with previous emissions.">Default padding (halo cells):
+                      <input id="ld-spawner-padding" type="number" min="0" max="20" step="1" value="1" />
+                    </label>
                     <p style="font-size:10px;color:#888;margin:4px 0 0;">
                       These values are applied to new spawners as you place them.
                       Existing spawners keep their original config.
@@ -664,9 +667,11 @@ export class LevelDesigner {
     const spawnerIntervalInput = ov.querySelector('#ld-spawner-interval');
     const spawnerLimitInput = ov.querySelector('#ld-spawner-emit-limit');
     const spawnerDelayInput = ov.querySelector('#ld-spawner-initial-delay');
+    const spawnerPaddingInput = ov.querySelector('#ld-spawner-padding');
     this._defaultSpawnerInterval = 2000;
     this._defaultSpawnerEmitLimit = 0;
     this._defaultSpawnerInitialDelay = 2000;
+    this._defaultSpawnerPadding = 1;
     if (spawnerIntervalInput) {
       spawnerIntervalInput.addEventListener('input', (e) => {
         this._defaultSpawnerInterval = Math.max(100, parseInt(e.target.value, 10) || 2000);
@@ -682,6 +687,11 @@ export class LevelDesigner {
         this._defaultSpawnerInitialDelay = Math.max(0, parseInt(e.target.value, 10) || 0);
       });
     }
+    if (spawnerPaddingInput) {
+      spawnerPaddingInput.addEventListener('input', (e) => {
+        this._defaultSpawnerPadding = Math.max(0, parseInt(e.target.value, 10) || 0);
+      });
+    }
     const applyDefaultsBtn = ov.querySelector('#ld-apply-spawner-defaults');
     if (applyDefaultsBtn) {
       applyDefaultsBtn.addEventListener('click', () => {
@@ -694,7 +704,8 @@ export class LevelDesigner {
             `Apply current defaults to all ${this.spawners.length} placed spawner(s)?\n` +
               `Interval: ${this._defaultSpawnerInterval}ms\n` +
               `Emit limit: ${this._defaultSpawnerEmitLimit || '∞'}\n` +
-              `Initial delay: ${this._defaultSpawnerInitialDelay}ms`
+              `Initial delay: ${this._defaultSpawnerInitialDelay}ms\n` +
+              `Padding: ${this._defaultSpawnerPadding}`
           )
         )
           return;
@@ -702,6 +713,7 @@ export class LevelDesigner {
           sp.interval = this._defaultSpawnerInterval;
           sp.emitLimit = this._defaultSpawnerEmitLimit;
           sp.initialDelay = this._defaultSpawnerInitialDelay;
+          sp.padding = this._defaultSpawnerPadding;
         }
         this._setStatus(`✓ Updated ${this.spawners.length} spawner(s).`, 'ok');
       });
@@ -1382,6 +1394,7 @@ export class LevelDesigner {
         this._defaultSpawnerInitialDelay != null
           ? this._defaultSpawnerInitialDelay
           : this._defaultSpawnerInterval || 2000,
+      padding: this._defaultSpawnerPadding != null ? this._defaultSpawnerPadding : 1,
     });
   }
 
@@ -1680,8 +1693,9 @@ export class LevelDesigner {
         const labelPos = this._cellPixelPos(sp.x, sp.y);
         const limitStr = sp.emitLimit > 0 ? `×${sp.emitLimit}` : '∞';
         const intervalSec = ((sp.interval || 2000) / 1000).toFixed(1);
+        const paddingStr = sp.padding != null && sp.padding !== 1 ? ` p${sp.padding}` : '';
         ctx.fillText(
-          `🚀 ${sp.name} ${limitStr} @${intervalSec}s`,
+          `🚀 ${sp.name} ${limitStr} @${intervalSec}s${paddingStr}`,
           labelPos.px + 2,
           labelPos.py - 1
         );
@@ -2011,6 +2025,7 @@ export class LevelDesigner {
         interval: sp.interval || 2000,
         emitLimit: sp.emitLimit || 0,
         initialDelay: sp.initialDelay != null ? sp.initialDelay : sp.interval || 2000,
+        padding: sp.padding != null ? sp.padding : 1,
       })),
       ruleset: this.ruleset,
       enemyRuleset: this.enemyRuleset || null,
@@ -2077,6 +2092,7 @@ export class LevelDesigner {
       interval: sp.interval || 2000,
       emitLimit: sp.emitLimit || 0,
       initialDelay: sp.initialDelay != null ? sp.initialDelay : sp.interval || 2000,
+      padding: sp.padding != null ? sp.padding : 1,
     }));
     this.ruleset = level.ruleset || 'conway';
     this.enemyRuleset = level.enemyRuleset || null;

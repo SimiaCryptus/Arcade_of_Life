@@ -961,12 +961,17 @@ export class Missiles {
         emitCount: 0,
         // Per-spawner emission limit. 0 = unlimited (default).
         emitLimit,
+        // Padding (halo) around the spawn footprint that must be clear
+        // for emission to succeed. Larger patterns (e.g. copperhead)
+        // need bigger halos to avoid colliding with previous emissions
+        // before they've fully gliding away from the spawn point.
+        padding: spec.padding != null && spec.padding >= 0 ? spec.padding | 0 : 1,
         // Track consecutive blocked emissions; if too many in a row,
         // we may flag the spawner as destroyed (handled in update).
         _consecutiveBlocked: 0,
       });
       Logger.info(
-        `[Missiles]   designed spawner "${spec.name || spec.patternId}" at (${spec.x},${spec.y}) interval=${interval}ms, limit=${emitLimit || '∞'}, initialDelay=${initialDelay}ms.`
+        `[Missiles]   designed spawner "${spec.name || spec.patternId}" at (${spec.x},${spec.y}) interval=${interval}ms, limit=${emitLimit || '∞'}, initialDelay=${initialDelay}ms, padding=${spec.padding != null ? spec.padding : 1}.`
       );
     }
   }
@@ -1148,13 +1153,13 @@ export class Missiles {
     const pw = s.w;
     const ph = s.h;
     // Clearance check: the entire pattern bounding box PLUS 1 cell of
-    // padding (halo) must be clear of any non-empty cells (DEFENSE,
+    // padding (halo, configurable per-spawner) must be clear of non-empty cells (DEFENSE,
     // MISSILE, CITY). Only EMPTY and EXPLOSION (transient) cells are
     // acceptable. This prevents large spaceships (LWSS/MWSS) from being
     // corrupted when the previous emission is still partially within
     // the spawn area — they're long patterns that can occupy the spawn
     // zone for many ticks before fully gliding away.
-    const padding = 1;
+    const padding = s.padding != null && s.padding >= 0 ? s.padding | 0 : 1;
     const minX = baseX - padding;
     const maxX = baseX + pw - 1 + padding;
     const minY = baseY - padding;
