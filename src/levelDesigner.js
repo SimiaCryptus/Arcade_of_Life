@@ -426,6 +426,12 @@ export class LevelDesigner {
     if (topologyId !== this.topologyId) {
       this.topologyId = topologyId;
       this._resizeCanvas();
+    } else {
+      // Topology unchanged but neighborhood may have. Re-resize anyway
+      // so the renderer gets a fresh canvas-size computation for the
+      // new neighborhood shape (e.g. switching between Euclidean radii).
+      this._resizeCanvas();
+      this._draw();
     }
   }
 
@@ -745,7 +751,15 @@ export class LevelDesigner {
       this._updateRulesetDesc();
       // Mirror into settings snapshot so it's saved consistently.
       if (this.levelSettings) this.levelSettings.ACTIVE_RULESET = e.target.value;
+      // Force topology refresh and canvas rebuild. Switching to/from
+      // Euclidean (non-Moore) neighborhoods needs both the topology
+      // recompute and a canvas-size recompute even though both might
+      // produce identical results — the renderer needs a clean redraw.
+      const oldTopology = this.topologyId;
       this._updateTopologyFromRuleset();
+      // Force resize+redraw even if topology didn't change, to flush
+      // any stale neighborhood-derived canvas state.
+      this._resizeCanvas();
       this._draw();
     });
     // Footer buttons.

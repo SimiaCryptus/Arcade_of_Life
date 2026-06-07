@@ -139,6 +139,10 @@ export const CONFIG = {
   // Active cellular automaton ruleset id. Determines birth/survival rules.
   // See src/rules/ruleset.js and src/rules/extraRulesets.js for available ids.
   ACTIVE_RULESET: 'conway',
+  // Asymmetric rulesets: when ENEMY_RULESET is set (non-null), enemy
+  // missile cells evolve under this ruleset while defenses use
+  // ACTIVE_RULESET. When null, both use ACTIVE_RULESET (symmetric).
+  ENEMY_RULESET: null,
   // Allow opening the Settings panel during active gameplay (via S hotkey
   // or the in-game gear button). When true, opening Settings mid-game
   // pauses the simulation; closing resumes it. When false, Settings is

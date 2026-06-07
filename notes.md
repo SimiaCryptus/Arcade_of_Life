@@ -4,3 +4,10 @@
 - in hex grids, the line tool's preview display uses the wrong grid type (square instead of hex) and is also in the wrong position
 - when switching rule sets in the settings menu during the normal game mode, we need to resize the board in order to force the grid to be replaced. fix this.
 - we need to support various pattern to represent cities; the level designer should pick city patterns from the zoo (this is purely a visual change, it doesn't affect the game logic)
+
+- pattern editor needs to allow user to specify ruleset. currently the editor sets the ruleset to the default, which is broken for editing exotic patterns
+- Gliders should auto-rotate when equipped to point northwards
+- Settings panel lacks neutral timeout ages
+- Euclidean rules (eg Bugs) appears wrong when used in level customizer - need to use settings panel, switch to a different ruleset, then back to bugs, and it appears correctly
+- Exotic rules (like relativistic) do not seem to work for the enemy the same way
+- New feature: Asymmetric Enemy and friendly rulesets

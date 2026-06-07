@@ -2,6 +2,9 @@ import { DRAW_MODE } from './input.js';
 import { Logger } from './logger.js';
 import { PATTERN_PRESETS as LIBRARY_PRESETS } from './patterns/index.js';
 import { normalizeCells } from './patterns/library.js';
+import { listRulesets, getRuleset } from './rules/ruleset.js';
+import { CONFIG } from './config.js';
+import { getPattern } from './patterns/index.js';
 
 /**
  * Pattern presets used by the in-game drawing tools.
@@ -428,17 +431,20 @@ export class DrawToolsPanel {
         presetSelect.blur();
         return;
       }
+      // Auto-rotate spaceships to face north (toward enemy side).
+      const presetCells = bag[name];
+      const orientedCells = this._autoOrientNorthward(name, presetCells);
       this.editorCells.clear();
       // Center preset in editor.
       let maxX = 0,
         maxY = 0;
-      for (const [x, y] of bag[name]) {
+      for (const [x, y] of orientedCells) {
         if (x > maxX) maxX = x;
         if (y > maxY) maxY = y;
       }
       const offX = Math.floor((this.editorSize - maxX - 1) / 2);
       const offY = Math.floor((this.editorSize - maxY - 1) / 2);
-      for (const [x, y] of bag[name]) {
+      for (const [x, y] of orientedCells) {
         this.editorCells.add(`${x + offX},${y + offY}`);
       }
       // Record which preset is active and mark editor as clean.
@@ -537,6 +543,67 @@ export class DrawToolsPanel {
       cells.push([x, y]);
     }
     this.input.setPattern(cells);
+  }
+  // Auto-rotate a pattern so that, if it's a spaceship or glider, it
+  // faces north (toward enemy territory). Uses the pattern library's
+  // direction metadata when available, falling back to known preset ids.
+  _autoOrientNorthward(presetId, cells) {
+    // Map of known patterns and their native direction.
+    const DIRECTION_MAP = {
+      glider: 'SE',
+      lwss: 'W',
+      mwss: 'W',
+      hwss: 'W',
+    };
+    // Try the pattern library first.
+    let nativeDir = null;
+    try {
+      const p = getPattern(presetId);
+      if (p && p.direction) nativeDir = p.direction;
+    } catch (_e) {
+      // Fallback below.
+    }
+    if (!nativeDir) nativeDir = DIRECTION_MAP[presetId] || null;
+    if (!nativeDir) return cells;
+    // Compute number of 90° CW rotations needed to make `nativeDir` point N.
+    // Rotation table: each 90° CW rotation maps directions as:
+    //   N → E → S → W → N    (cardinal)
+    //   NE → SE → SW → NW → NE  (diagonal)
+    const cwOrder = ['N', 'E', 'S', 'W'];
+    const cwOrderDiag = ['NE', 'SE', 'SW', 'NW'];
+    let rotations = 0;
+    if (cwOrder.includes(nativeDir)) {
+      const idx = cwOrder.indexOf(nativeDir);
+      // We want N (idx 0). Rotate (4 - idx) % 4 times CW to get N.
+      rotations = (4 - idx) % 4;
+    } else if (cwOrderDiag.includes(nativeDir)) {
+      // For diagonals, "north-ish" target is NW or NE (pointing toward
+      // the enemy). Choose whichever requires fewer rotations.
+      // Diagonal patterns can't be perfectly oriented to N (they always
+      // travel diagonally), so we pick the most northward variant.
+      const idx = cwOrderDiag.indexOf(nativeDir);
+      // We want NW (idx 3) or NE (idx 0). For SE (idx 1) → rotate 3 CW → NE.
+      // For SW (idx 2) → rotate 2 CW → NW. For NE (idx 0) → 0 rotations.
+      // For NW (idx 3) → 0 rotations.
+      if (idx === 0 || idx === 3) rotations = 0;
+      else if (idx === 1)
+        rotations = 3; // SE → NE
+      else if (idx === 2) rotations = 2; // SW → NW
+    }
+    if (rotations === 0) return cells;
+    // Apply rotations: (x, y) → (-y, x) per 90° CW, then normalize.
+    let result = cells.map(([x, y]) => [x, y]);
+    for (let i = 0; i < rotations; i++) {
+      result = result.map(([x, y]) => [-y, x]);
+    }
+    // Normalize so min(x,y) = 0.
+    let minX = Infinity,
+      minY = Infinity;
+    for (const [x, y] of result) {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+    }
+    return result.map(([x, y]) => [x - minX, y - minY]);
   }
   // Keep the preset combobox in sync with the active preset name.
   // If the editor has been manually dirtied, show the placeholder.
@@ -733,6 +800,7 @@ export class DrawToolsPanel {
     const catEl = document.getElementById('editor-meta-category');
     const periodEl = document.getElementById('editor-meta-period');
     const dirEl = document.getElementById('editor-meta-direction');
+    const rulesetEl = document.getElementById('editor-meta-ruleset');
     if (!nameEl) return;
     if (name && this.patternCapture) {
       const saved = this.patternCapture.getSaved(name);
@@ -743,6 +811,11 @@ export class DrawToolsPanel {
       if (catEl) catEl.value = m.category || 'misc';
       if (periodEl) periodEl.value = m.period != null ? m.period : 1;
       if (dirEl) dirEl.value = m.direction || '';
+      if (rulesetEl) {
+        const capturedRule =
+          m.capturedRuleset || (Array.isArray(m.rulesets) ? m.rulesets[0] : null);
+        rulesetEl.value = capturedRule || CONFIG.ACTIVE_RULESET || 'conway';
+      }
     } else {
       nameEl.value = '';
       if (descEl) descEl.value = '';
@@ -750,6 +823,7 @@ export class DrawToolsPanel {
       if (catEl) catEl.value = 'misc';
       if (periodEl) periodEl.value = 1;
       if (dirEl) dirEl.value = '';
+      if (rulesetEl) rulesetEl.value = CONFIG.ACTIVE_RULESET || 'conway';
     }
   }
   _updateEditorSaveUI() {
@@ -826,6 +900,10 @@ export class DrawToolsPanel {
            </select>
          </label>
          <label class="editor-meta-row editor-meta-row-wide">
+           <span>Ruleset:</span>
+           <select id="editor-meta-ruleset" title="Ruleset this pattern is designed for"></select>
+         </label>
+         <label class="editor-meta-row editor-meta-row-wide">
            <span>Tags:</span>
            <input id="editor-meta-tags" type="text" placeholder="custom, my-tag, ..." />
          </label>
@@ -841,11 +919,31 @@ export class DrawToolsPanel {
        </div>
      `;
     panel.appendChild(section);
+    // Populate ruleset select.
+    this._populateEditorRulesetSelect();
     // Wire buttons.
     const saveBtn = section.querySelector('#editor-save-btn');
     const saveAsBtn = section.querySelector('#editor-saveas-btn');
     saveBtn.addEventListener('click', () => this._saveEditorPattern(false));
     saveAsBtn.addEventListener('click', () => this._saveEditorPattern(true));
+  }
+  _populateEditorRulesetSelect() {
+    const sel = document.getElementById('editor-meta-ruleset');
+    if (!sel) return;
+    sel.innerHTML = '';
+    const optAny = document.createElement('option');
+    optAny.value = '*';
+    optAny.textContent = 'Any (universal)';
+    sel.appendChild(optAny);
+    for (const def of listRulesets()) {
+      const opt = document.createElement('option');
+      opt.value = def.id;
+      opt.textContent = `${def.name}${def.notation ? ` (${def.notation})` : ''}`;
+      opt.title = def.description || '';
+      sel.appendChild(opt);
+    }
+    // Default to current active ruleset.
+    sel.value = CONFIG.ACTIVE_RULESET || 'conway';
   }
   _collectEditorCells() {
     // Convert editorCells (Set of "x,y") to [[x,y],...].
@@ -862,19 +960,26 @@ export class DrawToolsPanel {
     const catEl = document.getElementById('editor-meta-category');
     const periodEl = document.getElementById('editor-meta-period');
     const dirEl = document.getElementById('editor-meta-direction');
+    const rulesetEl = document.getElementById('editor-meta-ruleset');
     const tagsRaw = (tagsEl && tagsEl.value) || '';
     const tags = tagsRaw
       .split(',')
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
     if (!tags.includes('custom')) tags.unshift('custom');
+    const rulesetId = (rulesetEl && rulesetEl.value) || '*';
+    const rulesets = rulesetId === '*' ? ['*'] : [rulesetId];
+    if (rulesetId !== '*' && !tags.includes(`rule:${rulesetId}`)) {
+      tags.push(`rule:${rulesetId}`);
+    }
     return {
       category: (catEl && catEl.value) || 'misc',
       period: periodEl ? Math.max(0, parseInt(periodEl.value, 10) || 1) : 1,
       direction: (dirEl && dirEl.value) || null,
       description: (descEl && descEl.value) || '',
       tags,
-      rulesets: ['*'],
+      rulesets,
+      capturedRuleset: rulesetId === '*' ? null : rulesetId,
       createdAt: Date.now(),
     };
   }

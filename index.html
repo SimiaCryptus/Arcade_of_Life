@@ -308,6 +308,31 @@
                 <span></span>
               </div>
               <div class="setting-row">
+                <label
+                  for="setting-enemy-ruleset"
+                  title="Optional separate ruleset for enemy missile cells"
+                  >Enemy Ruleset (asymmetric)</label
+                >
+                <select class="setting-select" id="setting-enemy-ruleset"></select>
+                <span class="setting-value">&nbsp;</span>
+              </div>
+              <div class="setting-row">
+                <label>&nbsp;</label>
+                <p
+                  style="
+                    font-size: 11px;
+                    color: #ff8888;
+                    font-style: italic;
+                    margin: 0;
+                    grid-column: 2/4;
+                  "
+                >
+                  When set, enemy missile cells evolve under this ruleset while your defenses use
+                  the ruleset above. Set to "Same as defender" for symmetric gameplay.
+                </p>
+                <span></span>
+              </div>
+              <div class="setting-row">
                 <label>&nbsp;</label>
                 <p style="font-size: 11px; color: #ffaa44; margin: 0; grid-column: 2/4">
                   ⚠ Non-Conway rulesets change how all cells evolve. Some patterns may behave
@@ -826,14 +851,17 @@
               <p class="settings-tab-desc">
                 Configure how long cells live in each region. The grid is split by the draw-zone
                 boundary: the <strong style="color: #00ff88">friendly region</strong> is the bottom
-                (where you draw), and the <strong style="color: #ff5050">enemy region</strong> is
-                the top (where missiles spawn). Each combination of cell type × region has an
-                independent max-age setting.
+                (where you draw), the <strong style="color: #ff5050">enemy region</strong> is the
+                top (where missiles spawn), and the
+                <strong style="color: #ffcc44">neutral region</strong>
+                is the area between them. Each combination of cell type × region has an independent
+                max-age setting.
               </p>
               <div class="aging-matrix">
                 <div class="aging-matrix-row aging-matrix-header">
                   <div class="aging-matrix-cell aging-matrix-label">Cell Type ↓ / Region →</div>
                   <div class="aging-matrix-cell aging-matrix-region-friendly">Friendly Region</div>
+                  <div class="aging-matrix-cell aging-matrix-region-neutral">Neutral Region</div>
                   <div class="aging-matrix-cell aging-matrix-region-enemy">Enemy Region</div>
                 </div>
                 <div class="aging-matrix-row">
@@ -854,6 +882,21 @@
                       </label>
                     </div>
                     <span class="setting-value" id="setting-def-age-friendly-value"></span>
+                  </div>
+                  <div class="aging-matrix-cell">
+                    <div class="setting-slider-row">
+                      <input
+                        id="setting-def-age-neutral"
+                        max="1000"
+                        min="20"
+                        step="10"
+                        type="range"
+                      />
+                      <label class="unlimited-label" title="Never expire">
+                        <input id="setting-unlimited-def-age-neutral" type="checkbox" /> ∞
+                      </label>
+                    </div>
+                    <span class="setting-value" id="setting-def-age-neutral-value"></span>
                   </div>
                   <div class="aging-matrix-cell">
                     <div class="setting-slider-row">
@@ -889,6 +932,21 @@
                       </label>
                     </div>
                     <span class="setting-value" id="setting-miss-age-friendly-value"></span>
+                  </div>
+                  <div class="aging-matrix-cell">
+                    <div class="setting-slider-row">
+                      <input
+                        id="setting-miss-age-neutral"
+                        max="1000"
+                        min="20"
+                        step="10"
+                        type="range"
+                      />
+                      <label class="unlimited-label" title="Never expire">
+                        <input id="setting-unlimited-miss-age-neutral" type="checkbox" /> ∞
+                      </label>
+                    </div>
+                    <span class="setting-value" id="setting-miss-age-neutral-value"></span>
                   </div>
                   <div class="aging-matrix-cell">
                     <div class="setting-slider-row">

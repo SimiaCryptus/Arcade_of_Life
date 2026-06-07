@@ -124,6 +124,8 @@ DEFAULTS.CUSTOM_GRID_HEIGHT = 100;
 DEFAULTS.GAME_MODE_ID = 'custom';
 // Cellular automaton ruleset (default = Conway's Game of Life)
 DEFAULTS.ACTIVE_RULESET = CONFIG.ACTIVE_RULESET || 'conway';
+// Enemy ruleset (null = symmetric with ACTIVE_RULESET)
+DEFAULTS.ENEMY_RULESET = CONFIG.ENEMY_RULESET || '';
 // Numeric settings added in v2
 DEFAULTS.BASE_GLIDER_BUFFER = CONFIG.BASE_GLIDER_BUFFER;
 // Unlimited toggles (true = the corresponding numeric setting is ignored / treated as ∞)
@@ -180,6 +182,11 @@ export class Settings {
       if (this.values.ACTIVE_RULESET) {
         CONFIG.ACTIVE_RULESET = this.values.ACTIVE_RULESET;
       }
+      // Apply enemy ruleset (empty string = symmetric).
+      CONFIG.ENEMY_RULESET =
+        this.values.ENEMY_RULESET && this.values.ENEMY_RULESET !== ''
+          ? this.values.ENEMY_RULESET
+          : null;
       // Apply unlimited overrides — when the "unlimited" toggle is on,
       // write the sentinel value into CONFIG regardless of the slider.
       if (this.values.UNLIMITED_MAX_INK) {
@@ -356,6 +363,7 @@ export class SettingsPanel {
     this._initUnlimitedCheckboxes();
     this._initGameModeSelect();
     this._initRulesetSelect();
+    this._initEnemyRulesetSelect();
     this._initProfileControls();
     this._initJSONIO();
     this.backButton.addEventListener('click', () => this.hide());
@@ -475,6 +483,67 @@ export class SettingsPanel {
     });
     // Wire the exotic neighborhood builder.
     this._initNeighborhoodBuilder();
+  }
+  _initEnemyRulesetSelect() {
+    this.enemyRulesetSelect = document.getElementById('setting-enemy-ruleset');
+    if (!this.enemyRulesetSelect) return;
+    this._populateEnemyRulesetSelect();
+    this.enemyRulesetSelect.value = this.settings.values.ENEMY_RULESET || '';
+    this.enemyRulesetSelect.addEventListener('change', () => {
+      this.settings.set('ENEMY_RULESET', this.enemyRulesetSelect.value);
+      this.settings.save();
+    });
+  }
+  _populateEnemyRulesetSelect() {
+    if (!this.enemyRulesetSelect) return;
+    this.enemyRulesetSelect.innerHTML = '';
+    const optNone = document.createElement('option');
+    optNone.value = '';
+    optNone.textContent = '— Same as defender (symmetric) —';
+    this.enemyRulesetSelect.appendChild(optNone);
+    // Group rulesets by type for clarity (mirror the defender select).
+    const standard = [];
+    const hex = [];
+    const tri = [];
+    const exoticEucl = [];
+    const exoticAniso = [];
+    const tca = [];
+    const timeInt = [];
+    const lightcone = [];
+    const custom = [];
+    for (const def of listRulesets()) {
+      if (def._exoticType === 'tca') tca.push(def);
+      else if (def._exoticType === 'time_integrated') timeInt.push(def);
+      else if (def._exoticType === 'fractional_lightcone') lightcone.push(def);
+      else if (def.id && def.id.startsWith('custom_')) custom.push(def);
+      else if (def.neighborhood && def.neighborhood.startsWith('hex')) hex.push(def);
+      else if (def.neighborhood && def.neighborhood.startsWith('tri')) tri.push(def);
+      else if (def.neighborhood && def.neighborhood.startsWith('eucl_')) exoticEucl.push(def);
+      else if (def.neighborhood && def.neighborhood.startsWith('aniso_')) exoticAniso.push(def);
+      else standard.push(def);
+    }
+    const addGroup = (label, items) => {
+      if (items.length === 0) return;
+      const group = document.createElement('optgroup');
+      group.label = label;
+      for (const def of items) {
+        const opt = document.createElement('option');
+        opt.value = def.id;
+        opt.textContent = `${def.name} (${def.notation})`;
+        opt.title = def.description || '';
+        group.appendChild(opt);
+      }
+      this.enemyRulesetSelect.appendChild(group);
+    };
+    addGroup('━━ Standard (Square Grid) ━━', standard);
+    addGroup('━━ Hexagonal Grid ━━', hex);
+    addGroup('━━ Triangular Grid ━━', tri);
+    addGroup('━━ Exotic: Euclidean Radius ━━', exoticEucl);
+    addGroup('━━ Exotic: Anisotropic ━━', exoticAniso);
+    addGroup('━━ 🧠 Teleological CA (TCA) ━━', tca);
+    addGroup('━━ ⏳ Time-Integrated ━━', timeInt);
+    addGroup('━━ 🌌 Fractional Lightcone ━━', lightcone);
+    addGroup('━━ Custom (user-built) ━━', custom);
   }
   _populateRulesetSelect() {
     if (!this.rulesetSelect) return;
@@ -964,6 +1033,9 @@ export class SettingsPanel {
     if (this.rulesetSelect) {
       this.rulesetSelect.value = this.settings.values.ACTIVE_RULESET || 'conway';
       this._syncRulesetDescription();
+    }
+    if (this.enemyRulesetSelect) {
+      this.enemyRulesetSelect.value = this.settings.values.ENEMY_RULESET || '';
     }
   }
 

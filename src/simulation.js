@@ -60,6 +60,29 @@ export class Simulation {
   _compileActiveRuleset() {
     const id = CONFIG.ACTIVE_RULESET || 'conway';
     const def = getRuleset(id) || CONWAY;
+    const enemyId = CONFIG.ENEMY_RULESET || null;
+    this._enemyRuleId = enemyId;
+    if (enemyId && enemyId !== id) {
+      const enemyDef = getRuleset(enemyId);
+      if (enemyDef) {
+        if (enemyDef._exoticType && enemyDef._exoticCompiled) {
+          this._enemyRule = enemyDef._exoticCompiled;
+          this._enemyIsExotic = true;
+          this._enemyExoticType = enemyDef._exoticType;
+          resetExoticState(this._enemyRule);
+        } else {
+          this._enemyRule = new CompiledRuleset(enemyDef);
+          this._enemyIsExotic = false;
+        }
+        Logger.info(`Sim enemy ruleset: ${enemyDef.name}`);
+      } else {
+        this._enemyRule = null;
+        this._enemyIsExotic = false;
+      }
+    } else {
+      this._enemyRule = null;
+      this._enemyIsExotic = false;
+    }
     // Exotic rules: use the precompiled engine, mark for dispatch.
     if (def._exoticType && def._exoticCompiled) {
       this._rule = def._exoticCompiled;
@@ -192,7 +215,10 @@ export class Simulation {
   tick() {
     this._ensureBuffers();
     // Re-compile ruleset if it changed at runtime.
-    if (this._ruleId !== (CONFIG.ACTIVE_RULESET || 'conway')) {
+    if (
+      this._ruleId !== (CONFIG.ACTIVE_RULESET || 'conway') ||
+      this._enemyRuleId !== (CONFIG.ENEMY_RULESET || null)
+    ) {
       this._compileActiveRuleset();
     }
     // Sync wrap vertical shift to backend each tick — the grid's value
@@ -497,7 +523,12 @@ export class Simulation {
             else maxForType = defAgeN;
             ageUnlimited = maxForType >= UNLIMITED;
           }
-          if (this._rule.shouldSurvive(ln) && (ageUnlimited || currentAge < maxForType)) {
+          // Use enemy ruleset for missile cells if configured.
+          const ruleForCell =
+            t === CELL_TYPE.MISSILE && this._enemyRule && !this._enemyIsExotic
+              ? this._enemyRule
+              : this._rule;
+          if (ruleForCell.shouldSurvive(ln) && (ageUnlimited || currentAge < maxForType)) {
             next[i] = t;
             nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;
             nextColor[i] = color[i];
@@ -507,8 +538,13 @@ export class Simulation {
             nextAge[i] = 0;
           }
         } else if (t === CELL_TYPE.EMPTY) {
-          if (this._rule.shouldBirth(ln)) {
-            const isMissile = missileNbr[i] > defenseNbr[i];
+          const isMissile = missileNbr[i] > defenseNbr[i];
+          // Choose ruleset based on who would be born here.
+          const birthRule =
+            isMissile && this._enemyRule && !this._enemyIsExotic ? this._enemyRule : this._rule;
+          // Count appropriate neighbors for the relevant rule.
+          const birthCount = isMissile && this._enemyRule ? missileNbr[i] : ln;
+          if (birthRule.shouldBirth(birthCount)) {
             // If enemies are frozen, suppress missile-cell birth.
             // If defenses are frozen, suppress defense-cell birth.
             if (isMissile && freezeEnemies) {
@@ -602,6 +638,24 @@ export class Simulation {
       runExoticStep(this._rule, defIn, defOut, w, h);
     } else {
       defOut.set(defIn);
+    }
+    // Also run exotic for missiles if enemy ruleset is set & exotic.
+    let missOut = null;
+    if (this._enemyRule && this._enemyIsExotic) {
+      if (!this._exoticMissIn || this._exoticMissIn.length !== n) {
+        this._exoticMissIn = new Uint8Array(n);
+        this._exoticMissOut = new Uint8Array(n);
+      }
+      const missIn = this._exoticMissIn;
+      missOut = this._exoticMissOut;
+      for (let i = 0; i < n; i++) {
+        missIn[i] = cells[i] === CELL_TYPE.MISSILE ? 1 : 0;
+      }
+      if (!this.freezeEnemies) {
+        runExoticStep(this._enemyRule, missIn, missOut, w, h);
+      } else {
+        missOut.set(missIn);
+      }
     }
     // Run standard Life for missile cells (always under Conway).
     // We compute neighbor counts on the missile-only layer using the
@@ -761,6 +815,30 @@ export class Simulation {
         }
         // Missile evolution (vanilla Conway).
         if (t === CELL_TYPE.MISSILE) {
+          // If enemy uses exotic, follow exotic output.
+          if (missOut) {
+            if (missOut[i]) {
+              let eff;
+              if (y >= dzMinYBoundary) eff = missAgeF;
+              else if (y <= enemyRegionMaxY) eff = missAgeE;
+              else eff = missAgeN;
+              const ageUnlimited = eff >= UNLIMITED;
+              const currentAge = age[i];
+              if (ageUnlimited || currentAge < eff) {
+                next[i] = CELL_TYPE.MISSILE;
+                nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;
+                nextColor[i] = color[i];
+                nextDir[i] = g.cellDir[i];
+              } else {
+                next[i] = CELL_TYPE.EMPTY;
+                nextAge[i] = 0;
+              }
+            } else {
+              next[i] = CELL_TYPE.EMPTY;
+              nextAge[i] = 0;
+            }
+            continue;
+          }
           const ln = lifeNbr[i];
           // Use Conway rules for missile lifecycle in exotic mode.
           // (Player's exotic choice only affects friendly defenses.)
@@ -789,8 +867,10 @@ export class Simulation {
         }
         // Empty cells: check missile birth (Conway) and defense from exotic.
         if (t === CELL_TYPE.EMPTY) {
-          // Missile birth (only if dominated by missile neighbors).
-          if (missileNbr[i] === 3 && !freezeEnemies) {
+          // Missile birth: use exotic output if enemy ruleset is exotic,
+          // otherwise Conway 3-neighbor rule.
+          const missBirth = missOut ? !!missOut[i] : missileNbr[i] === 3;
+          if (missBirth && !freezeEnemies) {
             next[i] = CELL_TYPE.MISSILE;
             nextColor[i] = (Math.random() * missileVariants) | 0;
             nextDir[i] = 1;

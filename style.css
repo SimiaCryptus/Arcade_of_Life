@@ -3616,7 +3616,7 @@ body {
 
 .aging-matrix-row {
   display: grid;
-  grid-template-columns: 110px 1fr 1fr;
+  grid-template-columns: 110px 1fr 1fr 1fr;
   gap: 2px;
 }
 
@@ -3653,6 +3653,12 @@ body {
 .aging-matrix-region-enemy {
   color: #ff5050;
   text-shadow: 0 0 6px rgba(255, 80, 80, 0.4);
+  text-align: center;
+  font-size: 11px;
+}
+.aging-matrix-region-neutral {
+  color: #ffcc44;
+  text-shadow: 0 0 6px rgba(255, 204, 68, 0.4);
   text-align: center;
   font-size: 11px;
 }
