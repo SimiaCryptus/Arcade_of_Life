@@ -97,6 +97,8 @@ export class LevelDesigner {
     this.description = '';
     this._stashedSpeed = null;
     this._isDragging = false;
+    // Enemy ruleset for asymmetric levels. null = symmetric with this.ruleset.
+    this.enemyRuleset = null;
     // Tool enable/disable state for this level. Maps DRAW_MODE id → bool.
     this.allowedTools = {
       freehand: true,
@@ -259,6 +261,12 @@ export class LevelDesigner {
                   </label>
                   <label>Ruleset: <select id="ld-ruleset"></select></label>
                   <p id="ld-ruleset-desc" style="font-size:11px;color:#a0a0c0;font-style:italic;margin:4px 0 0;"></p>
+                    <label>Enemy Ruleset:
+                      <select id="ld-enemy-ruleset" title="Optional: separate ruleset for enemy missile cells (empty = symmetric with defender)"></select>
+                    </label>
+                    <p id="ld-enemy-ruleset-desc" style="font-size:11px;color:#ff8888;font-style:italic;margin:4px 0 0;">
+                      When set, enemy missile cells evolve under this ruleset while defenses use the ruleset above.
+                    </p>
                 </div>
                 <div class="ld-section">
                   <h3>🔄 Toroidal Wrap</h3>
@@ -402,6 +410,23 @@ export class LevelDesigner {
     }
     sel.value = 'conway';
     this._updateRulesetDesc();
+    // Populate enemy ruleset select (with "same as defender" option).
+    const enemySel = this.overlay.querySelector('#ld-enemy-ruleset');
+    if (enemySel) {
+      enemySel.innerHTML = '';
+      const optNone = document.createElement('option');
+      optNone.value = '';
+      optNone.textContent = '— Same as defender (symmetric) —';
+      enemySel.appendChild(optNone);
+      for (const def of listRulesets()) {
+        const opt = document.createElement('option');
+        opt.value = def.id;
+        opt.textContent = `${def.name} (${def.notation})`;
+        opt.title = def.description || '';
+        enemySel.appendChild(opt);
+      }
+      enemySel.value = '';
+    }
   }
   _updateRulesetDesc() {
     const sel = this.overlay.querySelector('#ld-ruleset');
@@ -762,6 +787,16 @@ export class LevelDesigner {
       this._resizeCanvas();
       this._draw();
     });
+    // Enemy ruleset selector.
+    const enemySel = ov.querySelector('#ld-enemy-ruleset');
+    if (enemySel) {
+      enemySel.addEventListener('change', (e) => {
+        this.enemyRuleset = e.target.value || null;
+        if (this.levelSettings) {
+          this.levelSettings.ENEMY_RULESET = this.enemyRuleset;
+        }
+      });
+    }
     // Footer buttons.
     ov.querySelector('#ld-save-btn').addEventListener('click', () => this._save());
     ov.querySelector('#ld-play-btn').addEventListener('click', () => this._saveAndPlay());
@@ -1937,6 +1972,7 @@ export class LevelDesigner {
         initialDelay: sp.initialDelay != null ? sp.initialDelay : sp.interval || 2000,
       })),
       ruleset: this.ruleset,
+      enemyRuleset: this.enemyRuleset || null,
       description: this.description,
       settings: JSON.parse(JSON.stringify(this.levelSettings || {})),
       allowedTools: { ...this.allowedTools },
@@ -2002,6 +2038,7 @@ export class LevelDesigner {
       initialDelay: sp.initialDelay != null ? sp.initialDelay : sp.interval || 2000,
     }));
     this.ruleset = level.ruleset || 'conway';
+    this.enemyRuleset = level.enemyRuleset || null;
     this.description = level.description || '';
     this.currentLevelName = level.name;
     // Load settings; if the level pre-dates settings support, fall back to defaults.
@@ -2044,6 +2081,8 @@ export class LevelDesigner {
     ov.querySelector('#ld-ruleset').value = this.ruleset;
     this._updateRulesetDesc();
     this._updateTopologyFromRuleset();
+    const enemySel = ov.querySelector('#ld-enemy-ruleset');
+    if (enemySel) enemySel.value = this.enemyRuleset || '';
     ov.querySelector('#ld-grid-w').value = this.gridWidth;
     ov.querySelector('#ld-grid-h').value = this.gridHeight;
     const wrapInp = ov.querySelector('#ld-wrap-shift');

@@ -6,8 +6,11 @@
 - we need to support various pattern to represent cities; the level designer should pick city patterns from the zoo (this is purely a visual change, it doesn't affect the game logic)
 
 - pattern editor needs to allow user to specify ruleset. currently the editor sets the ruleset to the default, which is broken for editing exotic patterns
-- Gliders should auto-rotate when equipped to point northwards
-- Settings panel lacks neutral timeout ages
+
 - Euclidean rules (eg Bugs) appears wrong when used in level customizer - need to use settings panel, switch to a different ruleset, then back to bugs, and it appears correctly
 - Exotic rules (like relativistic) do not seem to work for the enemy the same way
+
 - New feature: Asymmetric Enemy and friendly rulesets
+  - Level designer needs settings for enemy ruleset
+  - Review and fix support for alternate rulesets
+- Transpose the settings panel's max age matrix: the region types should be rows, not columns

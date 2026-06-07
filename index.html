@@ -859,14 +859,13 @@
               </p>
               <div class="aging-matrix">
                 <div class="aging-matrix-row aging-matrix-header">
-                  <div class="aging-matrix-cell aging-matrix-label">Cell Type ↓ / Region →</div>
-                  <div class="aging-matrix-cell aging-matrix-region-friendly">Friendly Region</div>
-                  <div class="aging-matrix-cell aging-matrix-region-neutral">Neutral Region</div>
-                  <div class="aging-matrix-cell aging-matrix-region-enemy">Enemy Region</div>
+                  <div class="aging-matrix-cell aging-matrix-label">Region ↓ / Cell Type →</div>
+                  <div class="aging-matrix-cell aging-matrix-type-defense">Defense Cells</div>
+                  <div class="aging-matrix-cell aging-matrix-type-missile">Missile Cells</div>
                 </div>
                 <div class="aging-matrix-row">
-                  <div class="aging-matrix-cell aging-matrix-label aging-matrix-type-defense">
-                    Defense Cells
+                  <div class="aging-matrix-cell aging-matrix-label aging-matrix-region-friendly">
+                    Friendly Region
                   </div>
                   <div class="aging-matrix-cell">
                     <div class="setting-slider-row">
@@ -886,6 +885,26 @@
                   <div class="aging-matrix-cell">
                     <div class="setting-slider-row">
                       <input
+                        id="setting-miss-age-friendly"
+                        max="1000"
+                        min="20"
+                        step="10"
+                        type="range"
+                      />
+                      <label class="unlimited-label" title="Never expire">
+                        <input id="setting-unlimited-miss-age-friendly" type="checkbox" /> ∞
+                      </label>
+                    </div>
+                    <span class="setting-value" id="setting-miss-age-friendly-value"></span>
+                  </div>
+                </div>
+                <div class="aging-matrix-row">
+                  <div class="aging-matrix-cell aging-matrix-label aging-matrix-region-neutral">
+                    Neutral Region
+                  </div>
+                  <div class="aging-matrix-cell">
+                    <div class="setting-slider-row">
+                      <input
                         id="setting-def-age-neutral"
                         max="1000"
                         min="20"
@@ -901,41 +920,6 @@
                   <div class="aging-matrix-cell">
                     <div class="setting-slider-row">
                       <input
-                        id="setting-def-age-enemy"
-                        max="1000"
-                        min="20"
-                        step="10"
-                        type="range"
-                      />
-                      <label class="unlimited-label" title="Never expire">
-                        <input id="setting-unlimited-def-age-enemy" type="checkbox" /> ∞
-                      </label>
-                    </div>
-                    <span class="setting-value" id="setting-def-age-enemy-value"></span>
-                  </div>
-                </div>
-                <div class="aging-matrix-row">
-                  <div class="aging-matrix-cell aging-matrix-label aging-matrix-type-missile">
-                    Missile Cells
-                  </div>
-                  <div class="aging-matrix-cell">
-                    <div class="setting-slider-row">
-                      <input
-                        id="setting-miss-age-friendly"
-                        max="1000"
-                        min="20"
-                        step="10"
-                        type="range"
-                      />
-                      <label class="unlimited-label" title="Never expire">
-                        <input id="setting-unlimited-miss-age-friendly" type="checkbox" /> ∞
-                      </label>
-                    </div>
-                    <span class="setting-value" id="setting-miss-age-friendly-value"></span>
-                  </div>
-                  <div class="aging-matrix-cell">
-                    <div class="setting-slider-row">
-                      <input
                         id="setting-miss-age-neutral"
                         max="1000"
                         min="20"
@@ -947,6 +931,26 @@
                       </label>
                     </div>
                     <span class="setting-value" id="setting-miss-age-neutral-value"></span>
+                  </div>
+                </div>
+                <div class="aging-matrix-row">
+                  <div class="aging-matrix-cell aging-matrix-label aging-matrix-region-enemy">
+                    Enemy Region
+                  </div>
+                  <div class="aging-matrix-cell">
+                    <div class="setting-slider-row">
+                      <input
+                        id="setting-def-age-enemy"
+                        max="1000"
+                        min="20"
+                        step="10"
+                        type="range"
+                      />
+                      <label class="unlimited-label" title="Never expire">
+                        <input id="setting-unlimited-def-age-enemy" type="checkbox" /> ∞
+                      </label>
+                    </div>
+                    <span class="setting-value" id="setting-def-age-enemy-value"></span>
                   </div>
                   <div class="aging-matrix-cell">
                     <div class="setting-slider-row">

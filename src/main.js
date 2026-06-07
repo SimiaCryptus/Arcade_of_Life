@@ -1956,6 +1956,11 @@ class Game {
     CONFIG.GRID_WIDTH = level.gridWidth || CONFIG.GRID_WIDTH;
     CONFIG.GRID_HEIGHT = level.gridHeight || CONFIG.GRID_HEIGHT;
     if (level.ruleset) CONFIG.ACTIVE_RULESET = level.ruleset;
+    // Apply asymmetric enemy ruleset if specified.
+    if (level.enemyRuleset !== undefined) {
+      CONFIG.ENEMY_RULESET = level.enemyRuleset || null;
+      Logger.info(`[Game] Level enemy ruleset: ${CONFIG.ENEMY_RULESET || '(symmetric)'}`);
+    }
     // Custom levels use ONLY the designed bases & spawners. Disable the
     // default per-wave base spawning and default missile spawning if the
     // level has its own. The presence of designed spawners completely

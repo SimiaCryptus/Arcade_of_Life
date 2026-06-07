@@ -3616,7 +3616,7 @@ body {
 
 .aging-matrix-row {
   display: grid;
-  grid-template-columns: 110px 1fr 1fr 1fr;
+  grid-template-columns: 130px 1fr 1fr;
   gap: 2px;
 }
 
