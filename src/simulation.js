@@ -5,6 +5,14 @@ import { GpuSimBackend } from './sim/gpuBackend.js';
 import { HashlifeCache } from './sim/hashlife.js';
 import { getRuleset, CompiledRuleset, CONWAY } from './rules/index.js';
 import { runExoticStep, resetExoticState } from './rules/exoticEngines.js';
+import {
+  resolveAgeLimits,
+  computeEnemyRegionMaxY,
+  effectiveAgeLimit,
+  applyCellLifeDecision,
+  swapTickBuffers,
+  makeLifeCtx,
+} from './sim/tickHelpers.js';
 
 /**
  * Simulation runs the Game of Life tick with extensions:
@@ -33,6 +41,13 @@ export class Simulation {
     this.onBreach = null; // (x, y) - missile reached the rear dead zone
     this.returnFireFired = new Uint8Array(grid.cells.length);
     this.breachFired = new Uint8Array(grid.cells.length);
+    // Anchor flag per cell: when 1, the cell is treated as immortal
+    // (no age expiry, no Life death) until it would die under normal
+    // rules at least once. Used by enemy bases/spawners to keep their
+    // generator cells alive while still allowing them to be destroyed
+    // by the player. Cleared the first tick a cell would die.
+    this._anchor = new Uint8Array(grid.cells.length);
+    this._nextAnchor = new Uint8Array(grid.cells.length);
     // When true, missile cells are frozen (no aging, no Life evolution,
     // no return-fire detection). Defense cells continue to evolve normally.
     // Used by Time Stop ability and the M:N timestep ratio.
@@ -201,6 +216,8 @@ export class Simulation {
       this.nextDir = new Uint8Array(n);
       this.returnFireFired = new Uint8Array(n);
       this.breachFired = new Uint8Array(n);
+      this._anchor = new Uint8Array(n);
+      this._nextAnchor = new Uint8Array(n);
       this._annihilated = new Uint8Array(n);
       this._ageDespawn = new Uint8Array(n);
       this._lifeNbr = new Uint8Array(n);
@@ -210,6 +227,48 @@ export class Simulation {
       this._initBackend();
       this.hashlife.clear();
     }
+  }
+  /**
+   * Mark a cell as an anchor: immortal until it would first die under
+   * normal rules. Called by enemy base/spawner placement code.
+   * @param {number} x
+   * @param {number} y
+   */
+  markAnchor(x, y) {
+    const g = this.grid;
+    if (!g.inBounds(x, y)) return;
+    this._ensureBuffers();
+    const i = y * g.width + g.wrapX(x);
+    this._anchor[i] = 1;
+  }
+  /**
+   * Check whether a cell is currently marked as an anchor.
+   */
+  isAnchor(x, y) {
+    const g = this.grid;
+    if (!g.inBounds(x, y)) return false;
+    const i = y * g.width + g.wrapX(x);
+    return this._anchor[i] === 1;
+  }
+  /**
+   * Place a cell and mark it as an anchor in one step. Used by enemy
+   * base/spawner code to ensure generator cells aren't expired by age
+   * limits before they have a chance to function.
+   *
+   * @param {number} x
+   * @param {number} y
+   * @param {number} type CELL_TYPE.MISSILE or CELL_TYPE.DEFENSE
+   * @param {number} [colorIdx]
+   */
+  stampAnchoredCell(x, y, type, colorIdx) {
+    const g = this.grid;
+    if (!g.inBounds(x, y)) return;
+    this._ensureBuffers();
+    const i = y * g.width + g.wrapX(x);
+    g.cells[i] = type;
+    g.cellAge[i] = 1;
+    if (colorIdx != null) g.cellColor[i] = colorIdx & 0xff;
+    this._anchor[i] = 1;
   }
 
   tick() {
@@ -243,7 +302,9 @@ export class Simulation {
     // operates on a binary DEFENSE-only grid; we extract DEFENSE cells,
     // run the exotic step, and reintegrate while preserving missiles,
     // cities, and other cell types using vanilla game rules.
-    if (this._isExotic) {
+    // Also take the exotic path when ONLY the enemy ruleset is exotic,
+    // since the standard tick path can't dispatch to exotic engines.
+    if (this._isExotic || this._enemyIsExotic) {
       this._tickExotic();
       return;
     }
@@ -257,29 +318,22 @@ export class Simulation {
     const nextAge = this.nextAge;
     const nextColor = this.nextColor;
     const nextDir = this.nextDir;
+    const anchor = this._anchor;
+    const nextAnchor = this._nextAnchor;
     next.fill(0);
     nextAge.fill(0);
     nextColor.fill(0);
     nextDir.fill(0);
+    nextAnchor.fill(0);
 
-    const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
-    // Per-region age limits. A value >= UNLIMITED means "effectively infinite".
-    // Note: cell age is stored in Uint8Array (max 255). Any finite limit
-    // above 255 is clamped to 255 here so age comparisons work correctly.
-    // Limits >= UNLIMITED stay as-is and are treated as "no limit" below.
-    const clampAge = (v) => (v >= UNLIMITED ? v : Math.min(v | 0, 255));
-    const defAgeF = clampAge(CONFIG.DEFENSE_AGE_FRIENDLY);
-    const defAgeE = clampAge(CONFIG.DEFENSE_AGE_ENEMY);
-    const defAgeN = clampAge(CONFIG.DEFENSE_AGE_NEUTRAL);
-    const missAgeF = clampAge(CONFIG.MISSILE_AGE_FRIENDLY);
-    const missAgeE = clampAge(CONFIG.MISSILE_AGE_ENEMY);
-    const missAgeN = clampAge(CONFIG.MISSILE_AGE_NEUTRAL);
+    const limits = resolveAgeLimits();
+    const UNLIMITED = limits.UNLIMITED;
+    const { defAgeF, defAgeE, defAgeN, missAgeF, missAgeE, missAgeN } = limits;
     const dzMinYBoundary = g.drawZoneMinY();
+    const rearDeadZoneMinY = g.rearDeadZoneMinY();
     // Enemy region = base zone (top dead zone + base zone rows).
     // Neutral region = between base zone bottom and draw zone top.
-    const topDeadMax = Math.min(h - 1, CONFIG.RETURN_FIRE_ZONE_MAX_Y | 0);
-    const baseZoneH = Math.max(0, CONFIG.BASE_ZONE_HEIGHT | 0);
-    const enemyRegionMaxY = Math.min(h - 1, topDeadMax + baseZoneH);
+    const enemyRegionMaxY = computeEnemyRegionMaxY(h);
     const cascadeTicks = CONFIG.MISSILE_CASCADE_TICKS;
     const defenseVariants = CONFIG.COLORS.DEFENSE_VARIANTS.length;
     const missileVariants = CONFIG.COLORS.MISSILE_VARIANTS.length;
@@ -359,11 +413,17 @@ export class Simulation {
     if (!freezeEnemies) {
       for (let i = 0; i < cells.length; i++) {
         if (cells[i] === CELL_TYPE.MISSILE) {
+          // Anchored cells are immortal until first natural death.
+          if (anchor[i]) continue; // error  'anchor' is not defined
           const y = (i / w) | 0;
-          let effectiveLimit;
-          if (y >= dzMinYBoundary) effectiveLimit = missAgeF;
-          else if (y <= enemyRegionMaxY) effectiveLimit = missAgeE;
-          else effectiveLimit = missAgeN;
+          const effectiveLimit = effectiveAgeLimit(
+            y,
+            CELL_TYPE.MISSILE,
+            limits,
+            dzMinYBoundary,
+            enemyRegionMaxY,
+            rearDeadZoneMinY
+          );
           if (effectiveLimit < UNLIMITED && age[i] >= effectiveLimit) {
             ageDespawn[i] = 1;
           }
@@ -396,6 +456,11 @@ export class Simulation {
             const nx = (((x + dx) % w) + w) % w;
             const ni = ny * w + nx;
             if (ageDespawn[ni]) continue;
+            // Anchored cells are immune to cascade despawn.
+            // This protects Gosper gun stator cells (and other
+            // never-dying generator cells) from being despawned by
+            // cascading age expiry from their own emitted gliders.
+            if (anchor[ni]) continue;
             if (cells[ni] === CELL_TYPE.MISSILE && age[ni] >= cascadeThreshold) {
               ageDespawn[ni] = 1;
               worklist.push(ni);
@@ -428,6 +493,11 @@ export class Simulation {
             const nt = cells[ni];
             if (nt !== CELL_TYPE.MISSILE && nt !== CELL_TYPE.DEFENSE) continue;
             if (annihilated[ni] || ageDespawn[ni]) continue;
+            // Anchored cells are immune to contagion-driven aging.
+            // This protects generator cells (Gosper gun cores, base
+            // footprints) from being aged to death by the natural
+            // death of their surrounding pattern.
+            if (anchor[ni]) continue;
             // Bump current age so the next-pass survival check sees it.
             const newAge = age[ni] + contagionAmount;
             age[ni] = newAge > 255 ? 255 : newAge;
@@ -482,6 +552,8 @@ export class Simulation {
         if (annihilated[i]) {
           next[i] = CELL_TYPE.EXPLOSION;
           g.explosionTimers[i] = 4;
+          // Anchor cleared: cell was destroyed.
+          nextAnchor[i] = 0; // 'nextAnchor' is not defined
           continue;
         }
         if (ageDespawn[i]) {
@@ -496,6 +568,7 @@ export class Simulation {
           nextAge[i] = age[i]; // do not advance age
           nextColor[i] = color[i];
           nextDir[i] = g.cellDir[i];
+          nextAnchor[i] = anchor[i]; // 'nextAnchor' is not defined 'anchor' is not defined
           continue;
         }
         // Frozen defense cells: preserve exactly as-is.
@@ -504,39 +577,25 @@ export class Simulation {
           nextAge[i] = age[i];
           nextColor[i] = color[i];
           nextDir[i] = g.cellDir[i];
+          nextAnchor[i] = anchor[i]; // 'nextAnchor' is not defined 'anchor' is not defined
           continue;
         }
 
         const ln = lifeNbr[i];
         if (t === CELL_TYPE.DEFENSE || t === CELL_TYPE.MISSILE) {
-          const currentAge = age[i];
-          let maxForType;
-          let ageUnlimited;
-          if (t === CELL_TYPE.MISSILE) {
-            if (y >= dzMinYBoundary) maxForType = missAgeF;
-            else if (y <= enemyRegionMaxY) maxForType = missAgeE;
-            else maxForType = missAgeN;
-            ageUnlimited = maxForType >= UNLIMITED;
-          } else {
-            if (y >= dzMinYBoundary) maxForType = defAgeF;
-            else if (y <= enemyRegionMaxY) maxForType = defAgeE;
-            else maxForType = defAgeN;
-            ageUnlimited = maxForType >= UNLIMITED;
-          }
+          const maxForType = effectiveAgeLimit(
+            y,
+            t,
+            limits,
+            dzMinYBoundary,
+            enemyRegionMaxY,
+            rearDeadZoneMinY
+          );
           // Use enemy ruleset for missile cells if configured.
           const ruleForCell =
-            t === CELL_TYPE.MISSILE && this._enemyRule && !this._enemyIsExotic
-              ? this._enemyRule
-              : this._rule;
-          if (ruleForCell.shouldSurvive(ln) && (ageUnlimited || currentAge < maxForType)) {
-            next[i] = t;
-            nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;
-            nextColor[i] = color[i];
-            nextDir[i] = g.cellDir[i];
-          } else {
-            next[i] = CELL_TYPE.EMPTY;
-            nextAge[i] = 0;
-          }
+            t === CELL_TYPE.MISSILE && this._enemyRule ? this._enemyRule : this._rule;
+          const survives = ruleForCell.shouldSurvive(ln);
+          applyCellLifeDecision(makeLifeCtx(this), i, t, survives, maxForType, UNLIMITED);
         } else if (t === CELL_TYPE.EMPTY) {
           const isMissile = missileNbr[i] > defenseNbr[i];
           // Choose ruleset based on who would be born here.
@@ -571,18 +630,7 @@ export class Simulation {
     }
 
     // Swap buffers.
-    const tmp = g.cells;
-    g.cells = next;
-    this.next = tmp;
-    const tmpAge = g.cellAge;
-    g.cellAge = this.nextAge;
-    this.nextAge = tmpAge;
-    const tmpColor = g.cellColor;
-    g.cellColor = this.nextColor;
-    this.nextColor = tmpColor;
-    const tmpDir = g.cellDir;
-    g.cellDir = this.nextDir;
-    this.nextDir = tmpDir;
+    swapTickBuffers(this);
     this.tickCount++;
 
     // Skip return-fire detection when enemies are frozen — frozen missile
@@ -618,10 +666,13 @@ export class Simulation {
     const nextAge = this.nextAge;
     const nextColor = this.nextColor;
     const nextDir = this.nextDir;
+    const anchor = this._anchor;
+    const nextAnchor = this._nextAnchor;
     next.fill(0);
     nextAge.fill(0);
     nextColor.fill(0);
     nextDir.fill(0);
+    nextAnchor.fill(0);
     const n = w * h;
     // Scratch defense layer (binary: 1 = DEFENSE present, 0 = absent).
     if (!this._exoticDefIn || this._exoticDefIn.length !== n) {
@@ -631,13 +682,21 @@ export class Simulation {
     const defIn = this._exoticDefIn;
     const defOut = this._exoticDefOut;
     for (let i = 0; i < n; i++) {
+      // FIRE acts as a live "neighbor" for the exotic engine but must
+      // NOT itself be evolved (it's static and immune). We still mark
+      // it live in defIn so neighboring births/survivals see it.
       defIn[i] = cells[i] === CELL_TYPE.DEFENSE || cells[i] === CELL_TYPE.FIRE ? 1 : 0;
     }
     const freezeDefenses = !!this.freezeDefenses;
-    if (!freezeDefenses) {
-      runExoticStep(this._rule, defIn, defOut, w, h);
+    if (this._isExotic) {
+      if (!freezeDefenses) {
+        runExoticStep(this._rule, defIn, defOut, w, h);
+      } else {
+        defOut.set(defIn);
+      }
     } else {
-      defOut.set(defIn);
+      // Defender is NOT exotic — compute standard Life on the defense layer.
+      defOut.fill(0);
     }
     // Also run exotic for missiles if enemy ruleset is set & exotic.
     let missOut = null;
@@ -649,7 +708,9 @@ export class Simulation {
       const missIn = this._exoticMissIn;
       missOut = this._exoticMissOut;
       for (let i = 0; i < n; i++) {
-        missIn[i] = cells[i] === CELL_TYPE.MISSILE ? 1 : 0;
+        // FIRE acts as a live neighbor for missile exotic step too,
+        // but is not subject to evolution.
+        missIn[i] = cells[i] === CELL_TYPE.MISSILE || cells[i] === CELL_TYPE.FIRE ? 1 : 0;
       }
       if (!this.freezeEnemies) {
         runExoticStep(this._enemyRule, missIn, missOut, w, h);
@@ -728,29 +789,27 @@ export class Simulation {
       }
     }
     // Age-based missile despawn.
-    const UNLIMITED = CONFIG.UNLIMITED_SENTINEL || 999999;
+    const limits = resolveAgeLimits();
+    const UNLIMITED = limits.UNLIMITED;
+    const { defAgeF, defAgeE, defAgeN, missAgeF, missAgeE, missAgeN } = limits;
     const dzMinYBoundary = g.drawZoneMinY();
+    const rearDeadZoneMinY = g.rearDeadZoneMinY();
     const ageDespawn = this._ageDespawn;
     ageDespawn.fill(0);
-    // Clamp age limits to Uint8Array range (see comment in tick()).
-    const clampAge = (v) => (v >= UNLIMITED ? v : Math.min(v | 0, 255));
-    const missAgeF = clampAge(CONFIG.MISSILE_AGE_FRIENDLY);
-    const missAgeE = clampAge(CONFIG.MISSILE_AGE_ENEMY);
-    const missAgeN = clampAge(CONFIG.MISSILE_AGE_NEUTRAL);
-    const defAgeF = clampAge(CONFIG.DEFENSE_AGE_FRIENDLY);
-    const defAgeE = clampAge(CONFIG.DEFENSE_AGE_ENEMY);
-    const defAgeN = clampAge(CONFIG.DEFENSE_AGE_NEUTRAL);
-    const topDeadMaxX = Math.min(h - 1, CONFIG.RETURN_FIRE_ZONE_MAX_Y | 0);
-    const baseZoneHX = Math.max(0, CONFIG.BASE_ZONE_HEIGHT | 0);
-    const enemyRegionMaxY = Math.min(h - 1, topDeadMaxX + baseZoneHX);
+    const enemyRegionMaxY = computeEnemyRegionMaxY(h);
     if (!freezeEnemies) {
       for (let i = 0; i < n; i++) {
         if (cells[i] === CELL_TYPE.MISSILE) {
+          if (anchor[i]) continue;
           const y = (i / w) | 0;
-          let eff;
-          if (y >= dzMinYBoundary) eff = missAgeF;
-          else if (y <= enemyRegionMaxY) eff = missAgeE;
-          else eff = missAgeN;
+          const eff = effectiveAgeLimit(
+            y,
+            CELL_TYPE.MISSILE,
+            limits,
+            dzMinYBoundary,
+            enemyRegionMaxY,
+            rearDeadZoneMinY
+          );
           if (eff < UNLIMITED && age[i] >= eff) {
             ageDespawn[i] = 1;
           }
@@ -785,6 +844,11 @@ export class Simulation {
           next[i] = CELL_TYPE.BARRIER;
           continue;
         }
+        // FIRE: static activated tile, immune in exotic rules too.
+        if (t === CELL_TYPE.FIRE) {
+          next[i] = CELL_TYPE.FIRE;
+          continue;
+        }
         if (t === CELL_TYPE.EXPLOSION) {
           if (g.explosionTimers[i] > 0) {
             g.explosionTimers[i]--;
@@ -797,6 +861,7 @@ export class Simulation {
         if (annihilated[i]) {
           next[i] = CELL_TYPE.EXPLOSION;
           g.explosionTimers[i] = 4;
+          nextAnchor[i] = 0;
           continue;
         }
         if (ageDespawn[i]) {
@@ -811,6 +876,7 @@ export class Simulation {
           nextAge[i] = age[i];
           nextColor[i] = color[i];
           nextDir[i] = g.cellDir[i];
+          nextAnchor[i] = anchor[i];
           continue;
         }
         // Missile evolution (vanilla Conway).
@@ -818,50 +884,74 @@ export class Simulation {
           // If enemy uses exotic, follow exotic output.
           if (missOut) {
             if (missOut[i]) {
-              let eff;
-              if (y >= dzMinYBoundary) eff = missAgeF;
-              else if (y <= enemyRegionMaxY) eff = missAgeE;
-              else eff = missAgeN;
+              const eff = effectiveAgeLimit(
+                y,
+                CELL_TYPE.MISSILE,
+                limits,
+                dzMinYBoundary,
+                enemyRegionMaxY,
+                rearDeadZoneMinY
+              );
               const ageUnlimited = eff >= UNLIMITED;
               const currentAge = age[i];
-              if (ageUnlimited || currentAge < eff) {
+              if (ageUnlimited || currentAge < eff || anchor[i] === 1) {
                 next[i] = CELL_TYPE.MISSILE;
-                nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;
+                nextAge[i] = anchor[i] === 1 ? 1 : currentAge < 255 ? currentAge + 1 : 255;
                 nextColor[i] = color[i];
                 nextDir[i] = g.cellDir[i];
+                // Anchor clears once age would have killed cell.
+                const wouldExpire = !ageUnlimited && currentAge >= eff;
+                nextAnchor[i] = wouldExpire ? 0 : anchor[i];
               } else {
                 next[i] = CELL_TYPE.EMPTY;
                 nextAge[i] = 0;
+                nextAnchor[i] = 0;
               }
             } else {
-              next[i] = CELL_TYPE.EMPTY;
-              nextAge[i] = 0;
+              // Exotic engine says cell dies. Honor anchor: keep
+              // alive once, then clear anchor.
+              if (anchor[i] === 1) {
+                next[i] = CELL_TYPE.MISSILE;
+                nextAge[i] = 1;
+                nextColor[i] = color[i];
+                nextDir[i] = g.cellDir[i];
+                nextAnchor[i] = 0;
+              } else {
+                next[i] = CELL_TYPE.EMPTY;
+                nextAge[i] = 0;
+                nextAnchor[i] = 0;
+              }
             }
             continue;
           }
           const ln = lifeNbr[i];
-          // Use Conway rules for missile lifecycle in exotic mode.
-          // (Player's exotic choice only affects friendly defenses.)
-          const alive = ln === 2 || ln === 3;
-          if (alive) {
-            let eff;
-            if (y >= dzMinYBoundary) eff = missAgeF;
-            else if (y <= enemyRegionMaxY) eff = missAgeE;
-            else eff = missAgeN;
-            const ageUnlimited = eff >= UNLIMITED;
-            const currentAge = age[i];
-            if (ageUnlimited || currentAge < eff) {
-              next[i] = CELL_TYPE.MISSILE;
-              nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;
-              nextColor[i] = color[i];
-              nextDir[i] = g.cellDir[i];
-            } else {
-              next[i] = CELL_TYPE.EMPTY;
-              nextAge[i] = 0;
-            }
+          // Use enemy rule if standard one is set; else fall back to
+          // defender rule (if non-exotic); else Conway.
+          let survives;
+          if (this._enemyRule && !this._enemyIsExotic) {
+            survives = this._enemyRule.shouldSurvive(ln);
+          } else if (!this._isExotic) {
+            survives = this._rule.shouldSurvive(ln);
           } else {
-            next[i] = CELL_TYPE.EMPTY;
-            nextAge[i] = 0;
+            survives = ln === 2 || ln === 3;
+          }
+          {
+            const eff = effectiveAgeLimit(
+              y,
+              CELL_TYPE.MISSILE,
+              limits,
+              dzMinYBoundary,
+              enemyRegionMaxY,
+              rearDeadZoneMinY
+            );
+            applyCellLifeDecision(
+              makeLifeCtx(this),
+              i,
+              CELL_TYPE.MISSILE,
+              survives,
+              eff,
+              UNLIMITED
+            );
           }
           continue;
         }
@@ -869,7 +959,17 @@ export class Simulation {
         if (t === CELL_TYPE.EMPTY) {
           // Missile birth: use exotic output if enemy ruleset is exotic,
           // otherwise Conway 3-neighbor rule.
-          const missBirth = missOut ? !!missOut[i] : missileNbr[i] === 3;
+          // Use enemy rule (standard) if set, else defender rule, else Conway.
+          let missBirth;
+          if (missOut) {
+            missBirth = !!missOut[i];
+          } else if (this._enemyRule && !this._enemyIsExotic) {
+            missBirth = this._enemyRule.shouldBirth(missileNbr[i]);
+          } else if (!this._isExotic) {
+            missBirth = this._rule.shouldBirth(missileNbr[i]);
+          } else {
+            missBirth = missileNbr[i] === 3;
+          }
           if (missBirth && !freezeEnemies) {
             next[i] = CELL_TYPE.MISSILE;
             nextColor[i] = (Math.random() * missileVariants) | 0;
@@ -878,7 +978,9 @@ export class Simulation {
             continue;
           }
           // Defense birth from exotic engine output.
-          if (defOut[i]) {
+          // Defender exotic uses defOut; else standard Life birth.
+          const defBirth = this._isExotic ? !!defOut[i] : this._rule.shouldBirth(lifeNbr[i]);
+          if (defBirth && !freezeDefenses) {
             next[i] = CELL_TYPE.DEFENSE;
             nextColor[i] = (Math.random() * defenseVariants) | 0;
             nextDir[i] = 0;
@@ -895,46 +997,39 @@ export class Simulation {
             nextAge[i] = age[i];
             nextColor[i] = color[i];
             nextDir[i] = g.cellDir[i];
+            nextAnchor[i] = anchor[i];
             continue;
           }
-          if (defOut[i]) {
-            // Survives.
-            let eff;
-            if (y >= dzMinYBoundary) eff = defAgeF;
-            else if (y <= enemyRegionMaxY) eff = defAgeE;
-            else eff = defAgeN;
-            const ageUnlimited = eff >= UNLIMITED;
-            const currentAge = age[i];
-            if (ageUnlimited || currentAge < eff) {
-              next[i] = CELL_TYPE.DEFENSE;
-              nextAge[i] = currentAge < 255 ? currentAge + 1 : 255;
-              nextColor[i] = color[i];
-              nextDir[i] = 0;
-            } else {
-              next[i] = CELL_TYPE.EMPTY;
-              nextAge[i] = 0;
-            }
-          } else {
-            next[i] = CELL_TYPE.EMPTY;
-            nextAge[i] = 0;
+          // If defender is exotic, use exotic output; else standard Life.
+          const ln = lifeNbr[i];
+          const defenseSurvives = this._isExotic ? !!defOut[i] : this._rule.shouldSurvive(ln);
+          {
+            const eff = effectiveAgeLimit(
+              y,
+              CELL_TYPE.DEFENSE,
+              limits,
+              dzMinYBoundary,
+              enemyRegionMaxY,
+              rearDeadZoneMinY
+            );
+            // Pass dir=0 so defense survivors keep their stationary
+            // direction (matches original behavior in this branch).
+            applyCellLifeDecision(
+              makeLifeCtx(this),
+              i,
+              CELL_TYPE.DEFENSE,
+              defenseSurvives,
+              eff,
+              UNLIMITED,
+              0
+            );
           }
           continue;
         }
       }
     }
     // Swap buffers.
-    const tmp = g.cells;
-    g.cells = next;
-    this.next = tmp;
-    const tmpAge = g.cellAge;
-    g.cellAge = this.nextAge;
-    this.nextAge = tmpAge;
-    const tmpColor = g.cellColor;
-    g.cellColor = this.nextColor;
-    this.nextColor = tmpColor;
-    const tmpDir = g.cellDir;
-    g.cellDir = this.nextDir;
-    this.nextDir = tmpDir;
+    swapTickBuffers(this);
     this.tickCount++;
     // Return-fire / breach detection unchanged.
     if (!freezeEnemies) {

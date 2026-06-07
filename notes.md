@@ -14,3 +14,7 @@
   - Level designer needs settings for enemy ruleset
   - Review and fix support for alternate rulesets
 - Transpose the settings panel's max age matrix: the region types should be rows, not columns
+
+-
+- If a cell is placed by a enemy base or a missile spawner, it should act as immortal until it turns off at least once after spawning. This is to prevent needed anchor points from being expired.
+- TCA, Time-integrated, and Lightcone rulesets do not work for the enemy paint type

@@ -27,6 +27,22 @@
   <body>
     <div id="game-container">
       <canvas id="game-canvas"></canvas>
+      <div id="threshold-display" class="threshold-display hidden">
+        <div class="threshold-row">
+          <span class="threshold-label">🏙 Cities:</span>
+          <span class="threshold-value" id="threshold-city-count">0</span>
+          <span class="threshold-divider">/</span>
+          <span class="threshold-min" id="threshold-city-min">0</span>
+          <span class="threshold-hint">min</span>
+        </div>
+        <div class="threshold-row">
+          <span class="threshold-label">☠ Enemies:</span>
+          <span class="threshold-value" id="threshold-enemy-count">0</span>
+          <span class="threshold-divider">/</span>
+          <span class="threshold-max" id="threshold-enemy-max">0</span>
+          <span class="threshold-hint">max for win</span>
+        </div>
+      </div>
       <div id="speed-control">
         <label for="speed-slider" id="speed-control-label">Speed:</label>
         <input id="speed-slider" max="7" min="0" step="1" type="range" value="3" />
@@ -660,6 +676,31 @@
                   >
                 </div>
                 <span class="setting-value">&nbsp;</span>
+              </div>
+              <div class="setting-section-header">Victory / Defeat Thresholds</div>
+              <p class="settings-tab-desc" style="margin: 4px 0 8px">
+                Configure the cell-count thresholds for winning and losing. Use these to make levels
+                easier (allow lingering enemies) or harder (require more surviving cities).
+              </p>
+              <div class="setting-row">
+                <label
+                  for="setting-victory-threshold"
+                  title="Max enemy cells in enemy region for victory. 0 = strict."
+                >
+                  Victory: Max Enemy Cells
+                </label>
+                <input id="setting-victory-threshold" type="range" min="0" max="100" step="1" />
+                <span class="setting-value" id="setting-victory-threshold-value"></span>
+              </div>
+              <div class="setting-row">
+                <label
+                  for="setting-defeat-threshold"
+                  title="Min city cells required. Game over when count drops to/below this. 0 = classic."
+                >
+                  Defeat: Min City Cells
+                </label>
+                <input id="setting-defeat-threshold" type="range" min="0" max="200" step="1" />
+                <span class="setting-value" id="setting-defeat-threshold-value"></span>
               </div>
             </div>
             <!-- /gameplay -->

@@ -490,6 +490,10 @@ export class Missiles {
       const i = py * g.width + wx;
       g.cellColor[i] = (Math.random() * variants) | 0;
       g.cellDir[i] = DIR_DOWN;
+      // Mark as anchor: immortal until first natural death.
+      // Prevents large/long-lived patterns (Gosper guns, spaceships)
+      // from being expired by region age limits before they function.
+      if (this.markAnchor) this.markAnchor(px, py);
       placed++;
     }
 
@@ -632,6 +636,7 @@ export class Missiles {
         const i = py * this.grid.width + wx;
         this.grid.cellColor[i] = (Math.random() * variants) | 0;
         this.grid.cellDir[i] = DIR_DOWN;
+        if (this.markAnchor) this.markAnchor(px, py);
         placed++;
       }
     }
@@ -709,6 +714,9 @@ export class Missiles {
           g.cellColor[i] = (i * 7) % variants;
           g.cellDir[i] = dir;
           g.cellAge[i] = 0;
+          // Procedural bases are anchored: their generator cells must
+          // not expire from age before the player has a chance to fight.
+          if (this.markAnchor) this.markAnchor(px, py);
         }
       }
       const base = {
@@ -801,6 +809,9 @@ export class Missiles {
             g.cellAge[idx] = 0;
             g.cellColor[idx] = (idx * 7) % variants;
             g.cellDir[idx] = b.dir;
+            // Re-anchor: re-imprinted generator cells stay immortal
+            // until they would naturally die under Life rules.
+            if (this.markAnchor) this.markAnchor(px, py);
           }
         }
       }
@@ -850,6 +861,8 @@ export class Missiles {
         const i = py * this.grid.width + wx;
         this.grid.cellColor[i] = (Math.random() * variants) | 0;
         this.grid.cellDir[i] = DIR_DOWN;
+        // Emitted gliders from bases are NOT anchored — they should
+        // glide naturally and be subject to normal aging.
         placed++;
       }
     }
@@ -889,6 +902,11 @@ export class Missiles {
         g.cellColor[i] = (i * 7) % variants;
         g.cellDir[i] = 0;
         g.cellAge[i] = 0;
+        // Designed bases are anchored: their cells stay immortal
+        // until they die naturally under Life rules. Prevents
+        // designer-placed structures from being aged out before
+        // the player engages them.
+        if (this.markAnchor) this.markAnchor(px, py);
       }
       const designed = {
         patternId: spec.patternId,
@@ -966,6 +984,9 @@ export class Missiles {
         const idx = py * g.width + g.wrapX(px);
         if (g.cells[idx] === CELL_TYPE.MISSILE) {
           g.cellAge[idx] = 1; // keep young
+          // Re-anchor: keep generator cells immortal as long as
+          // they remain in their footprint slot.
+          if (this.markAnchor) this.markAnchor(px, py);
         }
       }
       // Designed bases evolve naturally via Life rules. We track
@@ -1162,6 +1183,11 @@ export class Missiles {
       g.cellColor[i] = (Math.random() * variants) | 0;
       g.cellDir[i] = DIR_DOWN;
       g.cellAge[i] = 1;
+      // Spawner-emitted patterns are anchored: this keeps the
+      // initial generator cells (e.g. Gosper gun cores) alive
+      // until they would naturally die under Life rules. Once
+      // they die once, the anchor clears and they age normally.
+      if (this.markAnchor) this.markAnchor(px, py);
       placed++;
     }
     if (placed > 0 && this.onMissileSpawn) {

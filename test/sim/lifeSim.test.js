@@ -5,7 +5,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { characterize, setHash, cellsToSet } from './lifeSim.js';
+import { characterize, setHash, cellsToSet } from '../../sim/lifeSim.js';
 import { CompiledRuleset, CONWAY, getRuleset } from '../../src/rules/ruleset.js';
 import '../../src/rules/extraRulesets.js';
 

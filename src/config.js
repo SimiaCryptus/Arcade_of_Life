@@ -82,6 +82,13 @@ export const CONFIG = {
   // as "BREACH!" event. Measured in rows from the very bottom of the
   // grid (0 = no rear zone). Default 2 rows.
   REAR_DEAD_ZONE_HEIGHT: 2,
+  // Age limit (in simulation ticks) for ANY cell that lands inside
+  // the rear dead zone. The rear zone is the strip of rows directly
+  // below the player's draw area used for breach detection; cells
+  // that slip into it should be short-lived so they don't accumulate
+  // and re-fire breach/return-fire events forever. Applies to both
+  // MISSILE and DEFENSE cells regardless of region age settings.
+  REAR_DEAD_ZONE_AGE_LIMIT: 10,
   // Base spawning zone: a band of rows BELOW the top dead zone but ABOVE
   // the regular missile spawn line, where static "bases" and horizontal
   // spaceships can spawn. Bases persist until the player destroys them.
@@ -112,6 +119,17 @@ export const CONFIG = {
   EVENT_BREACH: true,
   EVENT_CITY_HIT: true,
   EVENT_ANNIHILATION: true,
+  // Victory / defeat thresholds based on cell counts.
+  // VICTORY_ENEMY_THRESHOLD: max enemy (MISSILE) cells in the enemy region
+  //   for victory to trigger. 0 = strict (must eliminate all enemy cells +
+  //   all structural threats). Higher values let the player win even with
+  //   some lingering enemy presence.
+  // DEFEAT_CITY_THRESHOLD: minimum city cells the player must keep alive.
+  //   Game over triggers when total city cell count drops to/below this
+  //   value. 0 = classic (must lose all cities). Higher = harder.
+  // Counts are summed across the relevant region of the grid.
+  VICTORY_ENEMY_THRESHOLD: 0,
+  DEFEAT_CITY_THRESHOLD: 0,
   // Default starting speed multiplier when a game begins. The game still
   // begins paused — this is the speed it resumes to when the player
   // presses Space or moves the slider for the first time.

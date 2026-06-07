@@ -23,6 +23,7 @@ import { PatternZoo } from './patternZoo.js';
 import { LevelDesigner } from './levelDesigner.js';
 import { getLevel } from './levels.js';
 import { initLevelCatalog } from './levelCatalog.js';
+import { countCells } from './sim/cellCounts.js';
 import {
   registerServiceWorker,
   initInstallPrompt,
@@ -49,6 +50,12 @@ class Game {
     this.overlayTitle = document.getElementById('overlay-title');
     this.overlayMessage = document.getElementById('overlay-message');
     this.startButton = document.getElementById('start-button');
+    // Threshold display elements.
+    this.thresholdDisplay = document.getElementById('threshold-display');
+    this.thresholdCityCount = document.getElementById('threshold-city-count');
+    this.thresholdCityMin = document.getElementById('threshold-city-min');
+    this.thresholdEnemyCount = document.getElementById('threshold-enemy-count');
+    this.thresholdEnemyMax = document.getElementById('threshold-enemy-max');
     this.settingsButton = document.getElementById('settings-button');
     this.speedSlider = document.getElementById('speed-slider');
     this.speedLabel = document.getElementById('speed-label');
@@ -312,6 +319,7 @@ class Game {
     this._initKeyboardShortcuts();
     this._initHotkeyHelp();
     this._initPanControls();
+    this._initThresholdSettingsInputs();
     window.addEventListener('resize', () => this._onWindowResize());
     // Diagnostic: log any click that hits the exit/edit buttons or their parents.
     document.addEventListener(
@@ -374,6 +382,15 @@ class Game {
       // Class references for advanced poking / subclassing.
       classes: { Grid, Simulation, Cities, Missiles, Defenses, Renderer, HUD },
     };
+    // Convenience: expose markAnchor via the missiles module so its
+    // base/spawner placement code can flag immortal cells.
+    if (this.missiles && this.simulation) {
+      this.missiles.markAnchor = (x, y) => this.simulation.markAnchor(x, y);
+      this.missiles.stampAnchoredCell = (x, y, type, colorIdx) =>
+        this.simulation.stampAnchoredCell(x, y, type, colorIdx);
+      this.missiles.stampAnchoredCell = (x, y, type, colorIdx) =>
+        this.simulation.stampAnchoredCell(x, y, type, colorIdx);
+    }
     // Also drop the most common ones at top level for zero-friction hacking.
     window.CONFIG = CONFIG;
     window.CELL_TYPE = CELL_TYPE;
@@ -728,6 +745,48 @@ class Game {
     // Re-initialize speed controls so max scales with new board size.
     this._initSpeedControls();
     Logger.info(`World rebuilt: ${CONFIG.GRID_WIDTH}x${CONFIG.GRID_HEIGHT}.`);
+  }
+
+  // Wire threshold sliders in the main settings panel (#setting-victory-threshold,
+  // #setting-defeat-threshold). Bound here as a safety net since these keys
+  // may not be in the SETTING_DEFS that settings.js builds.
+  _initThresholdSettingsInputs() {
+    const wire = (sliderId, valueId, configKey, fmt) => {
+      const slider = document.getElementById(sliderId);
+      const label = document.getElementById(valueId);
+      if (!slider) return;
+      // Sync initial.
+      slider.value = String(CONFIG[configKey] | 0);
+      if (label) label.textContent = fmt(parseInt(slider.value, 10));
+      slider.addEventListener('input', () => {
+        const v = parseInt(slider.value, 10) | 0;
+        CONFIG[configKey] = v;
+        if (label) label.textContent = fmt(v);
+        // Persist to settings storage if available.
+        if (this.settings && this.settings.values) {
+          this.settings.values[configKey] = v;
+          if (this.settings.save) {
+            try {
+              this.settings.save();
+            } catch (_e) {
+              /* ignore */
+            }
+          }
+        }
+      });
+    };
+    wire(
+      'setting-victory-threshold',
+      'setting-victory-threshold-value',
+      'VICTORY_ENEMY_THRESHOLD',
+      (v) => `${v} cells`
+    );
+    wire(
+      'setting-defeat-threshold',
+      'setting-defeat-threshold-value',
+      'DEFEAT_CITY_THRESHOLD',
+      (v) => `${v} cells`
+    );
   }
 
   _onClearDefenses() {
@@ -2345,6 +2404,8 @@ class Game {
     }
     // Transition back to menu state.
     this.gameState.set(STATE.MENU);
+    // Hide threshold display.
+    if (this.thresholdDisplay) this.thresholdDisplay.classList.add('hidden');
     // Show the main menu overlay.
     this.showOverlay(
       'The Arcade of Life',
@@ -2602,6 +2663,15 @@ class Game {
       this.hud.citiesAlive = this.cities.aliveCount();
       this.hud.ink = this.defenses.ink;
       this.hud.maxInk = this.defenses.maxInk;
+      // Update cell counts for HUD threshold display.
+      try {
+        const counts = countCells(this.grid);
+        this.hud.cityCellCount = counts.cityCells;
+        this.hud.enemyCellCount = counts.enemyCellsInEnemyRegion;
+        this._updateThresholdDisplay(counts);
+      } catch (e) {
+        Logger.warn('countCells failed', e);
+      }
       // Drive story progression each frame.
       if (this.story) this.story.update(safeDt);
       // Tick free-play ability cooldowns.
@@ -2724,7 +2794,19 @@ class Game {
       this.defenses.ink = this.defenses.maxInk;
     }
 
-    if (this.cities.aliveCount() === 0) {
+    // Compute current cell counts for threshold-based victory/defeat.
+    const counts = countCells(this.grid);
+    const cityThreshold = Math.max(0, CONFIG.DEFEAT_CITY_THRESHOLD | 0);
+    const enemyThreshold = Math.max(0, CONFIG.VICTORY_ENEMY_THRESHOLD | 0);
+
+    // Defeat: city cell count at or below threshold (0 = lose only when
+    // all cities destroyed, higher = stricter requirement).
+    const defeatTriggered = counts.cityCells <= cityThreshold && this.cities.aliveCount() === 0;
+    // Alternative: pure cell-count defeat (designer can raise the bar by
+    // requiring more surviving city tiles than zero).
+    const cellDefeat = cityThreshold > 0 && counts.cityCells <= cityThreshold;
+
+    if (defeatTriggered || cellDefeat) {
       this.gameOver();
       return;
     }
@@ -2733,12 +2815,80 @@ class Game {
       // Custom levels: when all designed threats are eliminated, show
       // a victory banner instead of looping forever through empty waves.
       if (this._activeCustomLevel) {
-        this._customLevelVictory();
+        // Honor victory threshold: if there are still too many enemy
+        // cells lingering, hold the victory until cleanup completes.
+        if (counts.enemyCellsInEnemyRegion <= enemyThreshold) {
+          this._customLevelVictory();
+        }
       } else {
         this.nextWave();
       }
     }
+    // Custom levels: independent victory check based on enemy cell
+    // threshold. When the level designer sets VICTORY_ENEMY_THRESHOLD > 0,
+    // they're explicitly saying "win once enemy presence drops to/below
+    // this count" — which by design allows winning while some enemy cells
+    // linger. This must NOT be gated behind isWaveComplete(), since
+    // lingering gliders from destroyed bases (or spawners that simply
+    // stopped producing) would prevent isWaveComplete() from ever
+    // flipping true.
+    else if (
+      this._activeCustomLevel &&
+      enemyThreshold > 0 &&
+      counts.enemyCellsInEnemyRegion <= enemyThreshold
+    ) {
+      this._customLevelVictory();
+    }
   }
+  // Update the on-screen threshold display showing current city/enemy
+  // cell counts versus the configured win/loss thresholds.
+  _updateThresholdDisplay(counts) {
+    if (!this.thresholdDisplay) return;
+    // Only show during active gameplay (or wave transition).
+    const inGame =
+      this.gameState &&
+      (this.gameState.is(STATE.PLAYING) || this.gameState.is(STATE.WAVE_TRANSITION));
+    const cityThresh = Math.max(0, CONFIG.DEFEAT_CITY_THRESHOLD | 0);
+    const enemyThresh = Math.max(0, CONFIG.VICTORY_ENEMY_THRESHOLD | 0);
+    // Hide the display entirely when both thresholds are at defaults
+    // and we're not in a game.
+    const hasNonDefaultThresholds = cityThresh > 0 || enemyThresh > 0;
+    if (!inGame || !hasNonDefaultThresholds) {
+      this.thresholdDisplay.classList.add('hidden');
+      return;
+    }
+    this.thresholdDisplay.classList.remove('hidden');
+    if (this.thresholdCityCount) {
+      this.thresholdCityCount.textContent = String(counts.cityCells);
+    }
+    if (this.thresholdCityMin) {
+      this.thresholdCityMin.textContent = String(cityThresh);
+    }
+    if (this.thresholdEnemyCount) {
+      this.thresholdEnemyCount.textContent = String(counts.enemyCellsInEnemyRegion);
+    }
+    if (this.thresholdEnemyMax) {
+      this.thresholdEnemyMax.textContent = String(enemyThresh);
+    }
+    // Color-code rows based on proximity to threshold.
+    const cityRow = this.thresholdDisplay.querySelector('.threshold-row:first-child');
+    const enemyRow = this.thresholdDisplay.querySelector('.threshold-row:nth-child(2)');
+    if (cityRow) {
+      cityRow.classList.remove('threshold-warning', 'threshold-safe');
+      if (cityThresh > 0) {
+        const margin = counts.cityCells - cityThresh;
+        if (margin <= 3) cityRow.classList.add('threshold-warning');
+        else if (margin > 10) cityRow.classList.add('threshold-safe');
+      }
+    }
+    if (enemyRow) {
+      enemyRow.classList.remove('threshold-warning', 'threshold-safe');
+      const ec = counts.enemyCellsInEnemyRegion;
+      if (ec <= enemyThresh) enemyRow.classList.add('threshold-safe');
+      else if (ec > enemyThresh * 2) enemyRow.classList.add('threshold-warning');
+    }
+  }
+
   _customLevelVictory() {
     if (this._customVictoryShown) return;
     this._customVictoryShown = true;

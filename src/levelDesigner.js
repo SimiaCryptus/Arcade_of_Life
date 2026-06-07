@@ -309,11 +309,17 @@ export class LevelDesigner {
                   <h3>📊 Stats</h3>
                   <div class="ld-stats">
                     <div>Cities: <strong id="ld-stat-cities">0</strong></div>
+                    <div>City cells: <strong id="ld-stat-city-cells">0</strong></div>
                     <div>Defense cells: <strong id="ld-stat-defense">0</strong></div>
                      <div>Barriers: <strong id="ld-stat-barriers">0</strong></div>
                       <div>Fire: <strong id="ld-stat-fire">0</strong></div>
                     <div>Bases: <strong id="ld-stat-bases">0</strong></div>
                     <div>Spawners: <strong id="ld-stat-spawners">0</strong></div>
+                    <div>Base cells (enemy): <strong id="ld-stat-enemy-cells">0</strong></div>
+                  </div>
+                  <div class="ld-thresholds-hint" style="margin-top:8px;font-size:11px;color:#a0a0c0;font-style:italic;">
+                    Victory triggers when enemy cells ≤ <strong id="ld-stat-victory-thresh">0</strong>.<br>
+                    Defeat triggers when city cells ≤ <strong id="ld-stat-defeat-thresh">0</strong>.
                   </div>
                 </div>
                 <div class="ld-section">
@@ -1931,6 +1937,41 @@ export class LevelDesigner {
     if (baEl) baEl.textContent = String(this.barrierCells.size);
     const fiEl = ov.querySelector('#ld-stat-fire');
     if (fiEl) fiEl.textContent = String(this.fireCells.size);
+    // Compute aggregate city cell count from all placed cities.
+    let cityCells = 0;
+    for (const c of this.cities) {
+      if (Array.isArray(c.cells)) {
+        cityCells += c.cells.length;
+      } else {
+        cityCells += c.width * c.height;
+      }
+    }
+    const ccEl = ov.querySelector('#ld-stat-city-cells');
+    if (ccEl) ccEl.textContent = String(cityCells);
+    // Aggregate enemy cells from bases (designed bases stamp MISSILE cells).
+    let enemyCells = 0;
+    for (const b of this.bases) {
+      enemyCells += Array.isArray(b.cells) ? b.cells.length : 0;
+    }
+    const ecEl = ov.querySelector('#ld-stat-enemy-cells');
+    if (ecEl) ecEl.textContent = String(enemyCells);
+    // Update threshold display.
+    const vthEl = ov.querySelector('#ld-stat-victory-thresh');
+    const dthEl = ov.querySelector('#ld-stat-defeat-thresh');
+    if (vthEl) {
+      const v =
+        this.levelSettings && this.levelSettings.VICTORY_ENEMY_THRESHOLD != null
+          ? this.levelSettings.VICTORY_ENEMY_THRESHOLD
+          : CONFIG.VICTORY_ENEMY_THRESHOLD || 0;
+      vthEl.textContent = String(v);
+    }
+    if (dthEl) {
+      const v =
+        this.levelSettings && this.levelSettings.DEFEAT_CITY_THRESHOLD != null
+          ? this.levelSettings.DEFEAT_CITY_THRESHOLD
+          : CONFIG.DEFEAT_CITY_THRESHOLD || 0;
+      dthEl.textContent = String(v);
+    }
   }
 
   // ── Save / Load / Export ──────────────────────────────────────
@@ -2629,7 +2670,12 @@ export class LevelDesigner {
     const sections = [
       {
         title: '🎮 Gameplay',
-        keys: ['HARDCORE_MODE', 'STARTING_SPEED'],
+        keys: [
+          'HARDCORE_MODE',
+          'STARTING_SPEED',
+          'VICTORY_ENEMY_THRESHOLD',
+          'DEFEAT_CITY_THRESHOLD',
+        ],
       },
       {
         title: '🚀 Enemy Pacing',
@@ -2723,6 +2769,20 @@ export class LevelDesigner {
         key: 'STARTING_SPEED',
         id: 'setting-starting-speed',
         format: (v) => `${v.toFixed(2)}x`,
+      };
+    }
+    if (!sliderDefs.VICTORY_ENEMY_THRESHOLD) {
+      sliderDefs.VICTORY_ENEMY_THRESHOLD = {
+        key: 'VICTORY_ENEMY_THRESHOLD',
+        id: 'setting-victory-threshold',
+        format: (v) => `${v | 0} cells`,
+      };
+    }
+    if (!sliderDefs.DEFEAT_CITY_THRESHOLD) {
+      sliderDefs.DEFEAT_CITY_THRESHOLD = {
+        key: 'DEFEAT_CITY_THRESHOLD',
+        id: 'setting-defeat-threshold',
+        format: (v) => `${v | 0} cells`,
       };
     }
     this._settingsInputs = {}; // key → {input, valueEl, type}
@@ -2869,6 +2929,10 @@ export class LevelDesigner {
       ) {
         this._draw();
       }
+      // Refresh stats when victory/defeat thresholds change.
+      if (def.key === 'VICTORY_ENEMY_THRESHOLD' || def.key === 'DEFEAT_CITY_THRESHOLD') {
+        this._updateStats();
+      }
     });
     numInput.addEventListener('change', () => {
       const step = parseFloat(numInput.step) || 1;
@@ -2892,6 +2956,9 @@ export class LevelDesigner {
         def.key === 'BASE_ZONE_HEIGHT'
       ) {
         this._draw();
+      }
+      if (def.key === 'VICTORY_ENEMY_THRESHOLD' || def.key === 'DEFEAT_CITY_THRESHOLD') {
+        this._updateStats();
       }
     });
     container.appendChild(row);
@@ -2975,6 +3042,8 @@ export class LevelDesigner {
       BASE_SPAWN_COUNT_INC: { min: 0, max: 2, step: 0.1 },
       BASE_SPAWN_MAX: { min: 1, max: 12, step: 1 },
       BASE_GLIDER_BUFFER: { min: 1, max: 12, step: 1 },
+      VICTORY_ENEMY_THRESHOLD: { min: 0, max: 100, step: 1 },
+      DEFEAT_CITY_THRESHOLD: { min: 0, max: 200, step: 1 },
     };
     // For BASE_ZONE_HEIGHT, the maximum depends on grid height AND the
     // current draw zone fraction. The base zone has to fit between the

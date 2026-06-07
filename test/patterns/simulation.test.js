@@ -45,7 +45,7 @@ import {
   setsEqual,
   findPeriod,
   detectPeriod,
-} from '../sim/lifeSim.js';
+} from '../../src/sim/lifeSim.js';
 
 let passed = 0;
 let failed = 0;

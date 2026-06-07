@@ -24,7 +24,7 @@ import {
   setsEqual,
   findPeriod,
   characterize,
-} from '../../test/sim/lifeSim.js';
+} from '../sim/lifeSim.js';
 /**
  * Module-level diagnostic counters. The importer reads these after a run
  * to surface a detailed breakdown of how each rule string was resolved.
