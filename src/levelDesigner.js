@@ -88,6 +88,10 @@ export class LevelDesigner {
     this._basePattern = null;
     // Currently-selected spawner pattern for the SPAWNER tool.
     this._spawnerPattern = null;
+    // Currently-selected city pattern (visual only — game logic still
+    // treats cities as rectangular blocks for purposes of "city cell"
+    // detection by the simulation).
+    this._cityPattern = null;
     this.currentLevelName = null;
     this.ruleset = 'conway';
     this.description = '';
@@ -139,13 +143,13 @@ export class LevelDesigner {
                  <button class="ld-mode-btn active" data-mode="defense" title="Paint cells (defense or barrier — choose below)">✏ Draw</button>
                  <button class="ld-mode-btn" data-mode="line" title="Straight line">📏 Line</button>
                  <button class="ld-mode-btn" data-mode="fill" title="Region fill">🪣 Fill</button>
-                <button class="ld-mode-btn" data-mode="city" title="Place city">🏙 City</button>
-                 <button class="ld-mode-btn" data-mode="pattern" title="Stamp pattern from Zoo as defense cells">🧬 Pattern</button>
-                  <button class="ld-mode-btn" data-mode="base" title="Stamp pattern from Zoo as enemy base">⚔ Base</button>
-                  <button class="ld-mode-btn" data-mode="spawner" title="Place missile spawn point (pattern from Zoo)">🚀 Spawner</button>
-                <button class="ld-mode-btn" data-mode="erase" title="Erase">🧹 Erase</button>
-              </div>
-               <div class="ld-tool-group" id="ld-paint-target-group">
+<button class="ld-mode-btn" data-mode="city" title="Place city">🏙 City</button>
+                  <button class="ld-mode-btn" data-mode="pattern" title="Stamp pattern from Zoo as defense cells">🧬 Pattern</button>
+                   <button class="ld-mode-btn" data-mode="base" title="Stamp pattern from Zoo as enemy base">⚔ Base</button>
+                   <button class="ld-mode-btn" data-mode="spawner" title="Place missile spawn point (pattern from Zoo)">🚀 Spawner</button>
+                 <button class="ld-mode-btn" data-mode="erase" title="Erase">🧹 Erase</button>
+               </div>
+                <div class="ld-tool-group" id="ld-paint-target-group">
                  <label>Paint as:</label>
                  <div class="ld-target-switch">
                    <button class="ld-target-btn active" data-target="defense" title="Paint living defense cells (cyan) — follow the cellular automaton rules">
@@ -191,6 +195,12 @@ export class LevelDesigner {
                   <button id="ld-pick-spawner-btn" class="ld-btn">🦓 Pick from Zoo</button>
                   <button id="ld-rotate-spawner-btn" class="ld-btn" title="Rotate 90° CW">↻</button>
                   <button id="ld-flip-spawner-btn" class="ld-btn" title="Flip horizontally">⇋</button>
+                </div>
+                <div class="ld-tool-group" id="ld-city-selector" style="display:none;">
+                  <label>City:</label>
+                  <span id="ld-city-name" style="color:#ffff88;font-weight:bold;min-width:120px;display:inline-block;">— default block —</span>
+                  <button id="ld-pick-city-btn" class="ld-btn">🦓 Pick from Zoo</button>
+                  <button id="ld-clear-city-btn" class="ld-btn" title="Reset to default rectangular city">↺ Default</button>
                 </div>
                 <div class="ld-tool-group" id="ld-line-tools" style="display:none;">
                   <label>Width:</label>
@@ -490,6 +500,10 @@ export class LevelDesigner {
           this.mode === DESIGNER_MODE.BASE ? 'flex' : 'none';
         ov.querySelector('#ld-spawner-selector').style.display =
           this.mode === DESIGNER_MODE.SPAWNER ? 'flex' : 'none';
+        const citySel = ov.querySelector('#ld-city-selector');
+        if (citySel) {
+          citySel.style.display = this.mode === DESIGNER_MODE.CITY ? 'flex' : 'none';
+        }
         ov.querySelector('#ld-line-tools').style.display =
           this.mode === DESIGNER_MODE.LINE ? 'flex' : 'none';
         ov.querySelector('#ld-fill-tools').style.display =
@@ -550,6 +564,21 @@ export class LevelDesigner {
     ov.querySelector('#ld-flip-spawner-btn').addEventListener('click', () => {
       this._flipStamp('spawner');
     });
+    // City pattern picker (visual only).
+    const pickCityBtn = ov.querySelector('#ld-pick-city-btn');
+    const clearCityBtn = ov.querySelector('#ld-clear-city-btn');
+    if (pickCityBtn) {
+      pickCityBtn.addEventListener('click', () => this._openZooForPattern('city'));
+    }
+    if (clearCityBtn) {
+      clearCityBtn.addEventListener('click', () => {
+        this._cityPattern = null;
+        const lbl = this.overlay.querySelector('#ld-city-name');
+        if (lbl) lbl.textContent = '— default block —';
+        this._setStatus('City pattern reset to default rectangle.', 'ok');
+        this._draw();
+      });
+    }
     // Line tool controls.
     const lineWidthInput = ov.querySelector('#ld-line-width');
     const lineWidthLabel = ov.querySelector('#ld-line-width-label');
@@ -955,8 +984,11 @@ export class LevelDesigner {
   }
 
   _placeCity(x, y) {
-    const w = CONFIG.CITY_WIDTH || 5;
-    const h = CONFIG.CITY_HEIGHT || 3;
+    // If a city pattern is selected, use its bounding box; otherwise
+    // fall back to the default rectangular city (CITY_WIDTH × CITY_HEIGHT).
+    const pattern = this._cityPattern;
+    const w = pattern ? pattern.width : CONFIG.CITY_WIDTH || 5;
+    const h = pattern ? pattern.height : CONFIG.CITY_HEIGHT || 3;
     const cx = Math.max(0, Math.min(this.gridWidth - w, x - Math.floor(w / 2)));
     const cy = Math.max(0, Math.min(this.gridHeight - h, y - Math.floor(h / 2)));
     // Prevent overlap.
@@ -965,7 +997,14 @@ export class LevelDesigner {
         return;
       }
     }
-    this.cities.push({ x: cx, y: cy, width: w, height: h });
+    const city = { x: cx, y: cy, width: w, height: h };
+    if (pattern) {
+      city.patternId = pattern.id;
+      city.patternName = pattern.name;
+      // Store the pattern cells so the level retains the visual shape.
+      city.cells = pattern.cells.map(([dx, dy]) => [dx, dy]);
+    }
+    this.cities.push(city);
   }
 
   _paintBrush(x, y, add) {
@@ -1110,6 +1149,7 @@ export class LevelDesigner {
       base: 'Pick an enemy base pattern',
       spawner: 'Pick a missile spawner pattern',
       defense: 'Pick a pattern to stamp as defense cells',
+      city: 'Pick a visual pattern for cities',
     };
     const title = titles[target] || titles.defense;
     let filter = null;
@@ -1166,6 +1206,11 @@ export class LevelDesigner {
       this._spawnerPattern = stamp;
       const lbl = this.overlay.querySelector('#ld-spawner-name');
       if (lbl) lbl.textContent = stamp.name;
+    } else if (target === 'city') {
+      this._cityPattern = stamp;
+      const lbl = this.overlay.querySelector('#ld-city-name');
+      if (lbl) lbl.textContent = stamp.name;
+      this._draw();
     } else {
       this._stampPattern = stamp;
       const lbl = this.overlay.querySelector('#ld-pattern-name');
@@ -1512,9 +1557,16 @@ export class LevelDesigner {
     ctx.shadowColor = cityColor;
     ctx.shadowBlur = 6;
     for (const c of this.cities) {
-      for (let dy = 0; dy < c.height; dy++) {
-        for (let dx = 0; dx < c.width; dx++) {
+      if (c.cells && Array.isArray(c.cells)) {
+        // Pattern-shaped city: render only the live cells.
+        for (const [dx, dy] of c.cells) {
           this._fillCell(ctx, c.x + dx, c.y + dy, cityColor);
+        }
+      } else {
+        for (let dy = 0; dy < c.height; dy++) {
+          for (let dx = 0; dx < c.width; dx++) {
+            this._fillCell(ctx, c.x + dx, c.y + dy, cityColor);
+          }
         }
       }
     }
@@ -1755,13 +1807,20 @@ export class LevelDesigner {
     }
     // City placement preview (5×3 block).
     if (this.mode === DESIGNER_MODE.CITY) {
-      const cw = CONFIG.CITY_WIDTH || 5;
-      const ch = CONFIG.CITY_HEIGHT || 3;
+      const pattern = this._cityPattern;
+      const cw = pattern ? pattern.width : CONFIG.CITY_WIDTH || 5;
+      const ch = pattern ? pattern.height : CONFIG.CITY_HEIGHT || 3;
       const cx = Math.max(0, Math.min(this.gridWidth - cw, hover.x - Math.floor(cw / 2)));
       const cy = Math.max(0, Math.min(this.gridHeight - ch, hover.y - Math.floor(ch / 2)));
-      for (let dy = 0; dy < ch; dy++) {
-        for (let dx = 0; dx < cw; dx++) {
-          this._fillCell(ctx, cx + dx, cy + dy, `rgba(255, 255, 96, ${pulse * 0.6})`);
+      if (pattern && pattern.cells) {
+        for (const [dx, dy] of pattern.cells) {
+          this._fillCell(ctx, cx + dx, cy + dy, `rgba(255, 255, 96, ${pulse * 0.8})`);
+        }
+      } else {
+        for (let dy = 0; dy < ch; dy++) {
+          for (let dx = 0; dx < cw; dx++) {
+            this._fillCell(ctx, cx + dx, cy + dy, `rgba(255, 255, 96, ${pulse * 0.6})`);
+          }
         }
       }
       if (this.topologyId === 'square') {
@@ -1832,7 +1891,13 @@ export class LevelDesigner {
       createdAt: Date.now(),
       gridWidth: this.gridWidth,
       gridHeight: this.gridHeight,
-      cities: this.cities.map((c) => ({ ...c })),
+      cities: this.cities.map((c) => {
+        const out = { x: c.x, y: c.y, width: c.width, height: c.height };
+        if (c.patternId) out.patternId = c.patternId;
+        if (c.patternName) out.patternName = c.patternName;
+        if (Array.isArray(c.cells)) out.cells = c.cells.map(([dx, dy]) => [dx, dy]);
+        return out;
+      }),
       defenses: Array.from(this.defenseCells).map((k) => k.split(',').map(Number)),
       barriers: Array.from(this.barrierCells).map((k) => k.split(',').map(Number)),
       fire: Array.from(this.fireCells).map((k) => k.split(',').map(Number)),
@@ -1885,7 +1950,13 @@ export class LevelDesigner {
   _deserialize(level) {
     this.gridWidth = level.gridWidth || 120;
     this.gridHeight = level.gridHeight || 80;
-    this.cities = (level.cities || []).map((c) => ({ ...c }));
+    this.cities = (level.cities || []).map((c) => {
+      const city = { x: c.x, y: c.y, width: c.width, height: c.height };
+      if (c.patternId) city.patternId = c.patternId;
+      if (c.patternName) city.patternName = c.patternName;
+      if (Array.isArray(c.cells)) city.cells = c.cells.map(([dx, dy]) => [dx, dy]);
+      return city;
+    });
     this.defenseCells = new Set((level.defenses || []).map(([x, y]) => `${x},${y}`));
     this.barrierCells = new Set((level.barriers || []).map(([x, y]) => `${x},${y}`));
     this.fireCells = new Set((level.fire || []).map(([x, y]) => `${x},${y}`));

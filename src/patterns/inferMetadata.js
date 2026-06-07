@@ -13,6 +13,7 @@
 import { CompiledRuleset, CONWAY, getRuleset, parseBSNotation } from '../rules/ruleset.js';
 import { listRulesets, formatBSNotation } from '../rules/ruleset.js';
 import '../rules/extraRulesets.js';
+import { isExoticRule, getExoticRule } from '../rules/exoticEngines.js';
 import { CATEGORY } from './library.js';
 import {
   cellsToSet,
@@ -157,6 +158,37 @@ export function resolveRule(rule) {
     // for visibility but proceed normally.
     // (Topology info could be preserved elsewhere if needed.)
   }
+  // Exotic rules (TCA, time-integrated, fractional lightcone) can't be
+  // simulated by the standard B/S engine in lifeSim.js — their dynamics
+  // depend on lookahead, history buffers, or continuous influence
+  // kernels. Surface them with a sentinel marker so callers can skip
+  // characterization rather than producing misleading results from a
+  // Conway fallback.
+  const trimmedLower = trimmed.toLowerCase();
+  if (isExoticRule(trimmedLower)) {
+    const entry = getExoticRule(trimmedLower);
+    bumpResolved(trimmedLower);
+    return {
+      def: entry.def,
+      compiled: null,
+      rulesetId: trimmedLower,
+      exotic: true,
+      exoticType: entry.type,
+    };
+  }
+  // Some exotic rules may also be mirrored into the standard registry
+  // with an `_exoticType` marker. Detect that variant too.
+  const maybeStd = getRuleset(trimmedLower);
+  if (maybeStd && maybeStd._exoticType) {
+    bumpResolved(maybeStd.id);
+    return {
+      def: maybeStd,
+      compiled: null,
+      rulesetId: maybeStd.id,
+      exotic: true,
+      exoticType: maybeStd._exoticType,
+    };
+  }
   // Try id lookup first (e.g. "conway", "highlife").
   const byId = getRuleset(trimmed.toLowerCase());
   if (byId) {
@@ -247,7 +279,8 @@ export function resolveRule(rule) {
 export function inferPatternMetadata(cells, opts = {}) {
   const { maxPeriod = 60, methuselahGens = 200, populationCap = 100000 } = opts;
   const notes = [];
-  const { compiled, rulesetId } = resolveRule(opts.rule);
+  const resolved = resolveRule(opts.rule);
+  const { compiled, rulesetId } = resolved;
 
   if (!cells || cells.length === 0) {
     return {
@@ -264,6 +297,43 @@ export function inferPatternMetadata(cells, opts = {}) {
       unbounded: false,
       notes: ['empty pattern'],
     };
+  }
+  // Exotic rule: we cannot faithfully simulate this pattern with the
+  // standard B/S engine. Return a minimal "uncharacterized" record so
+  // the caller (e.g. PatternCapture) doesn't mislabel the pattern as
+  // chaotic/unbounded based on a wrong Conway simulation.
+  if (resolved.exotic) {
+    const initial = cellsToSet(cells);
+    const initBB = boundingBox(initial);
+    notes.push(`exotic ruleset "${rulesetId}" (${resolved.exoticType}) — characterization skipped`);
+    return {
+      category: CATEGORY.MISC,
+      period: 0,
+      direction: null,
+      displacement: null,
+      rulesetId,
+      maxBounds: initBB ? { width: initBB.width, height: initBB.height } : null,
+      maxPopulation: initial.size,
+      finalPopulation: initial.size,
+      stabilizedAt: null,
+      extinct: false,
+      unbounded: false,
+      exotic: true,
+      notes,
+    };
+  }
+  // Topology-aware sparse simulator: hex (odd-r offset coords) and
+  // tri (orientation-dependent) topologies are now handled directly
+  // by lifeSim.js via per-cell offset lookup. The simulator reads
+  // the topology from rule.neighborhood.topology and dispatches.
+  let ruleTopology = 'square';
+  if (compiled && compiled.topology) {
+    ruleTopology = compiled.topology;
+  } else if (resolved.def && resolved.def.topology) {
+    ruleTopology = resolved.def.topology;
+  }
+  if (ruleTopology && ruleTopology !== 'square') {
+    notes.push(`topology="${ruleTopology}" (topology-aware simulation)`);
   }
 
   const initial = cellsToSet(cells);

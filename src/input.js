@@ -290,7 +290,7 @@ export class InputManager {
       const panOffset = this.grid.panOffset || 0;
       const w = this.grid.width;
       const gx = (((displayX + panOffset) % w) + w) % w;
-      return { gx, gy };
+      return { gx, gy, topology: 'square' };
     }
     // Hex / Tri: use topology helper.
     const topology = getTopology(topologyId);
@@ -298,9 +298,9 @@ export class InputManager {
     if (topologyId === 'tri') {
       // For tri, we encode (x, y, orient) into gx/gy by packing orient
       // into the low bit of gx*2.
-      return { gx: result.x, gy: result.y, orient: result.orient };
+      return { gx: result.x, gy: result.y, orient: result.orient, topology: 'tri' };
     }
-    return { gx: result.x, gy: result.y };
+    return { gx: result.x, gy: result.y, topology: 'hex' };
   }
 
   _isDrawZone(gy) {

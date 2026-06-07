@@ -3,6 +3,7 @@ import { Logger } from './logger.js';
 import { listPatterns, clonePatternCells, CATEGORY } from './patterns/index.js';
 import { listRulesets, getRuleset, CompiledRuleset, CONWAY } from './rules/ruleset.js';
 import './rules/extraRulesets.js';
+import { runExoticStep, resetExoticState } from './rules/exoticEngines.js';
 import {
   loadCustomPatterns,
   loadCustomPatternMeta,
@@ -44,6 +45,8 @@ class ToroidalLifeSim {
     this.cells = new Uint8Array(sz);
     this.next = new Uint8Array(sz);
     this.generation = 0;
+    // Exotic engine state. Set via setExoticRule().
+    this._exoticRule = null;
   }
 
   setSize(width, height) {
@@ -54,10 +57,20 @@ class ToroidalLifeSim {
     this.cells = new Uint8Array(sz);
     this.next = new Uint8Array(sz);
     this.generation = 0;
+    if (this._exoticRule) resetExoticState(this._exoticRule);
   }
 
   setRule(rule) {
     this.rule = rule;
+    this._exoticRule = null;
+  }
+  // Switch this sim to use an exotic engine (TCA / time-integrated /
+  // fractional lightcone). The exotic engine operates on the binary
+  // cell grid directly.
+  setExoticRule(exoticCompiled) {
+    this._exoticRule = exoticCompiled;
+    this.rule = null;
+    resetExoticState(exoticCompiled);
   }
   setWrap(wrap) {
     this.wrap = wrap;
@@ -69,11 +82,13 @@ class ToroidalLifeSim {
     this.cells = new Uint8Array(sz);
     this.next = new Uint8Array(sz);
     this.generation = 0;
+    if (this._exoticRule) resetExoticState(this._exoticRule);
   }
 
   clear() {
     this.cells.fill(0);
     this.generation = 0;
+    if (this._exoticRule) resetExoticState(this._exoticRule);
   }
 
   // Stamp a pattern centered in the grid.
@@ -82,7 +97,9 @@ class ToroidalLifeSim {
     if (!cells || cells.length === 0) return;
     let maxX = 0,
       maxY = 0;
-    for (const [x, y] of cells) {
+    for (const c of cells) {
+      const x = c[0];
+      const y = c[1];
       if (x > maxX) maxX = x;
       if (y > maxY) maxY = y;
     }
@@ -91,12 +108,15 @@ class ToroidalLifeSim {
     const offX = Math.floor((this.width - pw) / 2);
     const offY = Math.floor((this.height - ph) / 2);
     const stride = this.topologyId === 'tri' ? 2 : 1;
-    for (const [x, y] of cells) {
+    for (const c of cells) {
+      const x = c[0];
+      const y = c[1];
+      const orient = c.length >= 3 ? c[2] | 0 : 0;
       const px = (((x + offX) % this.width) + this.width) % this.width;
       const py = (((y + offY) % this.height) + this.height) % this.height;
       if (this.topologyId === 'tri') {
-        // Default to upward triangle (orient=0) for plain (x,y) coords.
-        this.cells[py * this.width * 2 + px * 2] = 1;
+        // Use orientation from the cell tuple if present, else default to △.
+        this.cells[py * this.width * 2 + px * 2 + orient] = 1;
       } else {
         this.cells[py * this.width + px * stride] = 1;
       }
@@ -104,6 +124,10 @@ class ToroidalLifeSim {
   }
 
   tick() {
+    if (this._exoticRule) {
+      this._tickExotic();
+      return;
+    }
     if (this.topologyId === 'hex') {
       this._tickHex();
       return;
@@ -113,6 +137,16 @@ class ToroidalLifeSim {
       return;
     }
     this._tickSquare();
+  }
+  _tickExotic() {
+    // Exotic engines assume square topology and a binary cell grid.
+    // The current cell buffer is already binary (0/1), so we can pass
+    // it directly to runExoticStep.
+    runExoticStep(this._exoticRule, this.cells, this.next, this.width, this.height);
+    const tmp = this.cells;
+    this.cells = this.next;
+    this.next = tmp;
+    this.generation++;
   }
   _tickSquare() {
     const w = this.width;
@@ -262,8 +296,12 @@ class PatternPreview {
     // interfere with the gun structure.
     this.wrap = wrap !== undefined ? wrap : pattern.category !== CATEGORY.GUN;
     const rule = this._compileRule();
-    const topologyId = rule.topology || 'square';
+    const isExotic = rule && rule._exoticCompiled;
+    const topologyId = isExotic ? 'square' : rule.topology || 'square';
     this.sim = new ToroidalLifeSim(gridSize, gridSize, rule, topologyId);
+    if (isExotic) {
+      this.sim.setExoticRule(rule._exoticCompiled);
+    }
     this.sim.setWrap(this.wrap);
     this.sim.stampCentered(pattern.cells);
     this._accumMs = 0;
@@ -274,10 +312,9 @@ class PatternPreview {
 
   _compileRule() {
     const def = getRuleset(this.rulesetId) || CONWAY;
-    // Exotic rules don't expose a neighborhood — fall back to Conway
-    // for preview purposes.
-    if (def._exoticType) {
-      return new CompiledRuleset(CONWAY);
+    // Exotic rules: return the precompiled engine wrapped in a marker.
+    if (def._exoticType && def._exoticCompiled) {
+      return { _exoticCompiled: def._exoticCompiled, _exoticType: def._exoticType };
     }
     return new CompiledRuleset(def);
   }
@@ -285,9 +322,14 @@ class PatternPreview {
   setRuleset(id) {
     this.rulesetId = id;
     const rule = this._compileRule();
-    const topologyId = rule.topology || 'square';
+    const isExotic = rule && rule._exoticCompiled;
+    const topologyId = isExotic ? 'square' : rule.topology || 'square';
     this.sim.setTopology(topologyId);
-    this.sim.setRule(rule);
+    if (isExotic) {
+      this.sim.setExoticRule(rule._exoticCompiled);
+    } else {
+      this.sim.setRule(rule);
+    }
     this.reset();
   }
 
@@ -637,7 +679,8 @@ export class PatternZoo {
         width: normalized.width,
         height: normalized.height,
         period: m.period != null ? m.period : 1,
-        rulesets: m.rulesets || ['*'],
+        rulesets: m.rulesets || (m.capturedRuleset ? [m.capturedRuleset] : ['*']),
+        capturedRuleset: m.capturedRuleset || null,
         description: m.description || 'User-captured pattern.',
         tags: m.tags || ['custom'],
         direction: m.direction || null,
@@ -660,6 +703,8 @@ export class PatternZoo {
   // current ruleset filter (if any specific one is selected) or to the
   // game's active ruleset.
   _getNativeRulesetFor(pattern) {
+    // Custom patterns: prefer the explicit capturedRuleset if present.
+    if (pattern.capturedRuleset) return pattern.capturedRuleset;
     const rulesets = pattern.rulesets || [];
     for (const r of rulesets) {
       if (r && r !== '*') return r;

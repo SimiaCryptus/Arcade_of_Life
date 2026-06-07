@@ -173,6 +173,8 @@ export class PatternCapture {
     this.dragging = false;
     this.startCell = null;
     this.currentCell = null;
+    this.startPixel = null;
+    this.currentPixel = null;
     // Re-enable the draw tool.
     if (this.game.input) this.game.input.setSuspended(false);
     // Restore speed.
@@ -290,12 +292,6 @@ export class PatternCapture {
 
   _updateRect() {
     if (!this._rectEl || !this.startCell || !this.currentCell) return;
-    const x0 = Math.min(this.startCell.gx, this.currentCell.gx);
-    const x1 = Math.max(this.startCell.gx, this.currentCell.gx);
-    const y0 = Math.min(this.startCell.gy, this.currentCell.gy);
-    const y1 = Math.max(this.startCell.gy, this.currentCell.gy);
-    // Compute bounding rect in canvas-pixel space using the current
-    // topology, then convert to CSS pixels for the overlay element.
     const cs = CONFIG.CELL_SIZE;
     const topologyId = (this.game.grid && this.game.grid.topologyId) || 'square';
     const canvasRect = this.canvas.getBoundingClientRect();
@@ -303,11 +299,30 @@ export class PatternCapture {
     const scaleY = canvasRect.height / this.canvas.height;
     let pxL, pxT, pxR, pxB;
     if (topologyId === 'square') {
+      const x0 = Math.min(this.startCell.gx, this.currentCell.gx);
+      const x1 = Math.max(this.startCell.gx, this.currentCell.gx);
+      const y0 = Math.min(this.startCell.gy, this.currentCell.gy);
+      const y1 = Math.max(this.startCell.gy, this.currentCell.gy);
       pxL = x0 * cs;
       pxT = y0 * cs;
       pxR = (x1 + 1) * cs;
       pxB = (y1 + 1) * cs;
+    } else if (this.startPixel && this.currentPixel) {
+      // For hex/tri, use the actual drag pixel positions directly. This
+      // gives accurate visual feedback matching what the user actually
+      // selected. The cell-polygon-union approach below over-reports
+      // the selection width on hex grids because of the half-hex
+      // offsets of odd rows in odd-r offset coordinates.
+      pxL = Math.min(this.startPixel.x, this.currentPixel.x);
+      pxT = Math.min(this.startPixel.y, this.currentPixel.y);
+      pxR = Math.max(this.startPixel.x, this.currentPixel.x);
+      pxB = Math.max(this.startPixel.y, this.currentPixel.y);
     } else {
+      // Fallback: cell-polygon union of the axial bounding box.
+      const x0 = Math.min(this.startCell.gx, this.currentCell.gx);
+      const x1 = Math.max(this.startCell.gx, this.currentCell.gx);
+      const y0 = Math.min(this.startCell.gy, this.currentCell.gy);
+      const y1 = Math.max(this.startCell.gy, this.currentCell.gy);
       const topology = getTopology(topologyId);
       // Build the union of cell bounding boxes for the selection.
       let minPx = Infinity,
@@ -350,6 +365,10 @@ export class PatternCapture {
     this._rectEl.style.height = `${(pxB - pxT) * scaleY}px`;
     // Update hint with selection size.
     if (this._hintEl) {
+      const x0 = Math.min(this.startCell.gx, this.currentCell.gx);
+      const x1 = Math.max(this.startCell.gx, this.currentCell.gx);
+      const y0 = Math.min(this.startCell.gy, this.currentCell.gy);
+      const y1 = Math.max(this.startCell.gy, this.currentCell.gy);
       const w = x1 - x0 + 1;
       const h = y1 - y0 + 1;
       this._hintEl.textContent = `◧ Selection: ${w}×${h} — release to capture, [Esc] cancel`;
@@ -357,14 +376,21 @@ export class PatternCapture {
   }
 
   // -------------------- Input handling --------------------
-  _getCell(clientX, clientY) {
+  _clientToCanvas(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
-    const cs = CONFIG.CELL_SIZE > 0 ? CONFIG.CELL_SIZE : 1;
-    // Scale CSS pixel coords to internal canvas pixel coords.
     const scaleX = this.canvas.width / rect.width;
     const scaleY = this.canvas.height / rect.height;
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY - CONFIG.HUD_HEIGHT;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY - CONFIG.HUD_HEIGHT,
+    };
+  }
+
+  _getCell(clientX, clientY) {
+    const cs = CONFIG.CELL_SIZE > 0 ? CONFIG.CELL_SIZE : 1;
+    const p = this._clientToCanvas(clientX, clientY);
+    const x = p.x;
+    const y = p.y;
     const topologyId = (this.game.grid && this.game.grid.topologyId) || 'square';
     if (topologyId === 'square') {
       return {
@@ -391,6 +417,8 @@ export class PatternCapture {
     e.preventDefault();
     e.stopPropagation();
     this.dragging = true;
+    this.startPixel = this._clientToCanvas(e.clientX, e.clientY);
+    this.currentPixel = this.startPixel;
     const cell = this._clampCell(this._getCell(e.clientX, e.clientY));
     this.startCell = cell;
     this.currentCell = cell;
@@ -400,6 +428,7 @@ export class PatternCapture {
   _onMouseMove(e) {
     if (!this.active || !this.dragging) return;
     e.preventDefault();
+    this.currentPixel = this._clientToCanvas(e.clientX, e.clientY);
     const cell = this._clampCell(this._getCell(e.clientX, e.clientY));
     this.currentCell = cell;
     this._updateRect();
@@ -418,6 +447,8 @@ export class PatternCapture {
     e.preventDefault();
     this.dragging = true;
     const t = e.touches[0];
+    this.startPixel = this._clientToCanvas(t.clientX, t.clientY);
+    this.currentPixel = this.startPixel;
     const cell = this._clampCell(this._getCell(t.clientX, t.clientY));
     this.startCell = cell;
     this.currentCell = cell;
@@ -429,6 +460,7 @@ export class PatternCapture {
     if (!e.touches || e.touches.length === 0) return;
     e.preventDefault();
     const t = e.touches[0];
+    this.currentPixel = this._clientToCanvas(t.clientX, t.clientY);
     const cell = this._clampCell(this._getCell(t.clientX, t.clientY));
     this.currentCell = cell;
     this._updateRect();
@@ -458,30 +490,78 @@ export class PatternCapture {
   _finishSelection() {
     if (!this.startCell || !this.currentCell) return;
     const g = this.game.grid;
+    const topologyId = g.topologyId || 'square';
+    const cs = CONFIG.CELL_SIZE;
     const x0 = Math.min(this.startCell.gx, this.currentCell.gx);
     const x1 = Math.max(this.startCell.gx, this.currentCell.gx);
     const y0 = Math.min(this.startCell.gy, this.currentCell.gy);
     const y1 = Math.max(this.startCell.gy, this.currentCell.gy);
-    // Collect all live cells within the rectangle that belong to the
-    // player (DEFENSE) or that the player likely wants to capture.
-    // We capture DEFENSE cells primarily; missile cells are intentionally
-    // skipped (capturing enemy patterns would let players replay them as
-    // friendly, which is interesting but not the primary use case here).
-    // Pending cells are also included since they represent the player's
-    // active drawing.
     const cells = [];
-    for (let y = y0; y <= y1; y++) {
-      for (let x = x0; x <= x1; x++) {
-        if (!g.inBounds(x, y)) continue;
-        const wx = g.wrapX(x);
-        const i = y * g.width + wx;
-        const t = g.cells[i];
-        const pending = g.pending[i];
-        if (t === CELL_TYPE.DEFENSE || pending) {
-          cells.push([x - x0, y - y0]);
+
+    if (topologyId === 'hex' && this.startPixel && this.currentPixel) {
+      // Hex topology: the axial (q, r) bounding box does NOT correspond
+      // to the user's visual rectangle, because odd rows are shifted
+      // half a hex width to the right under odd-r offset coordinates.
+      // Instead, iterate a slightly expanded axial box and include only
+      // hexes whose center falls inside the actual pixel drag rectangle.
+      const topology = getTopology('hex');
+      const pxL = Math.min(this.startPixel.x, this.currentPixel.x);
+      const pxR = Math.max(this.startPixel.x, this.currentPixel.x);
+      const pyT = Math.min(this.startPixel.y, this.currentPixel.y);
+      const pyB = Math.max(this.startPixel.y, this.currentPixel.y);
+      const xMin = Math.max(0, x0 - 1);
+      const xMax = Math.min(g.width - 1, x1 + 1);
+      const yMin = Math.max(0, y0 - 1);
+      const yMax = Math.min(g.height - 1, y1 + 1);
+      let minQ = Infinity;
+      let minR = Infinity;
+      const raw = [];
+      for (let r = yMin; r <= yMax; r++) {
+        for (let q = xMin; q <= xMax; q++) {
+          if (!g.inBounds(q, r)) continue;
+          const center = topology.cellCenter(q, r, cs);
+          if (center.px < pxL || center.px > pxR) continue;
+          if (center.py < pyT || center.py > pyB) continue;
+          const wx = g.wrapX(q);
+          const i = r * g.width + wx;
+          const t = g.cells[i];
+          const pending = g.pending[i];
+          if (t === CELL_TYPE.DEFENSE || pending) {
+            raw.push([q, r]);
+            if (q < minQ) minQ = q;
+            if (r < minR) minR = r;
+          }
+        }
+      }
+      // Normalize to (0,0) anchor relative to the topmost-leftmost
+      // captured hex. NOTE: on hex grids, the visual shape of a stamped
+      // pattern depends on the row parity of the anchor (odd-r offset
+      // coords shift odd rows). This capture is faithful to the source
+      // cells; stamping at a different row parity may shear the
+      // pattern. That is a known limitation of the current stamp logic.
+      for (const [q, r] of raw) {
+        cells.push([q - minQ, r - minR]);
+      }
+    } else {
+      // Square (and fallback for tri): iterate the axial bounding box.
+      // Collect all live cells within the rectangle that belong to the
+      // player (DEFENSE) or that the player likely wants to capture.
+      // Pending cells are also included since they represent the
+      // player's active drawing.
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          if (!g.inBounds(x, y)) continue;
+          const wx = g.wrapX(x);
+          const i = y * g.width + wx;
+          const t = g.cells[i];
+          const pending = g.pending[i];
+          if (t === CELL_TYPE.DEFENSE || pending) {
+            cells.push([x - x0, y - y0]);
+          }
         }
       }
     }
+
     if (cells.length === 0) {
       // Empty selection — show a brief notice, reset rect, allow retry.
       if (this._hintEl) {
@@ -643,13 +723,16 @@ export class PatternCapture {
 
     // Detect duplicates of built-in patterns by canonical fingerprint.
     const duplicateOf = this._findDuplicateBuiltin(normCells);
+    // Capture the active ruleset so the pattern can be tagged and later
+    // routed to a compatible preview/simulation context.
+    const activeRuleset = CONFIG.ACTIVE_RULESET || 'conway';
 
     // Run characterization to infer category/period/direction etc.
     // This mirrors the lifewikiImporter pipeline so saved patterns get
     // the same metadata treatment as bundled ones.
     let inferred = null;
     try {
-      inferred = this._inferMetadata(normCells);
+      inferred = this._inferMetadata(normCells, activeRuleset);
     } catch (e) {
       Logger.warn('[PatternCapture] Metadata inference failed:', e);
     }
@@ -658,6 +741,11 @@ export class PatternCapture {
       // Merge user-provided meta with inferred values; user values win.
       const merged = inferred ? { ...inferred, ...meta } : { ...meta };
       if (duplicateOf) merged.duplicateOf = duplicateOf;
+      // Always record the capture ruleset unless caller provided one.
+      if (!merged.capturedRuleset) merged.capturedRuleset = activeRuleset;
+      if (!merged.rulesets || merged.rulesets.length === 0 || merged.rulesets[0] === '*') {
+        merged.rulesets = [activeRuleset];
+      }
       this.customPatternMeta[name] = merged;
     } else if (!this.customPatternMeta[name]) {
       // Default metadata for newly captured patterns. Use inferred
@@ -667,11 +755,17 @@ export class PatternCapture {
         period: 1,
         direction: null,
         description: 'User-captured pattern.',
-        tags: ['custom', 'user'],
-        rulesets: ['*'],
+        tags: ['custom', 'user', `rule:${activeRuleset}`],
+        rulesets: [activeRuleset],
+        capturedRuleset: activeRuleset,
         createdAt: Date.now(),
       };
       const merged = inferred ? { ...defaults, ...inferred } : defaults;
+      // Ensure inferred metadata doesn't strip the ruleset tag.
+      if (!merged.rulesets || merged.rulesets.length === 0) {
+        merged.rulesets = [activeRuleset];
+      }
+      if (!merged.capturedRuleset) merged.capturedRuleset = activeRuleset;
       if (duplicateOf) {
         merged.duplicateOf = duplicateOf;
         merged.description = `User-captured pattern. Duplicate of built-in "${duplicateOf}".`;
@@ -686,6 +780,7 @@ export class PatternCapture {
       if (existing.period == null || existing.period === 1) existing.period = inferred.period;
       if (!existing.direction) existing.direction = inferred.direction;
       if (duplicateOf && !existing.duplicateOf) existing.duplicateOf = duplicateOf;
+      if (!existing.capturedRuleset) existing.capturedRuleset = activeRuleset;
     }
     if (duplicateOf) {
       Logger.info(`[PatternCapture] Saved "${name}" — duplicate of built-in "${duplicateOf}".`);
@@ -747,7 +842,7 @@ export class PatternCapture {
   // Run pattern characterization to infer category, period, direction.
   // Uses dynamic import so the inference module is only loaded when needed
   // (and so we don't pull Node-only path/fs imports into the browser bundle).
-  _inferMetadata(normCells) {
+  _inferMetadata(normCells, rulesetId) {
     // inferMetadata.js is browser-safe (only depends on rules/* and library.js)
     // so we import it at the top of this module and bind the function to
     // this._inferFn in the constructor.
@@ -757,6 +852,7 @@ export class PatternCapture {
     let result;
     try {
       result = this._inferFn(normCells, {
+        rule: rulesetId,
         maxPeriod: 30,
         methuselahGens: 100,
         populationCap: 5000,
@@ -767,20 +863,24 @@ export class PatternCapture {
     }
     if (!result) return null;
     const tags = ['custom', 'user'];
+    if (rulesetId) tags.push(`rule:${rulesetId}`);
     if (result.category) tags.push(result.category);
     if (result.period > 1) tags.push(`p${result.period}`);
     if (result.unbounded) tags.push('unbounded');
     if (result.extinct) tags.push('extinct');
+    if (result.exotic) tags.push('exotic');
     return {
       category: result.category || 'misc',
       period: result.period > 0 ? result.period : 1,
       direction: result.direction || null,
-      description:
-        result.notes && result.notes.length > 0
+      description: result.exotic
+        ? `User-captured pattern (exotic ruleset "${rulesetId}"; auto-characterization unavailable).`
+        : result.notes && result.notes.length > 0
           ? `User-captured pattern. ${result.notes[0]}`
           : 'User-captured pattern.',
       tags,
-      rulesets: ['*'],
+      rulesets: rulesetId ? [rulesetId] : ['*'],
+      capturedRuleset: rulesetId || null,
       createdAt: Date.now(),
       maxBounds: result.maxBounds || null,
       maxPopulation: result.maxPopulation,
@@ -788,6 +888,7 @@ export class PatternCapture {
       stabilizedAt: result.stabilizedAt,
       extinct: !!result.extinct,
       unbounded: !!result.unbounded,
+      exotic: !!result.exotic,
     };
   }
 

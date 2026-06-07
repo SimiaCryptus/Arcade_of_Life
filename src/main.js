@@ -88,6 +88,25 @@ class Game {
             Logger.info(`Topology changed to "${newTopology}"; rebuilding world.`);
             this._buildWorld();
             this.renderer.setGrid(this.grid);
+          } else if (this.simulation) {
+            const desiredRuleId = CONFIG.ACTIVE_RULESET || 'conway';
+            if (this.simulation._ruleId !== desiredRuleId) {
+              Logger.info(
+                `Ruleset changed to "${desiredRuleId}"; rebuilding world to force grid replacement.`
+              );
+              // Full world rebuild ensures the grid is replaced, simulation
+              // is reconstructed with the new ruleset, and all backend
+              // state (including exotic engine internals) is fresh.
+              // Without this, lingering state from the old ruleset's
+              // backend/engine can cause incorrect evolution.
+              this._buildWorld();
+              this.renderer.setGrid(this.grid);
+              // If we were mid-game, re-place cities so the board isn't empty.
+              if (this.gameState.is(STATE.PLAYING)) {
+                this.cities.place();
+                this.missiles.startWave(Math.max(0, this.hud.wave - 1));
+              }
+            }
           }
         } catch (e) {
           Logger.warn('Topology check failed on settings close', e);
@@ -2018,10 +2037,21 @@ class Game {
     this.grid.clearPending();
     for (const c of level.cities || []) {
       const city = { x: c.x, y: c.y, width: c.width, height: c.height, alive: true };
+      if (c.patternId) city.patternId = c.patternId;
+      if (Array.isArray(c.cells) && c.cells.length > 0) {
+        city.cells = c.cells.map(([dx, dy]) => [dx, dy]);
+      }
       this.cities.cities.push(city);
-      for (let dy = 0; dy < city.height; dy++) {
-        for (let dx = 0; dx < city.width; dx++) {
+      if (city.cells) {
+        // Pattern-shaped city — only set the cells in the pattern.
+        for (const [dx, dy] of city.cells) {
           this.grid.set(city.x + dx, city.y + dy, CELL_TYPE.CITY);
+        }
+      } else {
+        for (let dy = 0; dy < city.height; dy++) {
+          for (let dx = 0; dx < city.width; dx++) {
+            this.grid.set(city.x + dx, city.y + dy, CELL_TYPE.CITY);
+          }
         }
       }
     }

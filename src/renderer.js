@@ -694,6 +694,7 @@ export class Renderer {
     const ctx = this.ctx;
     const cs = CONFIG.CELL_SIZE;
     const dzMinY = this.grid.drawZoneMinY();
+    const topologyId = this.grid.topologyId || 'square';
     // Pulse the alpha slightly so the preview is visually distinct.
     const pulse = 0.55 + 0.15 * Math.sin(performance.now() / 200);
     for (const c of cells) {
@@ -712,12 +713,50 @@ export class Renderer {
       } else {
         color = `rgba(0, 255, 200, ${pulse})`; // ok = cyan
       }
-      ctx.fillStyle = color;
-      ctx.fillRect(wx * cs, y * cs + gridYOffset, cs, cs);
-      // Outline for clarity.
-      ctx.strokeStyle = `rgba(255, 255, 255, ${pulse * 0.4})`;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(wx * cs + 0.5, y * cs + gridYOffset + 0.5, cs - 1, cs - 1);
+      if (topologyId === 'square') {
+        ctx.fillStyle = color;
+        ctx.fillRect(wx * cs, y * cs + gridYOffset, cs, cs);
+        // Outline for clarity.
+        ctx.strokeStyle = `rgba(255, 255, 255, ${pulse * 0.4})`;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(wx * cs + 0.5, y * cs + gridYOffset + 0.5, cs - 1, cs - 1);
+      } else {
+        // Hex or tri: use topology to compute polygon.
+        const topology = getTopology(topologyId);
+        let verts;
+        if (topologyId === 'tri') {
+          // Tri orientation default = 0 (upward). The preview doesn't track
+          // orient per-cell, so draw both orientations for full coverage.
+          for (let o = 0; o < 2; o++) {
+            verts = topology.cellPolygon(wx, y, cs, o);
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+            for (let v = 1; v < verts.length; v++) {
+              ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = `rgba(255, 255, 255, ${pulse * 0.4})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        } else {
+          // Hex.
+          verts = topology.cellPolygon(wx, y, cs);
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+          for (let v = 1; v < verts.length; v++) {
+            ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = `rgba(255, 255, 255, ${pulse * 0.4})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
     }
   }
 
