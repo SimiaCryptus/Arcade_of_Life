@@ -2431,6 +2431,19 @@ class Game {
     this.gameState.set(STATE.MENU);
     // Hide threshold display.
     if (this.thresholdDisplay) this.thresholdDisplay.classList.add('hidden');
+    // Remove any stale level-catalog sections that may have been left
+    // behind in #overlay-content from a previous render (they would
+    // otherwise appear outside the tab panels).
+    document
+      .querySelectorAll('#overlay-content > .level-catalog-section')
+      .forEach((el) => el.remove());
+    // Also clear the mount point so initLevelCatalog re-renders fresh
+    // content into it (otherwise stale content lingers while new
+    // content gets appended outside the tab panels).
+    const mount = document.getElementById('menu-level-catalog-mount');
+    if (mount) {
+      while (mount.firstChild) mount.removeChild(mount.firstChild);
+    }
     // Show the main menu overlay.
     this.showOverlay('The Arcade of Life', this.motd, '▶ Arcade Mode');
     // Re-render the curated level list (overlay content was rewritten).
@@ -2445,16 +2458,28 @@ class Game {
     const tryMove = (attemptsLeft) => {
       const mount = document.getElementById('menu-level-catalog-mount');
       if (!mount) return;
-      const section = document.querySelector('#overlay-content .level-catalog-section');
-      if (section && section.parentElement !== mount) {
+      // Find ALL stray catalog sections anywhere under overlay-content
+      // that aren't already inside the mount, and move them in.
+      const all = document.querySelectorAll('#overlay-content .level-catalog-section');
+      let movedAny = false;
+      all.forEach((section) => {
+        // Skip if already inside the mount (direct or nested).
+        if (mount.contains(section)) return;
+        // Clear the mount the first time we move something in this pass,
+        // so we don't stack duplicates.
+        if (!movedAny) {
+          while (mount.firstChild) mount.removeChild(mount.firstChild);
+        }
         mount.appendChild(section);
-        return;
-      }
-      if (!section && attemptsLeft > 0) {
+        movedAny = true;
+      });
+      // Keep polling for a while even after a successful move, in case
+      // initLevelCatalog renders additional/late content.
+      if (attemptsLeft > 0) {
         setTimeout(() => tryMove(attemptsLeft - 1), 80);
       }
     };
-    tryMove(20);
+    tryMove(30);
   }
 
   startGame() {
