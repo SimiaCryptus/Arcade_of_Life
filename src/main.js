@@ -73,6 +73,7 @@ class Game {
     this.patternZooIngameButton = document.getElementById('pattern-zoo-ingame-button');
     this.levelDesignerButton = document.getElementById('level-designer-button');
     this.levelDesignerIngameButton = document.getElementById('level-designer-ingame-button');
+    this.motd = 'Play The Game of Life like classic arcade games!';
 
     this._buildWorld();
 
@@ -341,20 +342,11 @@ class Game {
       },
       true
     ); // capture phase
-
-    this.showOverlay(
-      'The Arcade of Life',
-      `Defend your cities from incoming missiles!<br>
-                 Draw defensive patterns on the bottom half of the screen.<br>
-                 Released cells evolve via Conway's Game of Life.<br><br>
-                 <strong>Click and drag</strong> to draw defenses.<br>
-                 Release to commit them to the simulation.<br><br>
-                 <strong>Hotkeys:</strong> Space = pause/resume, [ / ] = slower/faster, 0-8 = speed preset<br><br>
-                 High Score: ${this.hud.highScore}`,
-      'Start Game'
-    );
+    this.showOverlay('The Arcade of Life', this.motd, '▶ Arcade Mode');
     // Prefetch and render the curated level catalog on the main menu.
     initLevelCatalog();
+    // Move the catalog into the Library tab if it rendered into the overlay.
+    this._relocateLevelCatalog();
     Logger.info(
       `Game initialized. Grid ${CONFIG.GRID_WIDTH}x${CONFIG.GRID_HEIGHT}, cell ${CONFIG.CELL_SIZE}px.`
     );
@@ -1774,9 +1766,44 @@ class Game {
 
   showOverlay(title, message, buttonText) {
     this.overlayTitle.innerHTML = title;
-    this.overlayMessage.innerHTML = message;
+    if (this.overlayMessage) this.overlayMessage.innerHTML = message;
     this.startButton.textContent = buttonText;
     this.overlay.classList.remove('hidden');
+    this._wireMenuTabs();
+    this._activateMenuTab('play');
+  }
+  _wireMenuTabs() {
+    if (this._menuTabsWired) return;
+    const tabs = document.querySelectorAll('#menu-tabs .menu-tab');
+    if (!tabs || tabs.length === 0) return;
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const id = tab.getAttribute('data-tab');
+        this._activateMenuTab(id);
+      });
+    });
+    // Wire the Story Mode button if present.
+    const storyBtn = document.getElementById('story-mode-btn');
+    if (storyBtn) {
+      storyBtn.addEventListener('click', () => {
+        if (this.story && typeof this.story.startStory === 'function') {
+          this.story.startStory();
+        } else {
+          Logger.warn('Story engine not available.');
+        }
+      });
+    }
+    this._menuTabsWired = true;
+  }
+  _activateMenuTab(id) {
+    const tabs = document.querySelectorAll('#menu-tabs .menu-tab');
+    const panels = document.querySelectorAll('#menu-tab-panels .menu-tab-panel');
+    tabs.forEach((t) => {
+      t.classList.toggle('active', t.getAttribute('data-tab') === id);
+    });
+    panels.forEach((p) => {
+      p.classList.toggle('active', p.getAttribute('data-panel') === id);
+    });
   }
 
   hideOverlay() {
@@ -2407,19 +2434,29 @@ class Game {
     // Hide threshold display.
     if (this.thresholdDisplay) this.thresholdDisplay.classList.add('hidden');
     // Show the main menu overlay.
-    this.showOverlay(
-      'The Arcade of Life',
-      `Defend your cities from incoming missiles!<br>
-       Draw defensive patterns on the bottom half of the screen.<br>
-       Released cells evolve via Conway's Game of Life.<br><br>
-       <strong>Click and drag</strong> to draw defenses.<br>
-       Release to commit them to the simulation.<br><br>
-       <strong>Hotkeys:</strong> Space = pause/resume, [ / ] = slower/faster, 0-8 = speed preset<br><br>
-       High Score: ${this.hud.highScore}`,
-      'Start Game'
-    );
+    this.showOverlay('The Arcade of Life', this.motd, '▶ Arcade Mode');
     // Re-render the curated level list (overlay content was rewritten).
     initLevelCatalog();
+    this._relocateLevelCatalog();
+  }
+  // The level catalog (initLevelCatalog) appends a .level-catalog-section
+  // into the overlay content. We relocate it into the Library tab panel
+  // so it lives under the right tab in the new compact menu layout.
+  _relocateLevelCatalog() {
+    // Defer until the catalog has actually rendered.
+    const tryMove = (attemptsLeft) => {
+      const mount = document.getElementById('menu-level-catalog-mount');
+      if (!mount) return;
+      const section = document.querySelector('#overlay-content .level-catalog-section');
+      if (section && section.parentElement !== mount) {
+        mount.appendChild(section);
+        return;
+      }
+      if (!section && attemptsLeft > 0) {
+        setTimeout(() => tryMove(attemptsLeft - 1), 80);
+      }
+    };
+    tryMove(20);
   }
 
   startGame() {

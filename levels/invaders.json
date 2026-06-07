@@ -1,6 +1,6 @@
 {
   "name": "SpaceInvders",
-  "createdAt": 1780772770208,
+  "createdAt": 1780848251331,
   "gridWidth": 300,
   "gridHeight": 200,
   "cities": [
@@ -41,6 +41,8 @@
       62
     ]
   ],
+  "barriers": [],
+  "fire": [],
   "bases": [],
   "spawners": [
     {
@@ -106,7 +108,8 @@
       ],
       "interval": 2000,
       "emitLimit": 10,
-      "initialDelay": 2000
+      "initialDelay": 2000,
+      "padding": 1
     },
     {
       "patternId": "hwss",
@@ -171,72 +174,8 @@
       ],
       "interval": 2000,
       "emitLimit": 10,
-      "initialDelay": 2000
-    },
-    {
-      "patternId": "hwss",
-      "name": "Heavyweight Spaceship (HWSS)",
-      "x": 242,
-      "y": 40,
-      "width": 7,
-      "height": 5,
-      "cells": [
-        [
-          3,
-          0
-        ],
-        [
-          4,
-          0
-        ],
-        [
-          1,
-          1
-        ],
-        [
-          6,
-          1
-        ],
-        [
-          0,
-          2
-        ],
-        [
-          0,
-          3
-        ],
-        [
-          6,
-          3
-        ],
-        [
-          0,
-          4
-        ],
-        [
-          1,
-          4
-        ],
-        [
-          2,
-          4
-        ],
-        [
-          3,
-          4
-        ],
-        [
-          4,
-          4
-        ],
-        [
-          5,
-          4
-        ]
-      ],
-      "interval": 2000,
-      "emitLimit": 10,
-      "initialDelay": 2000
+      "initialDelay": 2000,
+      "padding": 1
     },
     {
       "patternId": "hwss",
@@ -301,72 +240,8 @@
       ],
       "interval": 2000,
       "emitLimit": 10,
-      "initialDelay": 2000
-    },
-    {
-      "patternId": "hwss",
-      "name": "Heavyweight Spaceship (HWSS)",
-      "x": 222,
-      "y": 61,
-      "width": 7,
-      "height": 5,
-      "cells": [
-        [
-          3,
-          0
-        ],
-        [
-          4,
-          0
-        ],
-        [
-          1,
-          1
-        ],
-        [
-          6,
-          1
-        ],
-        [
-          0,
-          2
-        ],
-        [
-          0,
-          3
-        ],
-        [
-          6,
-          3
-        ],
-        [
-          0,
-          4
-        ],
-        [
-          1,
-          4
-        ],
-        [
-          2,
-          4
-        ],
-        [
-          3,
-          4
-        ],
-        [
-          4,
-          4
-        ],
-        [
-          5,
-          4
-        ]
-      ],
-      "interval": 2000,
-      "emitLimit": 10,
-      "initialDelay": 2000
+      "initialDelay": 2000,
+      "padding": 1
     },
     {
       "patternId": "hwss",
@@ -431,72 +306,8 @@
       ],
       "interval": 2000,
       "emitLimit": 10,
-      "initialDelay": 2000
-    },
-    {
-      "patternId": "hwss",
-      "name": "Heavyweight Spaceship (HWSS)",
-      "x": 202,
-      "y": 82,
-      "width": 7,
-      "height": 5,
-      "cells": [
-        [
-          3,
-          0
-        ],
-        [
-          4,
-          0
-        ],
-        [
-          1,
-          1
-        ],
-        [
-          6,
-          1
-        ],
-        [
-          0,
-          2
-        ],
-        [
-          0,
-          3
-        ],
-        [
-          6,
-          3
-        ],
-        [
-          0,
-          4
-        ],
-        [
-          1,
-          4
-        ],
-        [
-          2,
-          4
-        ],
-        [
-          3,
-          4
-        ],
-        [
-          4,
-          4
-        ],
-        [
-          5,
-          4
-        ]
-      ],
-      "interval": 2000,
-      "emitLimit": 10,
-      "initialDelay": 2000
+      "initialDelay": 2000,
+      "padding": 1
     },
     {
       "patternId": "hwss",
@@ -561,10 +372,12 @@
       ],
       "interval": 2000,
       "emitLimit": 10,
-      "initialDelay": 2000
+      "initialDelay": 2000,
+      "padding": 1
     }
   ],
   "ruleset": "conway",
+  "enemyRuleset": null,
   "description": "",
   "settings": {
     "INITIAL_INK": 200,
@@ -580,10 +393,13 @@
     "MISSILE_SPAWN_DECREMENT": 75,
     "MISSILE_SPAWN_MIN": 300,
     "DEFENSE_AGE_FRIENDLY": 200,
-    "DEFENSE_AGE_ENEMY": 200,
+    "DEFENSE_AGE_ENEMY": 20,
+    "DEFENSE_AGE_NEUTRAL": 200,
     "MISSILE_AGE_FRIENDLY": 200,
-    "MISSILE_AGE_ENEMY": 200,
+    "MISSILE_AGE_ENEMY": 4,
+    "MISSILE_AGE_NEUTRAL": 4,
     "MISSILE_CASCADE_TICKS": 29,
+    "AGE_CONTAGION_AMOUNT": 10,
     "CLEAR_REFUND_FRACTION": 0.5,
     "INK_DRY_TICKS": 5,
     "DRAW_ZONE_FRACTION": 0.3,
@@ -620,9 +436,11 @@
     "VFX_DRAW_ZONE_TINT": true,
     "UNLIMITED_CELL_AGE": true,
     "UNLIMITED_DEF_AGE_FRIENDLY": true,
-    "UNLIMITED_DEF_AGE_ENEMY": true,
+    "UNLIMITED_DEF_AGE_ENEMY": false,
     "UNLIMITED_MISS_AGE_FRIENDLY": false,
-    "UNLIMITED_MISS_AGE_ENEMY": false
+    "UNLIMITED_MISS_AGE_ENEMY": false,
+    "UNLIMITED_DEF_AGE_NEUTRAL": false,
+    "UNLIMITED_MISS_AGE_NEUTRAL": false
   },
   "allowedTools": {
     "freehand": false,
@@ -634,5 +452,5 @@
     "glider"
   ],
   "colorTheme": {},
-  "wrapVerticalShift": 15
+  "wrapVerticalShift": 10
 }

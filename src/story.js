@@ -1263,22 +1263,6 @@ export class StoryEngine {
       }
     });
 
-    // Story start button on main menu.
-    const overlayContent = document.getElementById('overlay-content');
-    if (overlayContent && !document.getElementById('story-button')) {
-      const btn = document.createElement('button');
-      btn.id = 'story-button';
-      btn.textContent = 'Story Mode';
-      btn.title = 'Begin the narrative campaign';
-      const settingsBtn = document.getElementById('howtoplay-button');
-      if (settingsBtn) {
-        settingsBtn.parentNode.insertBefore(btn, settingsBtn);
-      } else {
-        overlayContent.appendChild(btn);
-      }
-      btn.addEventListener('click', () => this.startStory());
-    }
-
     // Keyboard advance.
     window.addEventListener('keydown', (e) => {
       if (!this.currentDialogue) return;

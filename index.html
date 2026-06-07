@@ -261,19 +261,48 @@
       <div class="overlay hidden" id="overlay">
         <div id="overlay-content">
           <h1 id="overlay-title">The Arcade of Life</h1>
-          <p id="overlay-message">
-            Defend your cities from incoming missiles!<br />
-            Draw defensive patterns on the bottom half of the screen.<br />
-            Released cells evolve via Conway's Game of Life.<br /><br />
-            <strong>Click and drag</strong> to draw defenses.<br />
-            Release to commit them to the simulation.
-          </p>
-          <button id="start-button">Start Game</button>
-          <button id="howtoplay-button">How to Play</button>
-          <button id="guide-button">Console Hacking Guide</button>
-          <button id="pattern-zoo-button">🦓 Pattern Zoo</button>
-          <button id="level-designer-button">🛠 Level Designer</button>
-          <button id="settings-button">Settings</button>
+          <div id="menu-tabs">
+            <button class="menu-tab active" data-tab="play">▶ Play</button>
+            <button class="menu-tab" data-tab="library">📚 Library</button>
+            <button class="menu-tab" data-tab="help">❔ Help</button>
+          </div>
+          <div id="menu-tab-panels">
+            <div class="menu-tab-panel active" data-panel="play">
+              <p id="overlay-message" class="menu-blurb">
+                Defend your cities from incoming missiles!
+              </p>
+              <div class="menu-button-row">
+                <button id="start-button" class="menu-primary-btn">▶ Arcade Mode</button>
+                <button id="story-mode-btn" class="menu-primary-btn menu-story-btn">
+                  📖 Story Mode
+                </button>
+              </div>
+              <div class="menu-button-row">
+                <button id="pattern-zoo-button" class="menu-secondary-btn">🦓 Pattern Zoo</button>
+                <button id="settings-button" class="menu-secondary-btn">⚙ Settings</button>
+              </div>
+            </div>
+            <div class="menu-tab-panel" data-panel="library">
+              <p class="menu-blurb">Browse curated levels, patterns, and the designer.</p>
+              <div class="menu-button-row">
+                <button id="level-designer-button" class="menu-secondary-btn">
+                  🛠 Level Designer
+                </button>
+              </div>
+              <div id="menu-level-catalog-mount"></div>
+            </div>
+            <div class="menu-tab-panel" data-panel="help">
+              <p class="menu-blurb">
+                Defend your cities from enemy life!<br />
+                Draw defensive patterns on the bottom half of the screen.<br />
+                Cells evolve via Conway's Game of Life.<br />
+              </p>
+              <div class="menu-button-row">
+                <button id="howtoplay-button" class="menu-secondary-btn">How to Play</button>
+                <button id="guide-button" class="menu-secondary-btn">Console Hacking Guide</button>
+              </div>
+            </div>
+          </div>
           <div class="overlay-footer">
             <a
               class="github-link"

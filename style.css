@@ -3572,24 +3572,182 @@ body {
 #overlay-content,
 .overlay-content {
   text-align: center;
-  padding: 40px;
+  padding: 28px 32px;
   border: 2px solid #4040a0;
   background: rgba(10, 10, 30, 0.9);
   border-radius: 8px;
-  max-width: 600px;
+  max-width: 680px;
+  width: 92vw;
 }
 
 #overlay-title {
-  font-size: 48px;
+  font-size: 38px;
   color: #00ffff;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   text-shadow: 0 0 10px #00ffff;
+  letter-spacing: 1px;
 }
 
 #overlay-message {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.6;
-  margin-bottom: 30px;
+  margin-bottom: 18px;
+}
+
+/* ---------- Compact Tabbed Main Menu ---------- */
+#menu-tabs {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-bottom: 14px;
+  border-bottom: 2px solid #2a2a5a;
+  padding-bottom: 6px;
+}
+
+.menu-tab {
+  background: transparent;
+  color: #8080c0;
+  border: 1px solid #2a2a5a;
+  padding: 8px 22px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  transition: all 0.15s;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.menu-tab:hover {
+  color: #c0c0e0;
+  border-color: #4040a0;
+  background: rgba(64, 64, 160, 0.18);
+}
+
+.menu-tab.active {
+  background: rgba(0, 255, 255, 0.14);
+  color: #00ffff;
+  border-color: #00ffff;
+  border-bottom-color: transparent;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+#menu-tab-panels {
+  min-height: 200px;
+}
+
+.menu-tab-panel {
+  display: none;
+  animation: menuPanelFadeIn 0.18s ease-out;
+}
+
+.menu-tab-panel.active {
+  display: block;
+}
+
+@keyframes menuPanelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.menu-blurb {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #c0c0d0;
+  margin: 0 0 18px;
+  text-align: center;
+}
+
+.menu-hint {
+  font-size: 12px;
+  color: #8080a0;
+  margin: 14px 0 0;
+  text-align: center;
+  font-style: italic;
+}
+
+.menu-hint strong {
+  color: #00ffff;
+  font-style: normal;
+}
+
+.menu-button-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.menu-primary-btn {
+  background: #00ffff;
+  color: #000010;
+  border: none;
+  padding: 14px 32px;
+  font-size: 18px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+  font-weight: bold;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+  min-width: 200px;
+}
+
+.menu-primary-btn:hover {
+  background: #ffffff;
+  box-shadow: 0 0 20px #00ffff;
+  transform: translateY(-2px);
+}
+
+.menu-story-btn {
+  background: transparent;
+  color: #ffaa00;
+  border: 2px solid #ffaa00;
+}
+
+.menu-story-btn:hover {
+  background: #ffaa00;
+  color: #000010;
+  box-shadow: 0 0 20px #ffaa00;
+}
+
+.menu-secondary-btn {
+  background: transparent;
+  color: #00ffff;
+  border: 1.5px solid #00ffff;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+  font-weight: bold;
+  transition: all 0.18s;
+  letter-spacing: 0.5px;
+}
+
+.menu-secondary-btn:hover {
+  background: #00ffff;
+  color: #000010;
+  box-shadow: 0 0 12px #00ffff;
+  transform: translateY(-1px);
+}
+
+#menu-level-catalog-mount {
+  margin-top: 14px;
+}
+
+/* Override the catalog section styling when mounted in the library tab,
+   since it no longer needs its own border (the tab provides it). */
+#menu-level-catalog-mount .level-catalog-section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 #start-button {
