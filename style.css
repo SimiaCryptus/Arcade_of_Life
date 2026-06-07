@@ -1402,6 +1402,7 @@ body {
   box-shadow: 0 0 20px #ff80ff;
 }
 
+#help-close-button,
 #guide-close-button {
   background: transparent;
   color: #00ffff;

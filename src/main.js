@@ -165,13 +165,13 @@ class Game {
         }
       },
     });
-    // How-to-play guide overlay (README.md). Same pause behaviour.
+    // How-to-play guide overlay (play_guide.md). Same pause behaviour.
     this._helpPanelPauseSpeed = null;
     this.helpGuidePanel = new GuidePanel({
       overlayId: 'help-overlay',
       bodyId: 'help-body',
       closeId: 'help-close-button',
-      markdownUrl: './README.md',
+      markdownUrl: './play_guide.md',
       onOpen: () => {
         this._helpPrevOverlayHidden = this.overlay.classList.contains('hidden');
         this.overlay.classList.add('hidden');

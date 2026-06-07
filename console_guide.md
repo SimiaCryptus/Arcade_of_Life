@@ -1,570 +1,785 @@
-# Console Hacking Guide: The Arcade of Life
+# 🔧 Console Hacking Guide
 
-A guide to bending The Arcade of Life to your will via the browser DevTools console.
-All of these work by poking at the game's live state — no save files, no patching
-required.
+Welcome to the **Arcade of Life** developer console! This game is fully hackable from your browser's DevTools. Everything from the live game state to simulation internals is exposed for inspection and mutation.
 
-Open DevTools (F12 or Ctrl+Shift+I / Cmd+Opt+I), switch to the **Console** tab,
-and have fun.
+> **Open DevTools**: F12 (Windows/Linux) or Cmd+Option+I (Mac)
 
 ---
 
-## 1. Getting a Handle on the Game
+## 🎯 Quick Start
 
-The game exposes itself on `window` automatically. No setup required:
+Once the game is loaded, try these in the console:
 
-```js
-game; // the live Game instance
-CONFIG; // live config object — mutate freely
-CELL_TYPE; // {EMPTY:0, DEFENSE:1, MISSILE:2, CITY:3, EXPLOSION:4}
-SPEED_PRESETS; // speed preset definitions
-cheats; // cheat shortcuts (call cheats.help())
-MD; // namespaced bundle: {game, CONFIG, CELL_TYPE, classes, ...}
+```javascript
+cheats.help(); // List all cheats
+cheats.dump(); // Print live game stats
+cheats.infiniteInk(); // Cheat #1: never run out of ink
+cheats.godMode(); // Cheat #2: full immortality
+CONFIG.SPEED_MULTIPLIER = 8; // Cheat #3: hyperspeed
 ```
 
-A startup banner in the console reminds you of these. The `cheats` object is the
-fast path:
-
-```js
-cheats.help(); // list all shortcuts
-cheats.infiniteInk(); // max ink + regen
-cheats.godMode(); // toggle immortal cities + ink refill every frame
-cheats.killAllMissiles(); // panic button
-cheats.skipWave(5); // jump ahead
-cheats.gosperGun(10, 50); // drop a glider gun
-cheats.dump(); // print a snapshot of game state
-cheats.setMode('chaos'); // apply a game mode preset
-cheats.listModes(); // see all available presets
-```
-
-### The Logger (always available)
-
-```js
-// Set log level — try 'debug' for verbose internal events
-ArcadeOfLifeLogger.setLevel('debug');
-ArcadeOfLifeLogger.setLevel('silent'); // shut it up
-// Back-compat alias:
-MissileDefenseLogger.setLevel('info');
-```
+That's it. You're hacking the game.
 
 ---
 
-## 2. Hacking CONFIG
+## 🌍 Global Handles
 
-`CONFIG` is already on `window`. It's read live every tick, so mutations take
-effect immediately.
+The game exposes these top-level globals for easy console access:
 
-### Infinite Ink
-
-```js
-CONFIG.INITIAL_INK = 9999;
-CONFIG.MAX_INK = 9999;
-CONFIG.INK_REGEN_RATE = 100; // refills instantly every tick
-```
-
-Or just: `cheats.infiniteInk()`.
-
-### Skip the Drying Wait
-
-```js
-CONFIG.INK_DRY_TICKS = 0; // defenses commit immediately on release
-```
-
-### Free Defense Clears
-
-```js
-CONFIG.CLEAR_REFUND_FRACTION = 1.0; // 100% refund on Clear Defenses
-```
-
-### Slow Missile Waves
-
-```js
-CONFIG.MISSILES_PER_WAVE_BASE = 1;
-CONFIG.MISSILES_PER_WAVE_INC = 0;
-CONFIG.MISSILE_SPAWN_INTERVAL = 5000;
-CONFIG.MISSILE_SPAWN_MIN = 5000;
-CONFIG.MISSILE_SPAWN_DECREMENT = 0;
-```
-
-Or freeze missile spawning entirely: `cheats.freezeMissiles(true)`.
-
-### Make Defenses Immortal
-
-```js
-CONFIG.CELL_MAX_AGE_TICKS = 999999;
-// Or per region:
-CONFIG.DEFENSE_AGE_FRIENDLY = 999999;
-CONFIG.DEFENSE_AGE_ENEMY = 999999;
-```
-
-### Make Missiles Fragile
-
-```js
-CONFIG.MISSILE_MAX_AGE_TICKS = 30; // missiles die of old age fast
-CONFIG.MISSILE_CASCADE_TICKS = 100; // entire formations evaporate together
-```
-
-### Disable Hardcore Mode Mid-Game
-
-```js
-CONFIG.HARDCORE_MODE = false;
-```
-
-### Change Speed Beyond the Slider
-
-```js
-CONFIG.SPEED_MULTIPLIER = 32; // ludicrous speed
-CONFIG.SPEED_MULTIPLIER = 0.05; // bullet-time
-CONFIG.SPEED_MULTIPLIER = 0; // freeze frame
-```
-
-Or: `cheats.setSpeed(32)`.
-
-### Change Resolution at Runtime
-
-```js
-CONFIG.GRID_WIDTH = 240;
-CONFIG.GRID_HEIGHT = 160;
-game.rebuildWorld(); // applies the new size cleanly
-```
-
-### Switch Rulesets at Runtime
-
-```js
-CONFIG.ACTIVE_RULESET = 'highlife'; // HighLife B36/S23
-CONFIG.ACTIVE_RULESET = 'maze'; // Maze B3/S12345
-CONFIG.ACTIVE_RULESET = 'tca_survivor'; // Teleological CA
-CONFIG.ACTIVE_RULESET = 'hexlife'; // requires hex topology rebuild
-game.rebuildWorld(); // if topology changed
-```
-
-Available rulesets:
-
-```js
-// Browse the registry
-import('./src/rules/index.js').then((m) => console.table(m.listRulesets()));
-```
-
-### M:N Timestep Ratio
-
-```js
-CONFIG.DEFENDER_TICKS = 3; // defenders tick 3x per attacker tick
-CONFIG.ATTACKER_TICKS = 1;
-// Reverse: brutal mode
-CONFIG.DEFENDER_TICKS = 1;
-CONFIG.ATTACKER_TICKS = 3;
-```
-
-### VFX Toggles
-
-```js
-cheats.setVfx(false); // disable ALL visual effects
-cheats.setVfx(true); // re-enable
-// Or individually:
-CONFIG.VFX_PARTICLES = false;
-CONFIG.VFX_SHOCKWAVES = false;
-CONFIG.VFX_FLOATERS = false;
-CONFIG.VFX_SCREEN_SHAKE = false;
-CONFIG.VFX_CELL_GLOW = false;
-CONFIG.VFX_DRAW_ZONE_TINT = false;
-```
+| Global                      | Description                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `window.game`               | Live Game instance — everything is reachable from here                                               |
+| `window.CONFIG`             | Live configuration object (mutate to tune)                                                           |
+| `window.CELL_TYPE`          | Cell type enum: `{EMPTY:0, DEFENSE:1, MISSILE:2, CITY:3, EXPLOSION:4, PENDING:5, BARRIER:6, FIRE:7}` |
+| `window.SPEED_PRESETS`      | List of speed preset configs                                                                         |
+| `window.cheats`             | Cheat shortcuts (call `cheats.help()`)                                                               |
+| `window.MD`                 | Namespaced bundle: `{game, CONFIG, CELL_TYPE, classes, Logger, ...}`                                 |
+| `window.ArcadeOfLifeLogger` | Logger for debugging output                                                                          |
+| `window.Sfx`                | Sound effects engine                                                                                 |
 
 ---
 
-## 3. Direct Grid Manipulation
+## 🎮 Cheats Reference
 
-You can edit the grid cell-by-cell. It's a flat `Uint8Array` indexed by
-`y * width + x` (for square topology).
+All cheats are accessed via `window.cheats.*`. They return descriptive values where applicable.
 
-### Spawn a city anywhere
+### Resource Cheats
 
-```js
-const g = game.grid;
-
-function setCity(x, y) {
-  g.cells[y * g.width + x] = CELL_TYPE.CITY;
-}
-
-// Build a city wall along row 40
-for (let x = 0; x < g.width; x++) setCity(x, 40);
+```javascript
+cheats.infiniteInk(); // Max ink (9999), max regen (100/tick)
+cheats.refillInk(); // Top up to current max ink
+cheats.addScore(1000); // Add bonus score
 ```
 
-### Vaporize all incoming missiles
+### Combat Cheats
 
-```js
-cheats.killAllMissiles();
+```javascript
+cheats.killAllMissiles(); // Vaporize every missile cell (returns count)
+cheats.clearDefenses(); // Clear all defense cells (full refund)
+cheats.reviveCities(); // Resurrect destroyed cities
+cheats.freezeMissiles(); // Toggle missile spawning (good for screenshots)
+cheats.godMode(); // Toggle immortality + auto-revive + full ink
 ```
 
-### Carpet the entire battlefield with defenses
+### Wave & Score Manipulation
 
-```js
-const g = game.grid;
-for (let y = 0; y < g.height; y++) {
-  for (let x = 0; x < g.width; x++) {
-    const i = y * g.width + x;
-    if (g.cells[i] === CELL_TYPE.EMPTY) {
-      g.cells[i] = CELL_TYPE.DEFENSE;
-      g.cellAge[i] = 0;
-      g.cellColor[i] = (Math.random() * 5) | 0;
-    }
-  }
-}
+```javascript
+cheats.skipWave(3); // Jump forward 3 waves
+cheats.setWave(15); // Jump directly to wave 15
+cheats.setSpeed(4); // Set speed multiplier (e.g. 0=pause, 1=normal, 8=hyper)
 ```
 
-### Resurrect dead cities
+### Pattern Spawning
 
-```js
-cheats.reviveCities();
-```
-
----
-
-## 4. Stat Hacks
-
-### Set Your Score
-
-```js
-game.hud.score = 999999;
-game.hud.highScore = 999999;
-```
-
-### Skip to Wave N
-
-```js
-cheats.setWave(50);
-```
-
-### Top Up Ink Mid-Game
-
-```js
-cheats.refillInk();
-```
-
-### Reset High Score
-
-```js
-cheats.resetHighScore();
-```
-
-### Add Score
-
-```js
-cheats.addScore(1000);
-```
-
----
-
-## 5. Spawning Famous Game-of-Life Patterns
-
-Defenses follow the active ruleset (Conway by default), so any classic pattern
-works. Use `cheats.spawnPattern(x, y, pattern, type?)`:
-
-### Blinker (oscillator)
-
-```js
-cheats.spawnPattern(10, 60, [
-  [0, 0],
+```javascript
+// Spawn a glider at (50, 60)
+cheats.spawnPattern(50, 60, [
   [1, 0],
-  [2, 0],
-]); // horizontal blinker
+  [2, 1],
+  [0, 2],
+  [1, 2],
+  [2, 2],
+]);
+
+// Spawn a Gosper glider gun (creates infinite gliders!)
+cheats.gosperGun(5, 45);
+
+// Spawn into missile layer instead of defense
+cheats.spawnPattern(
+  80,
+  20,
+  [
+    [0, 0],
+    [1, 0],
+    [2, 0],
+  ],
+  CELL_TYPE.MISSILE
+);
 ```
 
-### Upward-moving missile glider (triggers RETURN FIRE!)
+### Game Mode & Mode Configuration
 
-```js
-const NW_GLIDER = [
-  [1, 2],
-  [2, 1],
+```javascript
+cheats.listModes(); // Show all game mode presets
+cheats.setMode('chaos'); // Apply Chaos mode (everything enabled)
+cheats.setMode('siege'); // Apply Siege mode (heavy bases)
+cheats.setMode('classic'); // Reset to balanced default
+```
+
+### Visual Effects
+
+```javascript
+cheats.setVfx(false); // Disable all VFX (good for slow devices)
+cheats.setVfx(true); // Re-enable all VFX
+
+cheats.vfxStats(); // Show active count + dropped count + drop rate
+cheats.resetVfxStats(); // Reset drop counters
+```
+
+### Custom Patterns
+
+```javascript
+cheats.listPatterns(); // List saved custom patterns
+cheats.deletePattern('myname'); // Delete a saved pattern
+cheats.clearPatterns(); // Delete ALL saved patterns
+cheats.captureMode(); // Toggle pattern-capture mode
+```
+
+### Diagnostics
+
+```javascript
+cheats.dump(); // Print full game state table
+cheats.resetHighScore(); // Clear saved high score
+```
+
+---
+
+## 🔬 Live Game State
+
+The `window.game` object is the root of everything. Explore it:
+
+```javascript
+// Top-level subsystems
+game.grid; // The cell grid (cells, pending, ages, colors, dirs)
+game.simulation; // The simulation engine
+game.renderer; // Canvas renderer + VFX system
+game.hud; // HUD state (score, wave, ink, etc.)
+game.cities; // City placement + tracking
+game.missiles; // Missile spawning + bases + spawners
+game.defenses; // Ink management
+game.input; // Drawing input manager
+game.gameState; // State machine
+game.settings; // Settings + persistence
+game.story; // Story mode engine
+game.patternZoo; // Pattern browser
+game.levelDesigner; // Level editor
+game.audio; // Sound effects (also at window.Sfx)
+```
+
+### Inspecting Cells
+
+```javascript
+// Cell types at position (x, y)
+game.grid.get(50, 70); // Returns CELL_TYPE value
+game.grid.cells[70 * game.grid.width + 50]; // Direct array access
+
+// Cell metadata
+game.grid.cellAge[i]; // Age in ticks (0-255, saturating)
+game.grid.cellColor[i]; // Color variant index
+game.grid.cellDir[i]; // Direction (0=unknown, 1=down, 2=up, 3=east, 4=west)
+
+// Pending (newly-drawn, drying) cells
+game.grid.pending[i]; // 1 = pending, 0 = empty
+game.grid.pendingDry[i]; // Remaining dry ticks
+
+// Set a cell directly
+game.grid.set(50, 70, CELL_TYPE.DEFENSE);
+```
+
+### Counting Things
+
+```javascript
+// Count cells of each type
+let counts = { defense: 0, missile: 0, city: 0 };
+for (let i = 0; i < game.grid.cells.length; i++) {
+  if (game.grid.cells[i] === CELL_TYPE.DEFENSE) counts.defense++;
+  else if (game.grid.cells[i] === CELL_TYPE.MISSILE) counts.missile++;
+  else if (game.grid.cells[i] === CELL_TYPE.CITY) counts.city++;
+}
+console.table(counts);
+
+// Or use the built-in counter
+import { countCells } from './src/sim/cellCounts.js';
+countCells(game.grid);
+```
+
+---
+
+## ⚙️ Live Configuration
+
+All of `CONFIG` is live — changes apply immediately:
+
+### Common Tuning
+
+```javascript
+// Pacing
+CONFIG.SPEED_MULTIPLIER = 2.0; // 0=paused, 1=normal, up to 256
+CONFIG.TICK_RATE = 50; // ms per simulation tick (lower = faster)
+CONFIG.DEFENDER_TICKS = 2; // M in M:N timestep
+CONFIG.ATTACKER_TICKS = 1; // N in M:N timestep
+
+// Ink economy
+CONFIG.INITIAL_INK = 500;
+CONFIG.MAX_INK = 1000;
+CONFIG.INK_REGEN_RATE = 2.0;
+CONFIG.INK_DRY_TICKS = 0; // Instant commit (no drying delay)
+
+// Waves
+CONFIG.MISSILES_PER_WAVE_BASE = 20;
+CONFIG.MISSILE_SPAWN_INTERVAL = 200; // Faster missile spawns
+CONFIG.MISSILE_SPAWN_MIN = 100; // Minimum spawn delay
+
+// Friendly fire mode
+CONFIG.HARDCORE_MODE = true; // Your defenses can hurt your cities!
+
+// Draw zone
+CONFIG.DRAW_ZONE_FRACTION = 0.7; // Bigger drawable area
+CONFIG.SHOW_DRAW_ZONE = false; // Hide zone indicator
+
+// Visual effects
+CONFIG.VFX_PARTICLES = false; // Disable particles
+CONFIG.VFX_SCREEN_SHAKE = false; // Disable screen shake
+CONFIG.VFX_FLOATERS = false; // Disable floating text
+```
+
+### Glider Types
+
+Enable/disable specific enemy glider types:
+
+```javascript
+CONFIG.GLIDER_SE = true; // R-glider (SE direction)
+CONFIG.GLIDER_SW = true; // L-glider (SW direction)
+CONFIG.GLIDER_HEAVY = false; // Target emplacements
+CONFIG.GLIDER_LWSS = true; // Lightweight spaceship
+CONFIG.GLIDER_MWSS = false; // Middleweight spaceship
+CONFIG.GLIDER_TWIN = true; // Twin formation
+CONFIG.GLIDER_GUN = false; // Gosper glider gun (RARE & DEADLY)
+```
+
+### Age Limits (Region × Cell Type Matrix)
+
+Set how long cells live in each region. Sentinel value `999999` = unlimited.
+
+```javascript
+// Friendly region (player's draw zone)
+CONFIG.DEFENSE_AGE_FRIENDLY = 200;
+CONFIG.MISSILE_AGE_FRIENDLY = 50; // Missiles age fast in friendly territory
+
+// Enemy region (top of screen)
+CONFIG.DEFENSE_AGE_ENEMY = 30; // Defenses don't last long in enemy zone
+CONFIG.MISSILE_AGE_ENEMY = 999999; // Missiles immortal in their home
+
+// Neutral region (middle band)
+CONFIG.DEFENSE_AGE_NEUTRAL = 100;
+CONFIG.MISSILE_AGE_NEUTRAL = 100;
+
+// Rear dead zone (below draw zone)
+CONFIG.REAR_DEAD_ZONE_AGE_LIMIT = 10; // Everything dies fast back here
+
+// Age contagion (death spreads)
+CONFIG.AGE_CONTAGION_AMOUNT = 5; // When a cell dies, neighbors age by 5
+```
+
+### Rulesets
+
+```javascript
+CONFIG.ACTIVE_RULESET = 'highlife'; // Switch to HighLife rules
+CONFIG.ENEMY_RULESET = 'seeds'; // Asymmetric: enemies use Seeds
+
+// Or via the imports
+import { setActiveRuleset, listRulesets } from './src/rules/index.js';
+setActiveRuleset('day_night');
+
+// List available
+listRulesets().forEach((r) => console.log(r.id, r.name, r.notation));
+```
+
+### Reload World
+
+After major config changes, rebuild the world:
+
+```javascript
+CONFIG.GRID_WIDTH = 200;
+CONFIG.GRID_HEIGHT = 150;
+game.rebuildWorld(); // Apply new grid size
+```
+
+---
+
+## 🧬 Working with Patterns
+
+### Stamp Custom Patterns
+
+```javascript
+// Define a pattern as [[dx, dy], ...]
+const blinker = [
   [0, 0],
   [1, 0],
   [2, 0],
 ];
-cheats.spawnPattern(30, 10, NW_GLIDER, CELL_TYPE.MISSILE);
+const acorn = [
+  [1, 0],
+  [3, 1],
+  [0, 2],
+  [1, 2],
+  [4, 2],
+  [5, 2],
+  [6, 2],
+];
+
+// Stamp at (x, y) as defense cells
+cheats.spawnPattern(50, 60, acorn);
+
+// Stamp as missile cells
+cheats.spawnPattern(80, 20, blinker, CELL_TYPE.MISSILE);
 ```
 
-### Gosper Glider Gun (defense factory)
+### Pre-built Famous Patterns
 
-```js
-cheats.gosperGun(5, 45);
+```javascript
+// Gosper glider gun (emits gliders forever)
+cheats.gosperGun(5, 30);
+
+// R-pentomino (chaotic methuselah)
+cheats.spawnPattern(60, 60, [
+  [1, 0],
+  [2, 0],
+  [0, 1],
+  [1, 1],
+  [1, 2],
+]);
+
+// Diehard (survives exactly 130 generations)
+cheats.spawnPattern(60, 60, [
+  [6, 0],
+  [0, 1],
+  [1, 1],
+  [1, 2],
+  [5, 2],
+  [6, 2],
+  [7, 2],
+]);
+
+// Lightweight spaceship
+cheats.spawnPattern(60, 60, [
+  [1, 0],
+  [4, 0],
+  [0, 1],
+  [0, 2],
+  [4, 2],
+  [0, 3],
+  [1, 3],
+  [2, 3],
+  [3, 3],
+]);
 ```
 
-Watch your defenses replicate indefinitely.
+### Access Pattern Library
 
-### Spawn from the Pattern Library
+```javascript
+import { listPatterns, getPattern, clonePatternCells } from './src/patterns/index.js';
 
-```js
-// Get any pattern from the library by id
-import('./src/patterns/index.js').then(({ clonePatternCells }) => {
-  const cells = clonePatternCells('pulsar');
-  cheats.spawnPattern(50, 50, cells);
-});
-```
+// List all patterns
+listPatterns().forEach((p) => console.log(p.id, p.name, p.category));
 
----
+// Filter by category
+listPatterns({ category: 'spaceship' });
+listPatterns({ ruleset: 'conway' });
+listPatterns({ tag: 'gun' });
 
-## 6. Disabling Game Over
+// Get a specific pattern
+const glider = getPattern('glider');
+console.log(glider.cells); // [[1,0],[2,1],[0,2],[1,2],[2,2]]
 
-Easiest:
-
-```js
-cheats.godMode(); // toggles; revives cities + refills ink every frame
-```
-
-Or patch directly:
-
-```js
-game.gameOver = () => {
-  console.log('nope');
-  cheats.reviveCities();
-};
-```
-
----
-
-## 7. Sim Callback Hooks (Custom Effects)
-
-The simulation exposes several callbacks you can override:
-
-```js
-// Bonus +1000 per missile destroyed
-game.simulation.onMissileDestroyed = () => game.hud.addScore(1000);
-
-// Confetti every time a city dies
-game.simulation.onCityDestroyed = (x, y) => {
-  console.log(`💀 City cell at (${x},${y})`);
-  game.renderer.addFloater(x, y, 'OOF', '#ff00ff');
-};
-
-// Mega-bonus on return fire
-game.simulation.onMissileReturn = (x, y, kind) => {
-  game.hud.addScore(kind === 'return' ? 5000 : 500);
-  game.renderer.addFloater(x, y, kind === 'return' ? 'JACKPOT!' : 'ping', '#ffff00');
-};
-
-// Custom annihilation effect
-game.simulation.onAnnihilation = (x, y) => {
-  console.log(`💥 collision at (${x},${y})`);
-};
-
-// City hit handler
-game.simulation.onCityHit = (x, y, attacker) => {
-  console.log(`${attacker} hit city cell at (${x},${y})`);
-};
-
-// Breach handler
-game.simulation.onBreach = (x, y) => {
-  console.log(`⚠ breach at (${x},${y})`);
-};
-```
-
-Missile spawn / target / base callbacks:
-
-```js
-game.missiles.onMissileSpawn = (cx, cy, pw, ph) => {
-  console.log(`missile spawned at (${cx},${cy})`);
-};
-game.missiles.onTargetSpawn = (cx, cy) => console.log('🎯 target deployed');
-game.missiles.onTargetDestroyed = (cx, cy) => console.log('🎯 target down');
-game.missiles.onBaseSpawn = (cx, cy, kind) => console.log(`⚔ ${kind} deployed`);
-game.missiles.onBaseDestroyed = (cx, cy, kind) => console.log(`⚔ ${kind} destroyed`);
+// Get a mutable copy
+const cells = clonePatternCells('gosper_gun');
+cheats.spawnPattern(10, 20, cells);
 ```
 
 ---
 
-## 8. Floating Text Spam (for fun)
+## 🎨 Visual Effects API
 
-```js
-// Print your name across the sky
-setInterval(() => {
-  game.renderer.addFloater(
-    (Math.random() * game.grid.width) | 0,
-    (Math.random() * game.grid.height) | 0,
-    'PWNED',
-    `hsl(${Math.random() * 360},100%,60%)`
-  );
-}, 100);
-```
+Trigger VFX manually from the console:
 
-Add big floaters with scale:
+```javascript
+const r = game.renderer;
 
-```js
-game.renderer.addBigFloater(40, 30, 'BOSS FIGHT!', '#ff0033', 2.5);
-```
-
-Add particles, shockwaves, screen shake:
-
-```js
-game.renderer.addParticleBurst(50, 50, {
-  count: 50,
-  colors: ['#ff0000', '#ffff00'],
-  speed: 3,
-  ttl: 60,
+// Particle burst at grid (x, y)
+r.addParticleBurst(50, 60, {
+  count: 30,
+  colors: ['#ff00ff', '#00ffff', '#ffff00'],
+  speed: 2.5,
+  ttl: 50,
+  size: 3,
   glow: 12,
+  gravity: 0.05,
 });
-game.renderer.addShockwave(50, 50, {
-  maxRadius: 60,
-  color: '#00ffff',
-  ttl: 30,
+
+// Expanding shockwave ring
+r.addShockwave(50, 60, {
+  maxRadius: 80,
+  color: '#ffff44',
+  ttl: 40,
+  width: 3,
 });
-game.renderer.addShake(8, 30);
+
+// Floating text
+r.addFloater(50, 60, 'HELLO!', '#00ffff');
+r.addBigFloater(50, 60, 'EPIC!', '#ff00ff', 2.0);
+
+// Screen shake (intensity, duration in ticks)
+r.addShake(5, 30);
+
+// VFX statistics
+cheats.vfxStats(); // Shows active counts + drop rates
 ```
 
 ---
 
-## 9. Pattern Capture & Management
+## 🔊 Audio Control
 
-List, delete, or capture patterns via cheats:
+```javascript
+// Mute control
+Sfx.toggleMute(); // Toggle (returns new state)
+Sfx.setMuted(true); // Mute
+Sfx.setMuted(false); // Unmute
+Sfx.setVolume(0.5); // 0.0 to 1.0
 
-```js
-cheats.listPatterns(); // print all saved custom patterns
-cheats.deletePattern('mywall'); // remove one by name
-cheats.clearPatterns(); // delete ALL saved patterns
-cheats.captureMode(); // toggle drag-select capture mode
-```
-
-Access the full PatternCapture API:
-
-```js
-game.patternCapture.listSaved(); // detailed list
-game.patternCapture.getSaved('mywall'); // get cells + meta
-game.patternCapture.renamePattern('old', 'new');
-game.patternCapture.savePatternExternal('autocannon', cells, {
-  category: 'gun',
-  period: 30,
-  description: 'A custom gun I built',
-  tags: ['custom', 'gun'],
-});
+// Trigger specific sounds manually
+Sfx.cityHit();
+Sfx.annihilation();
+Sfx.returnFire();
+Sfx.ricochet();
+Sfx.waveStart();
+Sfx.gameOver();
+Sfx.missileSpawn();
+Sfx.inkPlace();
 ```
 
 ---
 
-## 10. Save Your Cheats Persistently
+## 🛠 Advanced Hacking
 
-Settings persist via localStorage. You can preload cheats:
+### Custom Cheat Functions
 
-```js
-const settings = {
-  INITIAL_INK: 9999,
-  MAX_INK: 9999,
-  INK_REGEN_RATE: 50,
-  CELL_MAX_AGE_TICKS: 999999,
-  INK_DRY_TICKS: 0,
-  CLEAR_REFUND_FRACTION: 1,
-  MISSILES_PER_WAVE_BASE: 1,
-  MISSILES_PER_WAVE_INC: 0,
-  RESOLUTION_INDEX: 5, // XXL
-  GLIDER_SE: true,
-  GLIDER_SW: false,
-  GLIDER_HEAVY: false,
-  HARDCORE_MODE: false,
-  ACTIVE_RULESET: 'conway',
+Add your own:
+
+```javascript
+// Add to the cheats object on the fly
+cheats.megaBomb = function () {
+  const cx = game.grid.width / 2;
+  const cy = game.grid.height / 2;
+  game.renderer.addShockwave(cx, cy, {
+    maxRadius: 200,
+    color: '#ff0000',
+    ttl: 80,
+    width: 6,
+  });
+  game.renderer.addParticleBurst(cx, cy, {
+    count: 200,
+    colors: ['#ff0000', '#ffff00'],
+    speed: 5,
+    ttl: 100,
+    size: 4,
+  });
+  cheats.killAllMissiles();
+  game.renderer.addShake(20, 60);
 };
-localStorage.setItem('missileDefenseSettings', JSON.stringify(settings));
-location.reload();
+
+cheats.megaBomb(); // 💥
 ```
 
-Or use the in-game Profiles tab (Settings → 💾 Profiles) to save named
-configurations and import/export JSON.
+### Simulation Backends
+
+Force a specific simulation backend:
+
+```javascript
+CONFIG.SIM_BACKEND = 'gpu'; // Use WebGL2 (large grids only)
+CONFIG.SIM_BACKEND = 'cpu'; // Use bitpacked CPU
+CONFIG.SIM_BACKEND = 'auto'; // Auto-select based on grid size
+game.rebuildWorld(); // Apply
+
+// Inspect current backend
+console.log(game.simulation.backend.constructor.name);
+```
+
+### Hashlife Cache
+
+```javascript
+CONFIG.SIM_HASHLIFE_ENABLED = false; // Disable for debugging
+
+// Inspect cache stats
+game.simulation.hashlife.stats();
+// → { size: 1234, hits: 5678, misses: 234, hitRate: '0.960' }
+
+game.simulation.hashlife.clear(); // Reset
+```
+
+### Logger
+
+Control verbosity:
+
+```javascript
+ArcadeOfLifeLogger.setLevel('debug'); // Most verbose
+ArcadeOfLifeLogger.setLevel('info'); // Default
+ArcadeOfLifeLogger.setLevel('warn'); // Warnings only
+ArcadeOfLifeLogger.setLevel('error'); // Errors only
+ArcadeOfLifeLogger.setLevel('silent'); // Nothing
+
+// Direct logging
+ArcadeOfLifeLogger.info('Hello from the console!');
+ArcadeOfLifeLogger.debug('Detailed debug info');
+```
+
+### Inspect Sim Internals
+
+```javascript
+// Current tick count
+game.simulation.tickCount;
+
+// Per-cell anchor flags (1 = immortal until first natural death)
+game.simulation._anchor;
+
+// Return-fire detection state
+game.simulation.returnFireFired;
+
+// Breach detection state
+game.simulation.breachFired;
+
+// Force-trigger return-fire detection
+game.simulation._detectReturnFire(0, 4);
+```
+
+### Manipulate Missiles
+
+```javascript
+// Force-complete the current wave's spawning
+game.missiles.forceCompleteSpawning();
+
+// Spawn a custom designed base (zoo pattern)
+game.missiles.setCustomBases([
+  {
+    patternId: 'gosper_gun',
+    name: 'Custom Gun',
+    x: 50,
+    y: 10,
+    width: 36,
+    height: 9,
+    cells: clonePatternCells('gosper_gun'),
+  },
+]);
+game.missiles.startWave(0);
+
+// Disable missile movement entirely
+game.missiles.frozen = true;
+game.simulation.freezeEnemies = true;
+```
 
 ---
 
-## 11. The Nuclear Option
+## 🐛 Debugging Tools
 
-```js
-cheats.godMode(true);
-cheats.freezeMissiles(true);
+### Dump Game State
+
+```javascript
+cheats.dump();
+// ┌─────────────┬──────────────┐
+// │   (index)   │    Values    │
+// ├─────────────┼──────────────┤
+// │    state    │  'playing'   │
+// │    wave     │      5       │
+// │    score    │    12450     │
+// │  highScore  │    18900     │
+// │     ink     │    245       │
+// │   maxInk    │    300       │
+// │    speed    │      2       │
+// │    grid     │  '120x80'    │
+// │    cells    │     ...      │
+// │ citiesAlive │      4       │
+// │  tickCount  │     873      │
+// └─────────────┴──────────────┘
+```
+
+### Inspect Frame Errors
+
+```javascript
+game._frameErrorCount; // Consecutive frame errors
+game._MAX_FRAME_ERRORS; // Threshold for halting
+```
+
+### Monitor Simulation Hot Loop
+
+```javascript
+// Time a single tick
+console.time('tick');
+game.simulation.tick();
+console.timeEnd('tick');
+
+// Time 100 ticks
+console.time('100ticks');
+for (let i = 0; i < 100; i++) game.simulation.tick();
+console.timeEnd('100ticks');
+```
+
+### Track Pattern Evolution
+
+```javascript
+// Spawn an R-pentomino and watch population over time
+cheats.spawnPattern(60, 60, [
+  [1, 0],
+  [2, 0],
+  [0, 1],
+  [1, 1],
+  [1, 2],
+]);
+
+let counts = [];
+for (let i = 0; i < 200; i++) {
+  game.simulation.tick();
+  let n = 0;
+  for (let c of game.grid.cells) if (c === 1) n++;
+  counts.push(n);
+}
+console.log(counts.join(','));
+```
+
+---
+
+## 🎓 Learning Resources
+
+### Conway's Game of Life
+
+The classic ruleset is **B3/S23**:
+
+- A dead cell with exactly 3 live neighbors becomes alive (Birth)
+- A live cell with 2 or 3 live neighbors stays alive (Survival)
+- All other cells die or stay dead
+
+### Pattern Categories
+
+| Category       | Behavior                                              |
+| -------------- | ----------------------------------------------------- |
+| **Still life** | Stable; never changes                                 |
+| **Oscillator** | Returns to itself after `period` generations          |
+| **Spaceship**  | Returns to itself, translated (moves across the grid) |
+| **Gun**        | Periodically emits other patterns (usually gliders)   |
+| **Methuselah** | Small starting pattern with long, chaotic evolution   |
+| **Puffer**     | Moves and emits debris behind it                      |
+
+### B/S Notation
+
+Other notable rulesets:
+
+- **B36/S23** — HighLife (has replicators)
+- **B3678/S34678** — Day & Night (color-invariant)
+- **B2/S** — Seeds (everything dies each tick)
+- **B3/S012345678** — Life Without Death (cells are permanent)
+- **B3/S12345** — Maze (forms maze corridors)
+
+Each ruleset profoundly changes pattern behavior. Experiment!
+
+---
+
+## 💡 Fun Experiments
+
+### "What if defenses never died?"
+
+```javascript
+CONFIG.ACTIVE_RULESET = 'life_without_death';
 cheats.infiniteInk();
-cheats.setMode('chaos'); // maximum carnage settings
-setInterval(() => game.hud.addScore(1), 16); // brrr
 ```
 
-Sit back and watch the score number go brrr.
+### "What if everything was lightning fast?"
 
----
-
-## 12. VFX Diagnostics
-
-If the screen feels janky during chaotic scenes:
-
-```js
-cheats.vfxStats(); // show active counts + drop rates per second
-cheats.resetVfxStats(); // reset counters
+```javascript
+CONFIG.SPEED_MULTIPLIER = 16;
+CONFIG.TICK_RATE = 40;
+CONFIG.MISSILE_SPAWN_INTERVAL = 100;
 ```
 
-Drop rates indicate VFX throttling. You can adjust the per-frame budgets
-by editing the `VFX_LIMITS` constants in `src/renderer.js`.
+### "Asymmetric warfare"
+
+```javascript
+CONFIG.ACTIVE_RULESET = 'maze'; // Defenses build mazes
+CONFIG.ENEMY_RULESET = 'highlife'; // Enemies use HighLife
+```
+
+### "Glider rain"
+
+```javascript
+CONFIG.GLIDER_GUN = true;
+CONFIG.BASE_SPAWN_COUNT_BASE = 5;
+CONFIG.BASE_SPAWN_MAX = 12;
+cheats.setMode('chaos');
+```
+
+### "Cinematic slow motion"
+
+```javascript
+CONFIG.SPEED_MULTIPLIER = 0.25;
+CONFIG.VFX_PARTICLES = true;
+CONFIG.VFX_SHOCKWAVES = true;
+CONFIG.VFX_SCREEN_SHAKE = true;
+```
+
+### "Build a glider factory"
+
+```javascript
+// Spawn 4 Gosper guns aimed at the center
+cheats.gosperGun(5, 10);
+cheats.gosperGun(80, 10);
+cheats.gosperGun(5, 60);
+cheats.gosperGun(80, 60);
+cheats.infiniteInk();
+CONFIG.SPEED_MULTIPLIER = 4;
+```
 
 ---
 
-## 13. Notes & Gotchas
+## 🚀 Power User Tips
 
-- **`CELL_TYPE.EMPTY = 0`, `DEFENSE = 1`, `MISSILE = 2`, `CITY = 3`, `EXPLOSION = 4`**
-  — useful if you don't have the import.
-- The grid wraps horizontally but not vertically (`grid.inBounds` only checks `y`).
-- Direct cell writes don't go through `inBounds`, so off-grid `cells[i]` writes
-  can corrupt adjacent cells — use `g.set()` or stay in bounds.
-- High-score writes are throttled (1/sec) — if you slam `hud.score`, force a
-  flush via `saveString('missileDefenseHighScore', game.hud.highScore)` (you'd
-  need to import `./src/storage.js`).
-- Mutating `CONFIG.GRID_WIDTH` / `GRID_HEIGHT` at runtime does **not** rebuild
-  the grid automatically; call `game.rebuildWorld()` afterwards.
-- Switching to a hex or triangular ruleset (e.g. `hexlife`, `trilife`) requires
-  a topology rebuild — `game.rebuildWorld()` handles it, and the game does it
-  automatically when you change rulesets in Settings.
-- All cheats are also reachable via `MD.game.cheats` if `window.cheats` gets
-  clobbered.
-- The simulation supports **freeze flags** for Time Stop and M:N ticking:
-  - `game.simulation.freezeEnemies = true` — freeze missile cells
-  - `game.simulation.freezeDefenses = true` — freeze defense cells
-  - `game.missiles.frozen = true` — also freeze missile spawning
-- Free-play abilities install based on `CONFIG.ABILITY_*` toggles. The
-  manager is on `game.freeplayAbilities`. You can call
-  `game.freeplayAbilities.trigger(0)` to fire the first active ability.
+1. **Use the Logger** — Set `ArcadeOfLifeLogger.setLevel('debug')` to see what's happening internally
+2. **Profile with Performance tab** — Chrome's Performance recorder works great
+3. **Save your favorite configs** — Use Settings → Profiles or export JSON
+4. **Capture chaos** — Use ◧ Capture Pattern to save interesting evolutionary results
+5. **Make levels** — The Level Designer (D) saves levels as JSON you can share
+6. **Test rulesets** — Pattern Zoo (Z) previews patterns under different rules
+7. **Console history** — Use ↑ arrow to recall previous commands
 
 ---
 
-## 14. Hidden Goodies
+## ❓ FAQ
 
-### Pattern Zoo from console
+**Q: Will cheats persist after page reload?**  
+ A: Most don't. Settings/config changes persist via localStorage (in Settings panel). Cheat function calls are one-shot.
 
-```js
-game.patternZoo.show();
-game.patternZoo.hide();
-// Pick a pattern programmatically:
-game.patternZoo.pickPattern({
-  title: 'Choose your fighter',
-  onPick: (pattern) => console.log('picked:', pattern),
+**Q: Can I save my hacked game state?**  
+ A: Not directly, but you can: (1) screenshot, (2) use Level Designer to recreate, (3) export settings JSON.
+
+**Q: Why doesn't `CONFIG.GRID_WIDTH = 500` work immediately?**  
+ A: Grid size changes require `game.rebuildWorld()` to take effect.
+
+**Q: How do I make my own ruleset?**  
+ A: Either via Settings → Gameplay → Build Custom Neighborhood, or programmatically:
+
+```javascript
+import { registerRuleset, setActiveRuleset } from './src/rules/index.js';
+registerRuleset({
+  id: 'my_rule',
+  name: 'My Rule',
+  notation: 'B237/S345',
+  birth: [2, 3, 7],
+  survival: [3, 4, 5],
+  description: 'My custom ruleset',
 });
+setActiveRuleset('my_rule');
 ```
 
-### Level Designer from console
+**Q: Can I run the simulation without rendering?**  
+ A: Yes — set `CONFIG.SPEED_MULTIPLIER = 0` and call `game.simulation.tick()` in a loop. Use the test/sim infrastructure for headless evolution analysis.
 
-```js
-game.levelDesigner.show();
-game.startCustomLevel('myLevel'); // launch a saved level
-```
+**Q: How do I report a bug I found via console hacking?**  
+ A: Open a GitHub issue with your steps to reproduce. Include `cheats.dump()` output and `ArcadeOfLifeLogger` history.
 
-### Story Mode (if available)
+---
 
-```js
-game.story.startStory(); // begin the campaign
-game.story.stopStory(); // bail out
-```
+## 🎉 Have Fun!
 
-### Inspect the active ruleset
+The Arcade of Life is meant to be **explored, broken, and rebuilt**. Every system is exposed because cellular automata are inherently about discovering emergent behavior.
 
-```js
-game.simulation._rule; // CompiledRuleset instance
-game.simulation._rule.def; // raw definition
-game.simulation._rule.neighborhood; // active neighborhood
-```
+Some of the best discoveries come from typing random things into the console and seeing what happens. Don't be afraid to experiment!
 
-### Apply a game mode preset
+> "Any pattern is a thought. Every game is a universe." — Probably nobody, but it sounds good.
 
-```js
-game.settings.applyGameMode('blitz');
-// Available preset ids:
-cheats.listModes();
-```
-
-Happy hacking. May your gliders forever return fire.
+Happy hacking! 🌱✨

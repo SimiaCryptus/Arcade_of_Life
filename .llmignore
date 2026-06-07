@@ -5,4 +5,5 @@
 src/story.js
 src/marked.min.js
 *.md
-test/
+#test/
+levels/
