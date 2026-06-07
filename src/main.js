@@ -24,6 +24,8 @@ import { LevelDesigner } from './levelDesigner.js';
 import { getLevel } from './levels.js';
 import { initLevelCatalog } from './levelCatalog.js';
 import { countCells } from './sim/cellCounts.js';
+import { TimeControl } from './timeControl.js';
+import { AbilitiesMenu } from './abilitiesMenu.js';
 import {
   registerServiceWorker,
   initInstallPrompt,
@@ -283,40 +285,17 @@ class Game {
     }
     // Wire the pattern-capture button.
     this._wirePatternCaptureButton();
-    // Wire the exit-to-menu button here as the primary handler.
-    // (DrawToolsPanel previously bound this; centralizing in main.js
-    // ensures it works even if DrawToolsPanel construction fails.)
-    const exitBtn = document.getElementById('exit-to-menu-button');
-    if (exitBtn) {
-      exitBtn.addEventListener('click', (e) => {
-        Logger.info('[Game] Exit button clicked.');
-        e.preventDefault();
-        e.stopPropagation();
-        this.exitToMenu();
-      });
-    } else {
-      Logger.error('[Game] exit-to-menu-button not found in DOM!');
-    }
-    // Fullscreen toggle button.
-    if (this.fullscreenButton) {
-      this.fullscreenButton.addEventListener('click', () => toggleFullscreen());
-      document.addEventListener('fullscreenchange', () => {
-        this.fullscreenButton.textContent = document.fullscreenElement ? '⛶' : '⛶';
-        this.fullscreenButton.title = document.fullscreenElement
-          ? 'Exit fullscreen [F11]'
-          : 'Enter fullscreen [F11]';
-      });
-    }
-    // Step-forward button: advance one simulation tick when paused.
-    if (this.stepForwardButton) {
-      this.stepForwardButton.addEventListener('click', () => this.stepForward());
-    }
-    // Restart-level button: re-run the current level (with confirmation).
-    if (this.restartLevelButton) {
-      this.restartLevelButton.addEventListener('click', () => this.restartLevel());
-    }
 
-    this._initSpeedControls();
+    // Initialize the new compact time control widget.
+    this._initTimeControl();
+    // Wire the new hamburger game menu.
+    this._initGameMenu();
+    // Wire the abilities dropup menu.
+    this.abilitiesMenu = new AbilitiesMenu(this);
+    // Wire the inline "Zoo" button in pattern mode.
+    this._initInlineZooButton();
+    // Visibility of the pattern-mode Zoo button is driven by draw mode.
+    this._wirePatternModeZooVisibility();
     this._initKeyboardShortcuts();
     this._initHotkeyHelp();
     this._initPanControls();
@@ -1337,46 +1316,137 @@ class Game {
   }
 
   _initSpeedControls() {
-    if (!this.speedSlider) return;
-    // Slider value is an index into SPEED_PRESETS.
-    // Cap the max slider index based on grid size — small boards don't need
-    // ultra-high speeds, large boards benefit from them.
-    const cells = (CONFIG.GRID_WIDTH | 0) * (CONFIG.GRID_HEIGHT | 0);
-    let maxIdx = SPEED_PRESETS.length - 1;
-    if (cells < 12000) {
-      // Small boards: cap at 16x (index of 'Hyper 16x').
-      const idx16 = SPEED_PRESETS.findIndex((p) => p.value === 16.0);
-      if (idx16 >= 0) maxIdx = idx16;
-    } else if (cells < 30000) {
-      // Medium boards: cap at 32x.
-      const idx32 = SPEED_PRESETS.findIndex((p) => p.value === 32.0);
-      if (idx32 >= 0) maxIdx = idx32;
-    } else if (cells < 60000) {
-      // Large boards: cap at 64x.
-      const idx64 = SPEED_PRESETS.findIndex((p) => p.value === 64.0);
-      if (idx64 >= 0) maxIdx = idx64;
+    // Legacy method kept for backwards compatibility with code paths
+    // that call it. Delegates to the new TimeControl widget.
+    if (this.timeControl) {
+      const cells = (CONFIG.GRID_WIDTH | 0) * (CONFIG.GRID_HEIGHT | 0);
+      this.timeControl.recapForGrid(cells);
     }
-    // XL+ boards: full range.
-    this._maxSpeedIdx = maxIdx;
-    this.speedSlider.min = '0';
-    this.speedSlider.max = String(maxIdx);
-    this.speedSlider.step = '1';
-    // Default to "1x" preset.
-    const defaultIdx = SPEED_PRESETS.findIndex((p) => p.value === 1.0);
-    this.speedSlider.value = String(defaultIdx >= 0 ? defaultIdx : 3);
-    this._applySpeedFromSlider();
-    this.speedSlider.addEventListener('input', () => this._applySpeedFromSlider());
+  }
+
+  _initTimeControl() {
+    const mount = document.getElementById('time-control-mount');
+    if (!mount) {
+      Logger.warn('[Game] time-control-mount not found in DOM.');
+      return;
+    }
+    this.timeControl = new TimeControl({
+      container: mount,
+      onStepForward: () => this.stepForward(),
+      onSpeedChange: (val) => {
+        // Mirror to the legacy hidden inputs so any old code that reads
+        // them still works.
+        if (this.speedLabel) this.speedLabel.textContent = val === 0 ? 'Paused' : `${val}x`;
+      },
+    });
+    // Initial cap by grid size.
+    const cells = (CONFIG.GRID_WIDTH | 0) * (CONFIG.GRID_HEIGHT | 0);
+    this.timeControl.recapForGrid(cells);
+  }
+
+  _initGameMenu() {
+    const btn = document.getElementById('game-menu-button');
+    const dropdown = document.getElementById('game-menu-dropdown');
+    if (!btn || !dropdown) {
+      Logger.warn('[Game] Game menu DOM not found.');
+      return;
+    }
+    const setOpen = (open) => {
+      dropdown.classList.toggle('hidden', !open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.classList.toggle('active', open);
+    };
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = !dropdown.classList.contains('hidden');
+      setOpen(!isOpen);
+    });
+    // Close on outside click.
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target) && e.target !== btn) {
+        setOpen(false);
+      }
+    });
+    // Close on Esc.
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !dropdown.classList.contains('hidden')) {
+        setOpen(false);
+      }
+    });
+    // Wire individual menu items.
+    const wireItem = (id, handler) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+        try {
+          handler();
+        } catch (err) {
+          Logger.error(`[Game] Menu handler '${id}' failed`, err);
+        }
+      });
+    };
+    wireItem('gm-settings', () => this.openIngameSettings());
+    wireItem('gm-howtoplay', () => this.openHelpGuide());
+    wireItem('gm-guide', () => this.openGuide());
+    wireItem('gm-zoo', () => this.openPatternZoo());
+    wireItem('gm-designer', () => this.openLevelDesigner());
+    wireItem('gm-hotkeys', () => this._toggleHotkeyHelp(true));
+    wireItem('gm-fullscreen', () => toggleFullscreen());
+    wireItem('gm-restart', () => this.restartLevel());
+    wireItem('gm-exit', () => this.exitToMenu());
+    // Track fullscreen state for any future indicator.
+    document.addEventListener('fullscreenchange', () => {
+      const fsItem = document.getElementById('gm-fullscreen');
+      if (fsItem) {
+        fsItem.textContent = document.fullscreenElement ? '⛶ Exit Fullscreen' : '⛶ Fullscreen';
+      }
+    });
+  }
+
+  _initInlineZooButton() {
+    const inlineZoo = document.getElementById('pattern-zoo-inline-button');
+    if (inlineZoo) {
+      inlineZoo.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.openPatternZoo();
+      });
+    }
+  }
+
+  _wirePatternModeZooVisibility() {
+    // Watch draw-tool mode changes and toggle inline Zoo button visibility.
+    // The DrawToolsPanel sets the .active class on mode buttons.
+    const updateVisibility = () => {
+      const inlineZoo = document.getElementById('pattern-zoo-inline-button');
+      if (!inlineZoo) return;
+      const mode = this.input && this.input.mode;
+      const isPattern = mode === 'pattern';
+      inlineZoo.style.display = isPattern ? '' : 'none';
+    };
+    // Initial sync.
+    setTimeout(updateVisibility, 0);
+    // Hook into all mode buttons.
+    const modeButtons = document.querySelectorAll('.mode-btn[data-mode]');
+    modeButtons.forEach((btn) => {
+      btn.addEventListener('click', () => setTimeout(updateVisibility, 0));
+    });
+    // Also respond to keyboard mode changes (F/L/P/B/Tab).
+    window.addEventListener('keydown', (e) => {
+      const k = (e.key || '').toLowerCase();
+      if (['f', 'l', 'p', 'b'].includes(k) || e.key === 'Tab') {
+        setTimeout(updateVisibility, 16);
+      }
+    });
   }
 
   _applySpeedFromSlider() {
-    const maxIdx = this._maxSpeedIdx != null ? this._maxSpeedIdx : SPEED_PRESETS.length - 1;
-    const idx = Math.max(0, Math.min(maxIdx, parseInt(this.speedSlider.value, 10) || 0));
-    const preset = SPEED_PRESETS[idx];
-    CONFIG.SPEED_MULTIPLIER = preset.value;
-    if (this.speedLabel) this.speedLabel.textContent = preset.name;
-    // Update step button enabled state — only useful when paused.
-    if (this.stepForwardButton) {
-      this.stepForwardButton.disabled = preset.value > 0;
+    // Compatibility shim: refresh the TimeControl widget from CONFIG.
+    if (this.timeControl) {
+      this.timeControl.refresh();
     }
   }
   // Advance the simulation by exactly one tick. Only meaningful when
@@ -1427,11 +1497,9 @@ class Game {
   }
 
   _setSpeedIndex(idx) {
-    if (!this.speedSlider) return;
-    const maxIdx = this._maxSpeedIdx != null ? this._maxSpeedIdx : SPEED_PRESETS.length - 1;
-    const clamped = Math.max(0, Math.min(maxIdx, idx));
-    this.speedSlider.value = String(clamped);
-    this._applySpeedFromSlider();
+    if (this.timeControl) {
+      this.timeControl.setIndex(idx);
+    }
   }
 
   _initKeyboardShortcuts() {
@@ -1488,17 +1556,8 @@ class Game {
 
       if (e.code === 'Space') {
         e.preventDefault();
-        const curIdx = parseInt(this.speedSlider.value, 10) || 0;
-        if (SPEED_PRESETS[curIdx].value === 0) {
-          // Resume to previous speed or 1x.
-          const restore =
-            this._prePauseIdx != null
-              ? this._prePauseIdx
-              : SPEED_PRESETS.findIndex((p) => p.value === 1.0);
-          this._setSpeedIndex(restore);
-        } else {
-          this._prePauseIdx = curIdx;
-          this._setSpeedIndex(0); // paused preset
+        if (this.timeControl) {
+          this.timeControl.togglePause();
         }
         return;
       }
@@ -1514,20 +1573,17 @@ class Game {
         }
       }
       if (e.key === '[' || e.key === ',') {
-        const curIdx = parseInt(this.speedSlider.value, 10) || 0;
-        this._setSpeedIndex(curIdx - 1);
+        if (this.timeControl) this.timeControl.setIndex(this.timeControl.getIndex() - 1);
         return;
       }
       if (e.key === ']' || e.key === '.') {
-        const curIdx = parseInt(this.speedSlider.value, 10) || 0;
-        this._setSpeedIndex(curIdx + 1);
+        if (this.timeControl) this.timeControl.setIndex(this.timeControl.getIndex() + 1);
         return;
       }
       // Digit hotkeys (no shift): 0..(N-1) map to speed preset index.
       if (!e.shiftKey && /^[0-9]$/.test(e.key)) {
         const digit = parseInt(e.key, 10);
-        const maxIdx = this._maxSpeedIdx != null ? this._maxSpeedIdx : SPEED_PRESETS.length - 1;
-        if (digit <= maxIdx) this._setSpeedIndex(digit);
+        if (this.timeControl) this.timeControl.setIndex(digit);
         return;
       }
       // C: Clear defenses.

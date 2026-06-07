@@ -172,6 +172,8 @@ export class DrawToolsPanel {
     if (patternEditorToggleGroup) {
       patternEditorToggleGroup.style.display = mode === DRAW_MODE.PATTERN ? 'flex' : 'none';
     }
+    // Dash selector only applies to line mode.
+    if (this._updateDashVisibility) this._updateDashVisibility();
   }
 
   _initLineControls() {
@@ -192,6 +194,16 @@ export class DrawToolsPanel {
         this.input.setDashPattern(dashSelect.value);
       });
     }
+    // Wire the custom dash dropup widget.
+    this._initDashDropup();
+
+    // Track dash select visibility based on mode (only shown for line mode).
+    this._updateDashVisibility = () => {
+      const dashGroup = document.getElementById('dash-picker-group');
+      if (!dashGroup) return;
+      const isLine = this.input && this.input.mode === 'line';
+      dashGroup.style.display = isLine ? '' : 'none';
+    };
     // Fill pattern selector — visual swatch grid.
     const fillPicker = document.getElementById('fill-pattern-picker');
     const fillTrigger = document.getElementById('fill-pattern-trigger');
@@ -249,6 +261,55 @@ export class DrawToolsPanel {
     }
   }
 
+  // Initial state will be applied by _updateVisibility on first call.
+  _initDashDropup() {
+    const trigger = document.getElementById('dash-dropup-trigger');
+    const panel = document.getElementById('dash-dropup-panel');
+    const labelEl = document.getElementById('dash-dropup-label');
+    const wrap = trigger && trigger.closest('.dash-dropup-wrap');
+    const nativeSelect = document.getElementById('line-dash');
+    if (!trigger || !panel || !wrap) return;
+    const LABELS = { solid: 'Solid', dashed: 'Dashed', dotted: 'Dotted', sparse: 'Sparse' };
+    const setOpen = (open) => {
+      panel.classList.toggle('hidden', !open);
+      wrap.classList.toggle('open', open);
+      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    const selectDash = (value) => {
+      // Update native select so existing input wiring fires.
+      if (nativeSelect) {
+        nativeSelect.value = value;
+        nativeSelect.dispatchEvent(new Event('change'));
+      }
+      // Update label.
+      if (labelEl) labelEl.textContent = LABELS[value] || value;
+      // Update active state on options.
+      panel.querySelectorAll('.dash-option').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.dash === value);
+      });
+      setOpen(false);
+    };
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setOpen(panel.classList.contains('hidden'));
+    });
+    panel.querySelectorAll('.dash-option').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectDash(btn.dataset.dash);
+      });
+    });
+    // Close on outside click.
+    document.addEventListener('click', (e) => {
+      if (!wrap.contains(e.target)) setOpen(false);
+    });
+    // Close on Esc.
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.classList.contains('hidden')) {
+        setOpen(false);
+      }
+    });
+  }
   _initPatternEditor() {
     this.editorCanvas = document.getElementById('pattern-editor');
     if (!this.editorCanvas) return;

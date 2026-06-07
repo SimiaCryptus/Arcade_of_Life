@@ -103,10 +103,207 @@ body {
   flex-wrap: wrap;
 }
 
-#speed-control input[type='range'] {
-  flex: 1;
-  min-width: 180px;
+/* ── New compact TimeControl widget ───────────────────────────────────── */
+.time-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, rgba(0, 255, 255, 0.06), rgba(0, 100, 255, 0.06));
+  border: 1px solid #2a2a5a;
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+
+.tc-btn {
+  background: transparent;
+  color: #00ffff;
+  border: 1px solid #2a2a5a;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+  line-height: 1;
+  min-width: 28px;
+}
+
+.tc-btn:hover:not(:disabled) {
+  background: rgba(0, 255, 255, 0.15);
+  border-color: #00ffff;
+  box-shadow: 0 0 6px rgba(0, 255, 255, 0.4);
+}
+
+.tc-btn:active:not(:disabled) {
+  background: rgba(0, 255, 255, 0.3);
+}
+
+.tc-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.tc-btn-icon {
+  font-size: 13px;
+  padding: 4px 8px;
+}
+
+.tc-slider {
+  width: 130px;
   accent-color: #00ffff;
+  margin: 0 2px;
+  cursor: pointer;
+}
+
+.tc-label {
+  display: inline-block;
+  min-width: 52px;
+  text-align: center;
+  color: #00ffff;
+  font-weight: bold;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  background: rgba(0, 0, 16, 0.5);
+  border: 1px solid #2a2a5a;
+  border-radius: 3px;
+}
+
+.tc-label-paused {
+  color: #ffaa00;
+  text-shadow: 0 0 4px #ffaa00;
+}
+
+.tc-label-hyper {
+  color: #ff60ff;
+  text-shadow: 0 0 4px #ff60ff;
+}
+
+.tc-hint {
+  font-size: 10px;
+  color: #6080a0;
+  margin-left: auto;
+}
+
+/* ── Hamburger / game menu ───────────────────────────────────────────── */
+.game-menu-wrap {
+  position: relative;
+  margin-left: auto;
+}
+
+#game-menu-button {
+  background: transparent;
+  color: #c0c0e0;
+  border: 1px solid #4040a0;
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-weight: bold;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+
+#game-menu-button:hover,
+#game-menu-button.active {
+  color: #00ffff;
+  border-color: #00ffff;
+  background: rgba(0, 255, 255, 0.12);
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.35);
+}
+
+.game-menu-dropdown {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  top: auto;
+  left: auto;
+  background: rgba(5, 5, 20, 0.97);
+  border: 1px solid #00ffff;
+  border-radius: 4px;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.7),
+    0 0 14px rgba(0, 255, 255, 0.25);
+  padding: 4px;
+  z-index: 50;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: gmDropdownIn 0.12s ease-out;
+}
+
+.game-menu-dropdown.hidden {
+  display: none;
+}
+
+@keyframes gmDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gm-item {
+  background: transparent;
+  color: #c0c0e0;
+  border: none;
+  padding: 7px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  text-align: left;
+  transition: all 0.12s;
+  letter-spacing: 0.3px;
+}
+
+.gm-item:hover {
+  background: rgba(0, 255, 255, 0.15);
+  color: #00ffff;
+  padding-left: 16px;
+}
+
+.gm-item.gm-warn:hover {
+  background: rgba(255, 170, 68, 0.18);
+  color: #ffaa44;
+}
+
+.gm-item.gm-danger:hover {
+  background: rgba(255, 102, 102, 0.18);
+  color: #ff6666;
+}
+
+.gm-divider {
+  height: 1px;
+  background: #2a2a5a;
+  margin: 4px 0;
+}
+
+/* Hide the legacy hint label since the new widget is more compact. */
+#speed-hint {
+  font-size: 10px;
+  color: #6080a0;
+  letter-spacing: 0.5px;
+}
+
+/* Treat clear/capture as abilities (same visual weight). */
+
+/* Legacy: kept for any code paths that style this class directly. */
+.freeplay-ability-btn.ability-always {
+  color: #00ffcc;
+  border-color: #00ffcc;
+}
+/* Legacy free-play ability buttons are now hidden — the AbilitiesMenu
+    dropup handles all UI. Stub buttons remain in the DOM only so that
+    keyboard hotkeys, cheats, and existing wiring continue to work. */
+#abilities-legacy-buttons {
+  display: none !important;
 }
 
 #speed-label {
@@ -684,6 +881,102 @@ body {
   font-family: inherit;
   font-size: 11px;
   border-radius: 3px;
+}
+/* ── Line dash dropup widget ─────────────────────────────────────────── */
+.dash-dropup-wrap {
+  position: relative;
+  display: inline-block;
+}
+.dash-dropup-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #0a0a20;
+  color: #e0e0ff;
+  border: 1px solid #4040a0;
+  padding: 2px 8px 2px 6px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+  min-width: 80px;
+  white-space: nowrap;
+}
+.dash-dropup-trigger:hover {
+  background: rgba(0, 255, 255, 0.1);
+  border-color: #00ffff;
+}
+.dash-dropup-wrap.open .dash-dropup-trigger {
+  border-color: #00ffff;
+  box-shadow: 0 0 6px rgba(0, 255, 255, 0.35);
+}
+.dash-dropup-arrow {
+  color: #00ffff;
+  font-size: 9px;
+  transition: transform 0.15s;
+  margin-left: auto;
+}
+.dash-dropup-wrap.open .dash-dropup-arrow {
+  transform: rotate(180deg);
+}
+.dash-dropup-panel {
+  position: absolute;
+  /* Align south edge of panel to north edge of trigger,
+      east edge of panel to east edge of trigger. */
+  bottom: calc(100% + 4px);
+  right: 0;
+  left: auto;
+  top: auto;
+  background: rgba(5, 5, 20, 0.97);
+  border: 1px solid #00ffff;
+  border-radius: 4px;
+  box-shadow:
+    0 -4px 16px rgba(0, 0, 0, 0.6),
+    0 0 10px rgba(0, 255, 255, 0.2);
+  padding: 3px;
+  z-index: 50;
+  min-width: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: dashDropupIn 0.12s ease-out;
+}
+.dash-dropup-panel.hidden {
+  display: none;
+}
+@keyframes dashDropupIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.dash-option {
+  background: transparent;
+  color: #c0c0e0;
+  border: none;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px;
+  text-align: left;
+  transition: all 0.1s;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.dash-option:hover {
+  background: rgba(0, 255, 255, 0.15);
+  color: #00ffff;
+}
+.dash-option.active {
+  color: #00ffff;
+  background: rgba(0, 255, 255, 0.1);
+  font-weight: bold;
 }
 
 #pattern-editor {
@@ -4629,4 +4922,164 @@ body {
   #epilepsy-warning-body {
     font-size: 13px;
   }
+}
+
+/* ── Abilities dropup menu ─────────────────────────────────────────── */
+.abilities-menu-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.abilities-menu-btn {
+  background: transparent;
+  color: #ffcc44;
+  border: 1px solid #ffcc44;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 3px;
+  font-weight: bold;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+
+.abilities-menu-btn:hover,
+.abilities-menu-btn.active {
+  background: rgba(255, 204, 68, 0.15);
+  box-shadow: 0 0 8px rgba(255, 204, 68, 0.4);
+}
+
+.abilities-menu-dropup {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  top: auto;
+  left: auto;
+  background: rgba(5, 5, 20, 0.97);
+  border: 1px solid #ffcc44;
+  border-radius: 4px;
+  box-shadow:
+    0 -4px 20px rgba(0, 0, 0, 0.7),
+    0 0 14px rgba(255, 204, 68, 0.25);
+  padding: 4px;
+  z-index: 50;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: abilitiesDropupIn 0.14s ease-out;
+}
+
+.abilities-menu-dropup.hidden {
+  display: none;
+}
+
+@keyframes abilitiesDropupIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ability-menu-item {
+  background: transparent;
+  color: #ffcc44;
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  text-align: left;
+  transition: all 0.12s;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ability-menu-item:hover:not(:disabled) {
+  background: rgba(255, 204, 68, 0.18);
+  color: #ffe080;
+  padding-left: 16px;
+}
+
+.ability-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ability-menu-item.ability-always {
+  color: #00ffcc;
+}
+
+.ability-menu-item.ability-always:hover:not(:disabled) {
+  background: rgba(0, 255, 204, 0.18);
+  color: #66ffe0;
+}
+
+.ability-menu-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+}
+
+.ability-menu-label {
+  flex: 1;
+}
+
+.ability-menu-cd {
+  font-size: 10px;
+  color: #ff8888;
+  font-weight: bold;
+}
+
+.ability-menu-divider {
+  height: 1px;
+  background: #2a2a5a;
+  margin: 4px 2px;
+}
+
+/* Quick-access "last used" ability button */
+.ability-quick-btn {
+  background: linear-gradient(135deg, rgba(255, 204, 68, 0.18), rgba(255, 170, 0, 0.1));
+  color: #ffcc44;
+  border: 1px solid #ffcc44;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 3px;
+  font-weight: bold;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.3px;
+}
+
+.ability-quick-btn:hover:not(:disabled) {
+  background: #ffcc44;
+  color: #000010;
+  box-shadow: 0 0 10px #ffcc44;
+}
+
+.ability-quick-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ability-quick-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ability-quick-label {
+  font-size: 11px;
 }

@@ -220,22 +220,13 @@ export class FreeplayAbilityManager {
     // Also hide the legacy single-slot button if present (story mode owns it).
     const legacy = document.getElementById('ability-button');
     if (legacy) legacy.style.display = 'none';
-    // Hide the "none equipped" hint when we have abilities.
-    const hint = document.getElementById('abilities-empty-hint');
-    if (hint) {
-      hint.style.display = this.activeAbilities.length > 0 ? 'none' : '';
+    // The new AbilitiesMenu dropup hosts all abilities — we no longer
+    // create individual visible buttons here. Hidden stub buttons remain
+    // in the DOM (legacy compatibility) but are styled out.
+    // Just notify the menu to rebuild its contents.
+    if (this.game && this.game.abilitiesMenu) {
+      this.game.abilitiesMenu.rebuild();
     }
-    this.activeAbilities.forEach((ab, idx) => {
-      const btn = document.createElement('button');
-      btn.className = 'freeplay-ability-btn mode-btn';
-      btn.style.cssText =
-        'background:transparent;color:#ffcc44;border:1px solid #ffcc44;padding:4px 10px;font-size:11px;font-family:inherit;cursor:pointer;border-radius:3px;font-weight:bold;';
-      const key = ACTIVE_HOTKEYS[idx];
-      btn.title = `Trigger ${ab.name}${key ? ` [${key.toUpperCase()}]` : ''}`;
-      btn.addEventListener('click', () => this.trigger(idx));
-      abilitiesGroup.appendChild(btn);
-      this._buttonEls.push(btn);
-    });
   }
 
   _removeButtons() {
@@ -243,9 +234,9 @@ export class FreeplayAbilityManager {
       if (btn && btn.parentNode) btn.parentNode.removeChild(btn);
     }
     this._buttonEls = [];
-    // Show the "none equipped" hint again.
-    const hint = document.getElementById('abilities-empty-hint');
-    if (hint) hint.style.display = '';
+    if (this.game && this.game.abilitiesMenu) {
+      this.game.abilitiesMenu.rebuild();
+    }
   }
 
   _bindHotkeys() {
@@ -311,22 +302,9 @@ export class FreeplayAbilityManager {
   }
 
   _updateButtons() {
-    this.activeAbilities.forEach((ab, idx) => {
-      const btn = this._buttonEls[idx];
-      if (!btn) return;
-      const cd = ab._cdRemaining || 0;
-      const key = ACTIVE_HOTKEYS[idx];
-      const keyTag = key ? ` [${key.toUpperCase()}]` : '';
-      if (cd > 0) {
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-        btn.textContent = `${ab.icon} ${ab.name} (${Math.ceil(cd)}s)`;
-      } else {
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        btn.textContent = `${ab.icon} ${ab.name}${keyTag}`;
-      }
-    });
+    // No-op: the AbilitiesMenu dropup polls cooldowns itself and
+    // refreshes labels on a timer. We just leave the data fresh on
+    // each ability object and let the menu pick it up.
   }
 
   // Whether the player has any active ability bound. Used by main.js

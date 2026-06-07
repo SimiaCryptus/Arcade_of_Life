@@ -66,48 +66,6 @@
     </div>
     <div id="game-container">
       <canvas id="game-canvas"></canvas>
-      <div id="threshold-display" class="threshold-display hidden">
-        <div class="threshold-row">
-          <span class="threshold-label">🏙 Cities:</span>
-          <span class="threshold-value" id="threshold-city-count">0</span>
-          <span class="threshold-divider">/</span>
-          <span class="threshold-min" id="threshold-city-min">0</span>
-          <span class="threshold-hint">min</span>
-        </div>
-        <div class="threshold-row">
-          <span class="threshold-label">☠ Enemies:</span>
-          <span class="threshold-value" id="threshold-enemy-count">0</span>
-          <span class="threshold-divider">/</span>
-          <span class="threshold-max" id="threshold-enemy-max">0</span>
-          <span class="threshold-hint">max for win</span>
-        </div>
-      </div>
-      <div id="speed-control">
-        <label for="speed-slider" id="speed-control-label">Speed:</label>
-        <input id="speed-slider" max="7" min="0" step="1" type="range" value="3" />
-        <span id="speed-label">1x</span>
-        <button id="step-forward-button" title="Advance simulation by one tick (when paused) [N]">
-          ⏭ Step
-        </button>
-        <button id="ingame-settings-button" title="Open settings (pauses game) [S]">
-          ⚙ Settings
-        </button>
-        <button id="howtoplay-ingame-button" title="Open How to Play guide [H]">Help</button>
-        <button id="pattern-zoo-ingame-button" title="Browse the pattern zoo [Z]">🦓 Zoo</button>
-        <button id="level-designer-ingame-button" title="Open level designer [D]">
-          🛠 Designer
-        </button>
-        <button id="help-button" title="Open the Console Hacking Guide (pauses game)">Guide</button>
-        <button id="fullscreen-button" title="Toggle fullscreen [F11]">⛶</button>
-        <button id="restart-level-button" title="Restart current level (asks for confirmation) [R]">
-          ↻ Restart
-        </button>
-        <button id="exit-to-menu-button" title="Exit to main menu">✕ Exit</button>
-        <span id="speed-hint"
-          >[Space=pause, N=step, [ ] slow/fast, 0–7 speed, C clear, Z undo, S settings, M mute, H
-          help, ? hotkeys]</span
-        >
-      </div>
       <div id="draw-tools">
         <div class="tool-group">
           <label>Mode:</label>
@@ -122,19 +80,42 @@
           <label for="line-width">Width:</label>
           <input id="line-width" max="8" min="1" step="1" type="range" value="1" />
           <span id="line-width-label">1</span>
-          <label for="line-dash">Dash:</label>
-          <select id="line-dash">
-            <option value="solid">Solid</option>
-            <option value="dashed">Dashed</option>
-            <option value="dotted">Dotted</option>
-            <option value="sparse">Sparse</option>
-          </select>
+          <div class="dash-picker tool-group" id="dash-picker-group">
+            <label>Dash:</label>
+            <div class="dash-dropup-wrap">
+              <button
+                id="dash-dropup-trigger"
+                class="dash-dropup-trigger"
+                type="button"
+                aria-haspopup="true"
+                aria-expanded="false"
+                title="Select line dash style"
+              >
+                <span id="dash-dropup-label">Solid</span>
+                <span class="dash-dropup-arrow">▴</span>
+              </button>
+              <div id="dash-dropup-panel" class="dash-dropup-panel hidden" role="menu">
+                <button class="dash-option active" data-dash="solid" role="menuitem">
+                  ── Solid
+                </button>
+                <button class="dash-option" data-dash="dashed" role="menuitem">╌╌ Dashed</button>
+                <button class="dash-option" data-dash="dotted" role="menuitem">·· Dotted</button>
+                <button class="dash-option" data-dash="sparse" role="menuitem">- Sparse</button>
+              </div>
+            </div>
+            <!-- Hidden native select retained so existing input.setDashPattern() wiring works -->
+            <select id="line-dash" style="display: none">
+              <option value="solid">Solid</option>
+              <option value="dashed">Dashed</option>
+              <option value="dotted">Dotted</option>
+              <option value="sparse">Sparse</option>
+            </select>
+          </div>
         </div>
         <div class="tool-group" id="pattern-tools">
-          <label>Pattern:</label>
           <div class="pattern-preset-row">
             <select id="pattern-presets" title="Load a preset pattern">
-              <option value="">-- Preset --</option>
+              <option value="">-- CHOOSE A PATTERN --</option>
               <option value="glider">Glider</option>
               <option value="blinker">Blinker</option>
               <option value="block">Block</option>
@@ -144,6 +125,14 @@
               <option value="toad">Toad</option>
               <option value="beacon">Beacon</option>
             </select>
+            <button
+              id="pattern-zoo-inline-button"
+              class="mode-btn"
+              title="Browse the pattern zoo [Z]"
+              style="margin-left: 6px"
+            >
+              🦓 Zoo
+            </button>
           </div>
         </div>
         <div class="tool-group" id="pattern-editor-toggle-group">
@@ -213,26 +202,127 @@
             </div>
           </div>
         </div>
-        <div class="tool-group tool-group-actions" id="draw-actions-group">
-          <button id="clear-defenses-button" title="Clear all defense cells and refund ink [C]">
-            Clear Defenses
-          </button>
-          <button
-            id="pattern-capture-button"
-            title="Capture a region of the grid as a reusable pattern [Shift+C]"
-          >
-            ◧ Capture Pattern
-          </button>
-        </div>
         <div class="tool-group tool-group-abilities" id="abilities-group">
-          <label>Abilities:</label>
-          <span id="abilities-empty-hint" style="font-size: 10px; color: #666; font-style: italic"
+          <!-- Dropup menu trigger -->
+          <div class="abilities-menu-wrap">
+            <button
+              id="abilities-menu-button"
+              class="abilities-menu-btn"
+              title="All abilities"
+              aria-haspopup="true"
+              aria-expanded="false"
+            >
+              ⚡ Abilities ▴
+            </button>
+            <div id="abilities-menu-dropup" class="abilities-menu-dropup hidden" role="menu"></div>
+          </div>
+          <!-- Quick-access slot showing the last-used ability -->
+          <button
+            id="ability-quick-button"
+            class="ability-quick-btn"
+            title="Last used ability — click to re-trigger"
+            style="display: none"
+          >
+            <span class="ability-quick-icon">🧹</span>
+            <span class="ability-quick-label">Clear</span>
+          </button>
+          <!-- Legacy hidden buttons retained for compatibility with existing code paths.
+              They live inside the abilities group but stay invisible; the dropup
+              proxies clicks to them so the old wiring (cheats, hotkeys, etc.) still works. -->
+          <span id="abilities-legacy-buttons" style="display: none">
+            <button
+              id="clear-defenses-button"
+              class="freeplay-ability-btn ability-always"
+              title="Clear all defense cells and refund ink [C]"
+            >
+              🧹 Clear Defenses
+            </button>
+            <button
+              id="pattern-capture-button"
+              class="freeplay-ability-btn ability-always"
+              title="Capture a region of the grid as a reusable pattern [Shift+C]"
+            >
+              ◧ Capture Pattern
+            </button>
+          </span>
+          <span
+            id="abilities-empty-hint"
+            style="font-size: 10px; color: #666; font-style: italic; display: none"
             >none equipped</span
           >
         </div>
         <span class="tool-hint"
           >[F/L/P/B mode, Tab cycle, R rotate, X flip H, Y flip V, +/- width, Shift+1-8
           preset]</span
+        >
+      </div>
+      <div id="threshold-display" class="threshold-display hidden">
+        <div class="threshold-row">
+          <span class="threshold-label">🏙 Cities:</span>
+          <span class="threshold-value" id="threshold-city-count">0</span>
+          <span class="threshold-divider">/</span>
+          <span class="threshold-min" id="threshold-city-min">0</span>
+          <span class="threshold-hint">min</span>
+        </div>
+        <div class="threshold-row">
+          <span class="threshold-label">☠ Enemies:</span>
+          <span class="threshold-value" id="threshold-enemy-count">0</span>
+          <span class="threshold-divider">/</span>
+          <span class="threshold-max" id="threshold-enemy-max">0</span>
+          <span class="threshold-hint">max for win</span>
+        </div>
+      </div>
+      <div id="speed-control">
+        <!-- Time control widget is injected here by timeControl.js -->
+        <div id="time-control-mount"></div>
+        <!-- Hidden legacy speed slider (kept for backward compatibility with any code that reads it). -->
+        <input
+          id="speed-slider"
+          type="range"
+          min="0"
+          max="7"
+          step="1"
+          value="3"
+          style="display: none"
+        />
+        <span id="speed-label" style="display: none">1x</span>
+        <button id="step-forward-button" style="display: none" title="Step (legacy)">⏭</button>
+        <!-- Hamburger menu trigger -->
+        <div class="game-menu-wrap">
+          <button
+            id="game-menu-button"
+            title="Game menu"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            ☰ Menu
+          </button>
+          <div id="game-menu-dropdown" class="game-menu-dropdown hidden" role="menu">
+            <button class="gm-item" id="gm-settings" role="menuitem">⚙ Settings</button>
+            <button class="gm-item" id="gm-howtoplay" role="menuitem">❔ How to Play</button>
+            <button class="gm-item" id="gm-guide" role="menuitem">📖 Console Guide</button>
+            <button class="gm-item" id="gm-zoo" role="menuitem">🦓 Pattern Zoo</button>
+            <button class="gm-item" id="gm-designer" role="menuitem">🛠 Level Designer</button>
+            <button class="gm-item" id="gm-hotkeys" role="menuitem">⌨ Hotkeys (?)</button>
+            <div class="gm-divider"></div>
+            <button class="gm-item" id="gm-fullscreen" role="menuitem">⛶ Fullscreen</button>
+            <button class="gm-item gm-warn" id="gm-restart" role="menuitem">↻ Restart Level</button>
+            <button class="gm-item gm-danger" id="gm-exit" role="menuitem">✕ Exit to Menu</button>
+          </div>
+        </div>
+        <!-- Legacy hidden buttons (kept as no-ops for any old refs) -->
+        <span id="legacy-button-stubs" style="display: none">
+          <button id="ingame-settings-button"></button>
+          <button id="howtoplay-ingame-button"></button>
+          <button id="pattern-zoo-ingame-button"></button>
+          <button id="level-designer-ingame-button"></button>
+          <button id="help-button"></button>
+          <button id="fullscreen-button"></button>
+          <button id="restart-level-button"></button>
+          <button id="exit-to-menu-button"></button>
+        </span>
+        <span id="speed-hint" class="tc-hint"
+          >[Space=pause • N=step • [ ] slow/fast • Z undo • ?=hotkeys]</span
         >
       </div>
       <div class="overlay hidden" id="pattern-editor-overlay">
