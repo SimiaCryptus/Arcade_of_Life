@@ -334,7 +334,6 @@ export class Simulation {
     // Enemy region = base zone (top dead zone + base zone rows).
     // Neutral region = between base zone bottom and draw zone top.
     const enemyRegionMaxY = computeEnemyRegionMaxY(h);
-    const cascadeTicks = CONFIG.MISSILE_CASCADE_TICKS;
     const defenseVariants = CONFIG.COLORS.DEFENSE_VARIANTS.length;
     const missileVariants = CONFIG.COLORS.MISSILE_VARIANTS.length;
     const dzMinY = Math.max(0, CONFIG.RETURN_FIRE_ZONE_MIN_Y | 0);
@@ -426,45 +425,6 @@ export class Simulation {
           );
           if (effectiveLimit < UNLIMITED && age[i] >= effectiveLimit) {
             ageDespawn[i] = 1;
-          }
-        }
-      }
-      // Cascade: any missile within cascadeTicks of expiry adjacent to an
-      // already-despawning missile also despawns. Iterate until stable.
-      // Use a worklist approach for efficiency on large grids.
-      // Use the largest region limit as the reference for
-      // cascade threshold (cells nearing expiry in either region cascade).
-      const maxRegionLimit = Math.max(
-        missAgeF < UNLIMITED ? missAgeF : 0,
-        missAgeE < UNLIMITED ? missAgeE : 0,
-        missAgeN < UNLIMITED ? missAgeN : 0
-      );
-      const cascadeThreshold = maxRegionLimit - cascadeTicks;
-      const worklist = [];
-      for (let i = 0; i < cells.length; i++) {
-        if (ageDespawn[i]) worklist.push(i);
-      }
-      while (worklist.length > 0 && maxRegionLimit > 0) {
-        const i = worklist.pop();
-        const y = (i / w) | 0;
-        const x = i - y * w;
-        for (let dy = -1; dy <= 1; dy++) {
-          const ny = y + dy;
-          if (ny < 0 || ny >= h) continue;
-          for (let dx = -1; dx <= 1; dx++) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = (((x + dx) % w) + w) % w;
-            const ni = ny * w + nx;
-            if (ageDespawn[ni]) continue;
-            // Anchored cells are immune to cascade despawn.
-            // This protects Gosper gun stator cells (and other
-            // never-dying generator cells) from being despawned by
-            // cascading age expiry from their own emitted gliders.
-            if (anchor[ni]) continue;
-            if (cells[ni] === CELL_TYPE.MISSILE && age[ni] >= cascadeThreshold) {
-              ageDespawn[ni] = 1;
-              worklist.push(ni);
-            }
           }
         }
       }

@@ -66,7 +66,6 @@ export const SETTING_DEFS = [
   { key: 'MISSILE_AGE_FRIENDLY', id: 'setting-miss-age-friendly', format: (v) => v },
   { key: 'MISSILE_AGE_ENEMY', id: 'setting-miss-age-enemy', format: (v) => v },
   { key: 'MISSILE_AGE_NEUTRAL', id: 'setting-miss-age-neutral', format: (v) => v },
-  { key: 'MISSILE_CASCADE_TICKS', id: 'setting-cascade-ticks', format: (v) => v },
   { key: 'AGE_CONTAGION_AMOUNT', id: 'setting-age-contagion', format: (v) => v },
   { key: 'CLEAR_REFUND_FRACTION', id: 'setting-clear-refund', format: (v) => v.toFixed(2) },
   { key: 'INK_DRY_TICKS', id: 'setting-ink-dry', format: (v) => v },
@@ -132,7 +131,6 @@ DEFAULTS.BASE_GLIDER_BUFFER = CONFIG.BASE_GLIDER_BUFFER;
 DEFAULTS.UNLIMITED_MAX_INK = false;
 DEFAULTS.UNLIMITED_INK_REGEN = false;
 DEFAULTS.UNLIMITED_CELL_AGE = true;
-DEFAULTS.UNLIMITED_MISSILE_CASCADE = false;
 // Unlimited flags for region-specific age settings.
 DEFAULTS.UNLIMITED_DEF_AGE_FRIENDLY = true;
 DEFAULTS.UNLIMITED_DEF_AGE_ENEMY = true;
@@ -196,7 +194,6 @@ export class Settings {
         CONFIG.INITIAL_INK = 999999;
       }
       if (this.values.UNLIMITED_INK_REGEN) CONFIG.INK_REGEN_RATE = 999999;
-      if (this.values.UNLIMITED_MISSILE_CASCADE) CONFIG.MISSILE_CASCADE_TICKS = 999999;
       if (this.values.UNLIMITED_DEF_AGE_FRIENDLY) CONFIG.DEFENSE_AGE_FRIENDLY = 999999;
       if (this.values.UNLIMITED_DEF_AGE_ENEMY) CONFIG.DEFENSE_AGE_ENEMY = 999999;
       if (this.values.UNLIMITED_DEF_AGE_NEUTRAL) CONFIG.DEFENSE_AGE_NEUTRAL = 999999;
@@ -919,13 +916,6 @@ export class SettingsPanel {
         checkboxId: 'setting-unlimited-ink-regen',
         sliderId: 'setting-ink-regen',
         valueId: 'setting-ink-regen-value',
-        label: '∞',
-      },
-      {
-        valueKey: 'UNLIMITED_MISSILE_CASCADE',
-        checkboxId: 'setting-unlimited-cascade',
-        sliderId: 'setting-cascade-ticks',
-        valueId: 'setting-cascade-ticks-value',
         label: '∞',
       },
       // Region-specific age unlimited toggles.

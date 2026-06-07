@@ -40,7 +40,6 @@ export const CONFIG = {
   MISSILE_AGE_FRIENDLY: 999999,
   MISSILE_AGE_ENEMY: 999999,
   MISSILE_AGE_NEUTRAL: 999999,
-  MISSILE_CASCADE_TICKS: 20, // ~2 seconds at TICK_RATE=100ms
   // Death contagion: when a cell expires (from age or annihilation),
   // increment the age of each of its neighbors by this amount. Above 0
   // this creates a "decay spreads" effect: loss-tolerant patterns

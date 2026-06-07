@@ -1,6 +1,6 @@
 {
   "name": "SpaceInvders",
-  "createdAt": 1780848251331,
+  "createdAt": 1780853032432,
   "gridWidth": 300,
   "gridHeight": 200,
   "cities": [
@@ -395,10 +395,9 @@
     "DEFENSE_AGE_FRIENDLY": 200,
     "DEFENSE_AGE_ENEMY": 20,
     "DEFENSE_AGE_NEUTRAL": 200,
-    "MISSILE_AGE_FRIENDLY": 200,
+    "MISSILE_AGE_FRIENDLY": 32,
     "MISSILE_AGE_ENEMY": 4,
     "MISSILE_AGE_NEUTRAL": 4,
-    "MISSILE_CASCADE_TICKS": 29,
     "AGE_CONTAGION_AMOUNT": 10,
     "CLEAR_REFUND_FRACTION": 0.5,
     "INK_DRY_TICKS": 5,
@@ -434,6 +433,7 @@
     "VFX_SCREEN_SHAKE": true,
     "VFX_CELL_GLOW": true,
     "VFX_DRAW_ZONE_TINT": true,
+    "MISSILE_CASCADE_TICKS": 29,
     "UNLIMITED_CELL_AGE": true,
     "UNLIMITED_DEF_AGE_FRIENDLY": true,
     "UNLIMITED_DEF_AGE_ENEMY": false,
