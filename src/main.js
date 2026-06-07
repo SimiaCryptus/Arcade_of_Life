@@ -1787,6 +1787,7 @@ class Game {
     if (storyBtn) {
       storyBtn.addEventListener('click', () => {
         if (this.story && typeof this.story.startStory === 'function') {
+          if (!this._checkAndPromptForReset('Story Mode')) return;
           this.story.startStory();
         } else {
           Logger.warn('Story engine not available.');
@@ -2484,6 +2485,31 @@ class Game {
 
   startGame() {
     Logger.info('Starting game.');
+    // Check for non-default settings (excluding board size) and offer reset.
+    if (!this._checkAndPromptForReset('Arcade Mode')) {
+      return; // user cancelled
+    }
+    // Always re-apply settings to CONFIG at game start. This ensures the
+    // simulation begins from a known-consistent state even on a truly
+    // fresh launch (no localStorage, no reset prompt fired). Without this,
+    // CONFIG values mutated during Game construction (_fitCellSize,
+    // _buildWorld, backend init) can leave the simulation in a stale
+    // state where gliders spawn but never advance.
+    try {
+      this.settings.apply();
+      Logger.info('[Game] Applied settings to CONFIG at startGame entry.');
+    } catch (e) {
+      Logger.warn('[Game] settings.apply() at startGame entry failed', e);
+    }
+    // Force a full world rebuild at game start. This guarantees the
+    // simulation backend, grid, and entities all reflect the current
+    // CONFIG state — critical on a fresh launch where the initial
+    // _buildWorld() ran before settings were fully applied.
+    Logger.info('[Game] Forcing world rebuild at startGame entry.');
+    this._fitCellSize();
+    this._buildWorld();
+    this.renderer.setGrid(this.grid);
+    this._initSpeedControls();
     Sfx.waveStart();
     // Clear any active custom level state — default game mode is starting.
     this._activeCustomLevel = null;
@@ -2507,7 +2533,8 @@ class Game {
     requestWakeLock();
     // Apply any pending settings (may have changed resolution / gliders).
     this.settings.apply();
-    // If resolution changed since last build, rebuild world.
+    // World was already rebuilt at startGame entry, but double-check
+    // resolution in case settings.apply() changed it after the rebuild.
     if (this.grid.width !== CONFIG.GRID_WIDTH || this.grid.height !== CONFIG.GRID_HEIGHT) {
       Logger.info(
         `Resolution changed to ${CONFIG.GRID_WIDTH}x${CONFIG.GRID_HEIGHT}; rebuilding world.`
@@ -2515,7 +2542,6 @@ class Game {
       this._fitCellSize();
       this._buildWorld();
       this.renderer.setGrid(this.grid);
-      // Re-init speed controls for the new board size.
       this._initSpeedControls();
     }
     this.defenses.maxInk = CONFIG.MAX_INK;
@@ -2606,6 +2632,64 @@ class Game {
         }
       });
     }
+  }
+  /**
+   * If the current settings are non-standard (excluding board size),
+   * prompt the user to choose: reset to defaults, keep current, or cancel.
+   * Returns true if the caller should proceed with starting the game,
+   * false if the user cancelled.
+   * @param {string} modeName - human-readable mode name for the prompt
+   */
+  _checkAndPromptForReset(modeName) {
+    if (!this.settings) return true;
+    const nonDefaults = this.settings.getNonDefaultKeys();
+    if (nonDefaults.length === 0) return true;
+    Logger.info(
+      `[Game] ${modeName} requested with ${nonDefaults.length} non-default ` +
+        `setting(s): ${nonDefaults.slice(0, 8).join(', ')}` +
+        (nonDefaults.length > 8 ? `, +${nonDefaults.length - 8} more` : '')
+    );
+    const msg =
+      `Your current configuration has ${nonDefaults.length} non-default ` +
+      `setting(s) (game mode, ruleset, ink, waves, abilities, etc.).\n\n` +
+      `Reset to default configuration before starting ${modeName}?\n\n` +
+      `• OK    = Reset to defaults (board size preserved)\n` +
+      `• Cancel = Keep current settings`;
+    const shouldReset = window.confirm(msg);
+    if (shouldReset) {
+      Logger.info(`[Game] User chose to reset settings before ${modeName}.`);
+      this.settings.resetExceptBoardSize();
+      // Re-sync the settings panel UI if it's been built so the values
+      // reflect the reset state next time the panel is opened.
+      if (this.settingsPanel && this.settingsPanel._syncInputs) {
+        try {
+          this.settingsPanel._syncInputs();
+          if (this.settingsPanel._syncGameModeSelect) {
+            this.settingsPanel._syncGameModeSelect();
+          }
+          if (this.settingsPanel._syncUnlimitedCheckboxes) {
+            this.settingsPanel._syncUnlimitedCheckboxes();
+          }
+        } catch (e) {
+          Logger.warn('[Game] Settings panel re-sync failed after reset', e);
+        }
+      }
+    } else {
+      Logger.info(`[Game] User chose to keep current settings for ${modeName}.`);
+      // CRITICAL: Even when keeping current settings, we must re-apply them
+      // to CONFIG to ensure a clean, consistent state. On fresh startup, the
+      // CONFIG object may have been mutated during Game construction (e.g. by
+      // _fitCellSize, _buildWorld, or other init paths) in ways that leave it
+      // out of sync with this.settings.values. Without this re-apply, the
+      // game may launch with a stale/inconsistent CONFIG.
+      try {
+        this.settings.apply();
+        Logger.info('[Game] Re-applied current settings to CONFIG after keep choice.');
+      } catch (e) {
+        Logger.warn('[Game] settings.apply() failed in keep-current path', e);
+      }
+    }
+    return true;
   }
 
   nextWave() {

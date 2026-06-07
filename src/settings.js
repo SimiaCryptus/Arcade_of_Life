@@ -338,6 +338,46 @@ export class Settings {
   getDefault(key) {
     return DEFAULTS[key];
   }
+  /**
+   * Check whether current settings differ from defaults, excluding
+   * board-size related keys (resolution, custom width/height).
+   * Returns an array of key names that differ. Empty array = standard config.
+   */
+  getNonDefaultKeys() {
+    // Keys to exclude from the comparison (board size related).
+    const excluded = new Set(['RESOLUTION_INDEX', 'CUSTOM_GRID_WIDTH', 'CUSTOM_GRID_HEIGHT']);
+    const diffs = [];
+    for (const key of Object.keys(DEFAULTS)) {
+      if (excluded.has(key)) continue;
+      const cur = this.values[key];
+      const def = DEFAULTS[key];
+      if (cur !== def) diffs.push(key);
+    }
+    if (diffs.length > 0) {
+      Logger.info(
+        `[Settings] getNonDefaultKeys: ${diffs.length} differ from DEFAULTS: ` +
+          diffs
+            .slice(0, 10)
+            .map((k) => `${k}=${this.values[k]} (def=${DEFAULTS[k]})`)
+            .join(', ')
+      );
+    }
+    return diffs;
+  }
+  /**
+   * Reset settings to defaults but preserve board-size related keys.
+   */
+  resetExceptBoardSize() {
+    const preserved = {
+      RESOLUTION_INDEX: this.values.RESOLUTION_INDEX,
+      CUSTOM_GRID_WIDTH: this.values.CUSTOM_GRID_WIDTH,
+      CUSTOM_GRID_HEIGHT: this.values.CUSTOM_GRID_HEIGHT,
+    };
+    this.values = { ...DEFAULTS, ...preserved };
+    this.apply();
+    this.save();
+    Logger.info('Settings: reset to defaults (board size preserved).');
+  }
 }
 
 /**

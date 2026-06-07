@@ -130,9 +130,12 @@ export function renderLevelCatalog(catalog) {
   }
   section.appendChild(list);
 
-  // Insert before the footer if present, else append.
+  // Insert before the footer if it's a direct child of content, else append.
+  // (With the tabbed menu layout, the footer lives inside a tab panel, so
+  // insertBefore would throw. main.js#_relocateLevelCatalog() will move
+  // this section into the Library tab afterwards anyway.)
   const footer = content.querySelector('.overlay-footer');
-  if (footer) {
+  if (footer && footer.parentNode === content) {
     content.insertBefore(section, footer);
   } else {
     content.appendChild(section);
