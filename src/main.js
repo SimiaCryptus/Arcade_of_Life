@@ -2485,6 +2485,15 @@ class Game {
 
   startGame() {
     Logger.info('Starting game.');
+    // If a custom-level replay is in flight, the startButton's persistent
+    // addEventListener still fires alongside the onclick override. Skip
+    // the default-config check (and the rest of default startup) in that
+    // case so we don't prompt the user about settings on Play Again.
+    if (this._suppressNextStartGame) {
+      this._suppressNextStartGame = false;
+      Logger.info('[Game] Suppressing default startGame() — custom level replay in progress.');
+      return;
+    }
     // Check for non-default settings (excluding board size) and offer reset.
     if (!this._checkAndPromptForReset('Arcade Mode')) {
       return; // user cancelled
@@ -2642,6 +2651,13 @@ class Game {
    */
   _checkAndPromptForReset(modeName) {
     if (!this.settings) return true;
+    // if this.startButton.textContent === 'Play Again', it's a replay of a custom level, so skip the reset prompt
+    if (this.startButton && this.startButton.textContent === 'Play Again') {
+      Logger.info(
+        '[Game] Detected "Play Again" state on start button, skipping reset prompt for custom level replay.'
+      );
+      return true;
+    }
     const nonDefaults = this.settings.getNonDefaultKeys();
     if (nonDefaults.length === 0) return true;
     Logger.info(
@@ -2787,6 +2803,12 @@ class Game {
       const origHandler = btn.onclick;
       btn.onclick = () => {
         btn.onclick = origHandler;
+        // Suppress the addEventListener-based startGame() that also fires
+        // on this click, so we don't trigger the default-config prompt.
+        this._suppressNextStartGame = true;
+        // Suppress the addEventListener-based startGame() that also fires
+        // on this click, so we don't trigger the default-config prompt.
+        this._suppressNextStartGame = true;
         this.startCustomLevel(customLevelName);
       };
     }
@@ -3061,6 +3083,9 @@ class Game {
       btn.onclick = origHandler;
       this._customVictoryShown = false;
       if (customLevelToReplay) {
+        // Suppress the addEventListener-based startGame() that also fires
+        // on this click, so we don't trigger the default-config prompt.
+        this._suppressNextStartGame = true;
         this.startCustomLevel(customLevelToReplay);
       } else {
         this.exitToMenu();

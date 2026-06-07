@@ -2,6 +2,7 @@
   "levels": [
     "levels/pillbox.json",
     "levels/invaders.json",
-    "levels/firewalls.json"
+    "levels/firewalls.json",
+    "levels/mothership.json"
   ]
 }
