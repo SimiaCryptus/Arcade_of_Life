@@ -2155,6 +2155,21 @@ class Game {
         this.grid.cellColor[i] = (Math.random() * defenseVariants) | 0;
       }
     }
+    // Place custom enemy cells (painted as MISSILE-type living cells that
+    // follow the enemy ruleset). These are distinct from designed bases
+    // and spawners — they're just "enemy ink" the designer placed.
+    const missileVariants = CONFIG.COLORS.MISSILE_VARIANTS.length;
+    for (const [x, y] of level.enemies || []) {
+      if (this.grid.inBounds(x, y) && this.grid.get(x, y) === CELL_TYPE.EMPTY) {
+        this.grid.set(x, y, CELL_TYPE.MISSILE);
+        const i = y * this.grid.width + this.grid.wrapX(x);
+        this.grid.cellAge[i] = 1;
+        this.grid.cellColor[i] = (Math.random() * missileVariants) | 0;
+        // Mark direction as "downward" so enemy cells participate in
+        // standard missile movement/aging logic.
+        this.grid.cellDir[i] = 1;
+      }
+    }
     // Place custom barrier cells (static tiles, immune to Life rules).
     for (const [x, y] of level.barriers || []) {
       if (this.grid.inBounds(x, y) && this.grid.get(x, y) === CELL_TYPE.EMPTY) {

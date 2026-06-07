@@ -31,7 +31,6 @@ const DESIGNER_MODE = {
   CITY: 'city',
   DEFENSE: 'defense',
   BASE: 'base',
-  ERASE: 'erase',
   PATTERN: 'pattern',
   SPAWNER: 'spawner',
   LINE: 'line',
@@ -67,11 +66,13 @@ export class LevelDesigner {
     this.topologyId = 'square';
     this.cities = []; // {x, y, width, height}
     this.defenseCells = new Set(); // "x,y" keys
+    this.enemyCells = new Set(); // "x,y" keys — enemy-aligned living cells
     this.barrierCells = new Set(); // "x,y" keys — static barrier tiles
     this.fireCells = new Set(); // "x,y" keys — static fire tiles
     // Paint target for freehand / line / fill tools.
     // 'defense' paints into defenseCells; 'barrier' paints into
-    // barrierCells; 'fire' paints into fireCells.
+    // barrierCells; 'fire' paints into fireCells; 'enemy' paints into
+    // enemyCells; 'erase' removes anything under the brush.
     this.paintTarget = 'defense';
     // Wrap settings.
     this.wrapVerticalShift = 0;
@@ -145,14 +146,13 @@ export class LevelDesigner {
                  <button class="ld-mode-btn active" data-mode="defense" title="Paint cells (defense or barrier — choose below)">✏ Draw</button>
                  <button class="ld-mode-btn" data-mode="line" title="Straight line">📏 Line</button>
                  <button class="ld-mode-btn" data-mode="fill" title="Region fill">🪣 Fill</button>
-<button class="ld-mode-btn" data-mode="city" title="Place city">🏙 City</button>
-                  <button class="ld-mode-btn" data-mode="pattern" title="Stamp pattern from Zoo as defense cells">🧬 Pattern</button>
-                   <button class="ld-mode-btn" data-mode="base" title="Stamp pattern from Zoo as enemy base">⚔ Base</button>
-                   <button class="ld-mode-btn" data-mode="spawner" title="Place missile spawn point (pattern from Zoo)">🚀 Spawner</button>
-                 <button class="ld-mode-btn" data-mode="erase" title="Erase">🧹 Erase</button>
+                  <button class="ld-mode-btn" data-mode="pattern" title="Stamp pattern from Zoo (uses selected ink type)">🧬 Pattern</button>
+                  <button class="ld-mode-btn" data-mode="city" title="Place city">🏙 City</button>
+                  <button class="ld-mode-btn" data-mode="base" title="Stamp pattern from Zoo as enemy base">⚔ Base</button>
+                  <button class="ld-mode-btn" data-mode="spawner" title="Place missile spawn point (pattern from Zoo)">🚀 Spawner</button>
                </div>
                 <div class="ld-tool-group" id="ld-paint-target-group">
-                 <label>Paint as:</label>
+                 <label>Ink:</label>
                  <div class="ld-target-switch">
                    <button class="ld-target-btn active" data-target="defense" title="Paint living defense cells (cyan) — follow the cellular automaton rules">
                      <span class="ld-target-icon">✏</span>
@@ -161,6 +161,13 @@ export class LevelDesigner {
                        <span class="ld-target-desc">Living cells</span>
                      </span>
                    </button>
+                    <button class="ld-target-btn" data-target="enemy" title="Paint enemy-aligned living cells (red) — follow the enemy ruleset">
+                      <span class="ld-target-icon">☠</span>
+                      <span class="ld-target-label">
+                        <span class="ld-target-name">Enemy</span>
+                        <span class="ld-target-desc">Hostile cells</span>
+                      </span>
+                    </button>
                    <button class="ld-target-btn" data-target="barrier" title="Paint static barrier tiles (gray) — never change, block missiles, partition the board">
                      <span class="ld-target-icon">🧱</span>
                      <span class="ld-target-label">
@@ -175,6 +182,13 @@ export class LevelDesigner {
                       <span class="ld-target-desc">Active static</span>
                     </span>
                   </button>
+                   <button class="ld-target-btn" data-target="erase" title="Erase — remove any cells, barriers, fire, cities, bases, and spawners under the brush">
+                     <span class="ld-target-icon">🧹</span>
+                     <span class="ld-target-label">
+                       <span class="ld-target-name">Erase</span>
+                       <span class="ld-target-desc">Remove all</span>
+                     </span>
+                   </button>
                  </div>
                </div>
                <div class="ld-tool-group" id="ld-pattern-selector" style="display:none;">
@@ -314,11 +328,12 @@ export class LevelDesigner {
                     <div>Cities: <strong id="ld-stat-cities">0</strong></div>
                     <div>City cells: <strong id="ld-stat-city-cells">0</strong></div>
                     <div>Defense cells: <strong id="ld-stat-defense">0</strong></div>
+                     <div>Enemy cells: <strong id="ld-stat-enemy">0</strong></div>
                      <div>Barriers: <strong id="ld-stat-barriers">0</strong></div>
                       <div>Fire: <strong id="ld-stat-fire">0</strong></div>
                     <div>Bases: <strong id="ld-stat-bases">0</strong></div>
                     <div>Spawners: <strong id="ld-stat-spawners">0</strong></div>
-                    <div>Base cells (enemy): <strong id="ld-stat-enemy-cells">0</strong></div>
+                     <div>Base cells: <strong id="ld-stat-enemy-cells">0</strong></div>
                   </div>
                   <div class="ld-thresholds-hint" style="margin-top:8px;font-size:11px;color:#a0a0c0;font-style:italic;">
                     Victory triggers when enemy cells ≤ <strong id="ld-stat-victory-thresh">0</strong>.<br>
@@ -548,11 +563,12 @@ export class LevelDesigner {
           this.mode === DESIGNER_MODE.LINE ? 'flex' : 'none';
         ov.querySelector('#ld-fill-tools').style.display =
           this.mode === DESIGNER_MODE.FILL ? 'flex' : 'none';
-        // Paint target only matters for cell-painting tools.
+        // Paint target ("ink") applies to all cell-painting tools.
         const usesPaintTarget =
           this.mode === DESIGNER_MODE.DEFENSE ||
           this.mode === DESIGNER_MODE.LINE ||
-          this.mode === DESIGNER_MODE.FILL;
+          this.mode === DESIGNER_MODE.FILL ||
+          this.mode === DESIGNER_MODE.PATTERN;
         ov.querySelector('#ld-paint-target-group').style.display = usesPaintTarget
           ? 'flex'
           : 'none';
@@ -720,9 +736,10 @@ export class LevelDesigner {
     }
     // Clear all.
     ov.querySelector('#ld-clear-btn').addEventListener('click', () => {
-      if (!confirm('Clear all cities, defenses, barriers, fire, and bases?')) return;
+      if (!confirm('Clear all cities, defenses, enemy cells, barriers, fire, and bases?')) return;
       this.cities = [];
       this.defenseCells.clear();
+      this.enemyCells.clear();
       this.barrierCells.clear();
       this.fireCells.clear();
       this.bases = [];
@@ -740,44 +757,12 @@ export class LevelDesigner {
     window.addEventListener('pointerup', () => {
       // Commit line / fill on release.
       if (this._lineStart && this._linePreview) {
-        const targetSet =
-          this.paintTarget === 'barrier'
-            ? this.barrierCells
-            : this.paintTarget === 'fire'
-              ? this.fireCells
-              : this.defenseCells;
-        const otherSets =
-          this.paintTarget === 'barrier'
-            ? [this.defenseCells, this.fireCells]
-            : this.paintTarget === 'fire'
-              ? [this.defenseCells, this.barrierCells]
-              : [this.barrierCells, this.fireCells];
-        for (const [x, y] of this._linePreview) {
-          const key = `${x},${y}`;
-          targetSet.add(key);
-          for (const s of otherSets) s.delete(key);
-        }
+        this._commitCellsToTarget(this._linePreview);
         this._lineStart = null;
         this._linePreview = null;
       }
       if (this._fillStart && this._fillPreview) {
-        const targetSet =
-          this.paintTarget === 'barrier'
-            ? this.barrierCells
-            : this.paintTarget === 'fire'
-              ? this.fireCells
-              : this.defenseCells;
-        const otherSets =
-          this.paintTarget === 'barrier'
-            ? [this.defenseCells, this.fireCells]
-            : this.paintTarget === 'fire'
-              ? [this.defenseCells, this.barrierCells]
-              : [this.barrierCells, this.fireCells];
-        for (const [x, y] of this._fillPreview) {
-          const key = `${x},${y}`;
-          targetSet.add(key);
-          for (const s of otherSets) s.delete(key);
-        }
+        this._commitCellsToTarget(this._fillPreview);
         this._fillStart = null;
         this._fillPreview = null;
       }
@@ -880,12 +865,17 @@ export class LevelDesigner {
         p: DESIGNER_MODE.PATTERN,
         b: DESIGNER_MODE.BASE,
         s: DESIGNER_MODE.SPAWNER,
-        e: DESIGNER_MODE.ERASE,
       };
       const k = e.key.toLowerCase();
       if (modeKeys[k]) {
         e.preventDefault();
         this._selectModeButton(modeKeys[k]);
+        return;
+      }
+      // Quick ink-target switch with 'e' for Erase.
+      if (k === 'e') {
+        e.preventDefault();
+        this._selectPaintTarget('erase');
         return;
       }
       // Rotate / flip current stamp.
@@ -1007,8 +997,7 @@ export class LevelDesigner {
       this.mode === DESIGNER_MODE.PATTERN ||
       this.mode === DESIGNER_MODE.BASE ||
       this.mode === DESIGNER_MODE.SPAWNER ||
-      this.mode === DESIGNER_MODE.CITY ||
-      this.mode === DESIGNER_MODE.ERASE
+      this.mode === DESIGNER_MODE.CITY
     ) {
       this._draw();
     }
@@ -1035,9 +1024,6 @@ export class LevelDesigner {
         break;
       case DESIGNER_MODE.BASE:
         this._stampBaseAt(x, y);
-        break;
-      case DESIGNER_MODE.ERASE:
-        this._eraseAt(x, y);
         break;
       case DESIGNER_MODE.PATTERN:
         this._stampPatternAt(x, y);
@@ -1075,34 +1061,93 @@ export class LevelDesigner {
   }
 
   _paintBrush(x, y, add) {
-    const targetSet =
-      this.paintTarget === 'barrier'
-        ? this.barrierCells
-        : this.paintTarget === 'fire'
-          ? this.fireCells
-          : this.defenseCells;
-    const otherSets =
-      this.paintTarget === 'barrier'
-        ? [this.defenseCells, this.fireCells]
-        : this.paintTarget === 'fire'
-          ? [this.defenseCells, this.barrierCells]
-          : [this.barrierCells, this.fireCells];
     const r = Math.floor(this.brushSize / 2);
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
         const px = x + dx;
         const py = y + dy;
         if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
-        const key = `${px},${py}`;
         if (add) {
-          targetSet.add(key);
-          // Defense, Barrier, and Fire are mutually exclusive at the same cell.
-          for (const s of otherSets) s.delete(key);
+          this._paintCell(px, py);
         } else {
-          targetSet.delete(key);
+          this._eraseCellOnly(px, py);
         }
       }
     }
+    // Erase target also removes cities/bases/spawners under the brush.
+    if (add && this.paintTarget === 'erase') {
+      this._eraseStructuresAt(x, y);
+    }
+  }
+  // Get the Set corresponding to a paint-target id, or null for 'erase'.
+  _getTargetSet(target) {
+    switch (target) {
+      case 'defense':
+        return this.defenseCells;
+      case 'enemy':
+        return this.enemyCells;
+      case 'barrier':
+        return this.barrierCells;
+      case 'fire':
+        return this.fireCells;
+      default:
+        return null;
+    }
+  }
+  // Paint a single cell using the current paint target. Cell-paint
+  // targets are mutually exclusive (defense/enemy/barrier/fire) — adding
+  // one removes the others at the same cell. 'erase' removes from all.
+  _paintCell(x, y) {
+    const key = `${x},${y}`;
+    const allSets = [this.defenseCells, this.enemyCells, this.barrierCells, this.fireCells];
+    if (this.paintTarget === 'erase') {
+      for (const s of allSets) s.delete(key);
+      return;
+    }
+    const targetSet = this._getTargetSet(this.paintTarget);
+    if (!targetSet) return;
+    targetSet.add(key);
+    for (const s of allSets) {
+      if (s !== targetSet) s.delete(key);
+    }
+  }
+  // Remove cell ink (defense/enemy/barrier/fire) at a single cell.
+  _eraseCellOnly(x, y) {
+    const key = `${x},${y}`;
+    this.defenseCells.delete(key);
+    this.enemyCells.delete(key);
+    this.barrierCells.delete(key);
+    this.fireCells.delete(key);
+  }
+  // Remove cities/bases/spawners whose bounding box contains (x, y).
+  _eraseStructuresAt(x, y) {
+    this.cities = this.cities.filter(
+      (c) => !(x >= c.x && x < c.x + c.width && y >= c.y && y < c.y + c.height)
+    );
+    this.bases = this.bases.filter(
+      (pb) => !(x >= pb.x && x < pb.x + pb.width && y >= pb.y && y < pb.y + pb.height)
+    );
+    this.spawners = this.spawners.filter(
+      (sp) => !(x >= sp.x && x < sp.x + sp.width && y >= sp.y && y < sp.y + sp.height)
+    );
+  }
+  // Apply a list of [x, y] cells to the current paint target. Used by
+  // line- and fill-tool commit handlers.
+  _commitCellsToTarget(cells) {
+    for (const [x, y] of cells) {
+      this._paintCell(x, y);
+    }
+    if (this.paintTarget === 'erase') {
+      // Also remove structures under any erased cell.
+      for (const [x, y] of cells) {
+        this._eraseStructuresAt(x, y);
+      }
+    }
+  }
+  // Programmatically click an ink/paint-target button.
+  _selectPaintTarget(target) {
+    const btn = this.overlay.querySelector(`.ld-target-btn[data-target="${target}"]`);
+    if (btn) btn.click();
   }
 
   // Compute cells for a Bresenham line from (x0,y0) to (x1,y1) using
@@ -1332,12 +1377,14 @@ export class LevelDesigner {
     // Center the stamp on the cursor.
     const offX = x - Math.floor(stamp.width / 2);
     const offY = y - Math.floor(stamp.height / 2);
+    const cells = [];
     for (const [dx, dy] of stamp.cells) {
       const px = offX + dx;
       const py = offY + dy;
       if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
-      this.defenseCells.add(`${px},${py}`);
+      cells.push([px, py]);
     }
+    this._commitCellsToTarget(cells);
   }
   _stampBaseAt(x, y) {
     if (!this._basePattern) {
@@ -1398,30 +1445,6 @@ export class LevelDesigner {
     });
   }
 
-  _eraseAt(x, y) {
-    const r = Math.floor(this.brushSize / 2);
-    // Remove defense cells and barrier tiles.
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        this.defenseCells.delete(`${x + dx},${y + dy}`);
-        this.barrierCells.delete(`${x + dx},${y + dy}`);
-        this.fireCells.delete(`${x + dx},${y + dy}`);
-      }
-    }
-    // Remove cities under cursor.
-    this.cities = this.cities.filter(
-      (c) => !(x >= c.x && x < c.x + c.width && y >= c.y && y < c.y + c.height)
-    );
-    // Remove bases whose bounding box contains the cursor.
-    this.bases = this.bases.filter(
-      (pb) => !(x >= pb.x && x < pb.x + pb.width && y >= pb.y && y < pb.y + pb.height)
-    );
-    // Remove spawners whose bounding box contains the cursor.
-    this.spawners = this.spawners.filter(
-      (sp) => !(x >= sp.x && x < sp.x + sp.width && y >= sp.y && y < sp.y + sp.height)
-    );
-  }
-
   _clipContent() {
     this.cities = this.cities.filter(
       (c) => c.x + c.width <= this.gridWidth && c.y + c.height <= this.gridHeight
@@ -1432,6 +1455,12 @@ export class LevelDesigner {
       if (x < this.gridWidth && y < this.gridHeight) newDefense.add(key);
     }
     this.defenseCells = newDefense;
+    const newEnemy = new Set();
+    for (const key of this.enemyCells) {
+      const [x, y] = key.split(',').map(Number);
+      if (x < this.gridWidth && y < this.gridHeight) newEnemy.add(key);
+    }
+    this.enemyCells = newEnemy;
     const newBarriers = new Set();
     for (const key of this.barrierCells) {
       const [x, y] = key.split(',').map(Number);
@@ -1620,6 +1649,15 @@ export class LevelDesigner {
       const [x, y] = key.split(',').map(Number);
       this._fillCell(ctx, x, y, '#00ff88');
     }
+    // Enemy cells (red/orange, distinct from bases).
+    const enemyColor = (this.colorTheme && this.colorTheme.CELL_ENEMY) || '#ff3344';
+    ctx.shadowColor = enemyColor;
+    ctx.shadowBlur = 4;
+    for (const key of this.enemyCells) {
+      const [x, y] = key.split(',').map(Number);
+      this._fillCell(ctx, x, y, enemyColor);
+    }
+    ctx.shadowBlur = 0;
     // Cities.
     const cityColor = (this.colorTheme && this.colorTheme.CELL_CITY) || '#ffff60';
     ctx.shadowColor = cityColor;
@@ -1786,17 +1824,15 @@ export class LevelDesigner {
     const hover = this._hoverCell;
     const pulse = 0.55 + 0.15 * Math.sin(performance.now() / 200);
     // Pick a preview color tuple based on the active paint target.
-    // Cyan-ish for defense, neutral gray for barrier, orange for fire.
-    const previewRgbDefense = '0, 255, 200';
-    const previewRgbBarrier = '180, 180, 180';
-    const previewRgbFire = '255, 120, 40';
-    const isBarrier = this.paintTarget === 'barrier';
-    const isFire = this.paintTarget === 'fire';
-    const cellPreviewRgb = isBarrier
-      ? previewRgbBarrier
-      : isFire
-        ? previewRgbFire
-        : previewRgbDefense;
+    const previewRgbByTarget = {
+      defense: '0, 255, 200',
+      enemy: '255, 60, 80',
+      barrier: '180, 180, 180',
+      fire: '255, 120, 40',
+      erase: '255, 80, 80',
+    };
+    const cellPreviewRgb = previewRgbByTarget[this.paintTarget] || previewRgbByTarget.defense;
+    const isErase = this.paintTarget === 'erase';
     // Line preview (during drag).
     if (this.mode === DESIGNER_MODE.LINE && this._linePreview && this._linePreview.length > 0) {
       for (const [x, y] of this._linePreview) {
@@ -1806,7 +1842,7 @@ export class LevelDesigner {
     }
     // Fill preview (during drag).
     if (this.mode === DESIGNER_MODE.FILL && this._fillPreview && this._fillPreview.length > 0) {
-      const fillRgb = isBarrier ? previewRgbBarrier : '255, 200, 80';
+      const fillRgb = cellPreviewRgb;
       for (const [x, y] of this._fillPreview) {
         this._fillCell(ctx, x, y, `rgba(${fillRgb}, ${pulse * 0.8})`);
       }
@@ -1822,11 +1858,11 @@ export class LevelDesigner {
         const px = offX + dx;
         const py = offY + dy;
         if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
-        this._fillCell(ctx, px, py, `rgba(0, 255, 200, ${pulse})`);
+        this._fillCell(ctx, px, py, `rgba(${cellPreviewRgb}, ${pulse})`);
       }
       // Bounding box (only for square topology).
       if (this.topologyId === 'square') {
-        ctx.strokeStyle = `rgba(0, 255, 200, ${pulse * 0.7})`;
+        ctx.strokeStyle = `rgba(${cellPreviewRgb}, ${pulse * 0.7})`;
         ctx.setLineDash([3, 3]);
         ctx.lineWidth = 1.5;
         ctx.strokeRect(offX * cs, offY * cs, stamp.width * cs, stamp.height * cs);
@@ -1899,32 +1935,14 @@ export class LevelDesigner {
       }
       return;
     }
-    // Erase brush preview.
-    if (this.mode === DESIGNER_MODE.ERASE) {
-      const r = Math.floor(this.brushSize / 2);
-      if (this.topologyId === 'square') {
-        ctx.strokeStyle = `rgba(255, 80, 80, ${pulse})`;
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect((hover.x - r) * cs, (hover.y - r) * cs, (r * 2 + 1) * cs, (r * 2 + 1) * cs);
-      } else {
-        for (let dy = -r; dy <= r; dy++) {
-          for (let dx = -r; dx <= r; dx++) {
-            const px = hover.x + dx;
-            const py = hover.y + dy;
-            if (px < 0 || px >= this.gridWidth || py < 0 || py >= this.gridHeight) continue;
-            this._fillCell(ctx, px, py, `rgba(255, 80, 80, ${pulse * 0.3})`);
-          }
-        }
-      }
-      return;
-    }
     // Defense brush preview (freehand mode).
     if (this.mode === DESIGNER_MODE.DEFENSE) {
       const r = Math.floor(this.brushSize / 2);
-      const brushRgb = isBarrier ? '180, 180, 180' : isFire ? '255, 120, 40' : '0, 255, 136';
+      const brushRgb = cellPreviewRgb;
+      const alphaScale = isErase ? 1.0 : 0.6;
       if (this.topologyId === 'square') {
-        ctx.strokeStyle = `rgba(${brushRgb}, ${pulse * 0.6})`;
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = `rgba(${brushRgb}, ${pulse * alphaScale})`;
+        ctx.lineWidth = isErase ? 1.5 : 1;
         ctx.strokeRect((hover.x - r) * cs, (hover.y - r) * cs, (r * 2 + 1) * cs, (r * 2 + 1) * cs);
       } else {
         for (let dy = -r; dy <= r; dy++) {
@@ -1944,6 +1962,8 @@ export class LevelDesigner {
     const ov = this.overlay;
     ov.querySelector('#ld-stat-cities').textContent = String(this.cities.length);
     ov.querySelector('#ld-stat-defense').textContent = String(this.defenseCells.size);
+    const enEl = ov.querySelector('#ld-stat-enemy');
+    if (enEl) enEl.textContent = String(this.enemyCells.size);
     ov.querySelector('#ld-stat-bases').textContent = String(this.bases.length);
     const spEl = ov.querySelector('#ld-stat-spawners');
     if (spEl) spEl.textContent = String(this.spawners.length);
@@ -2003,6 +2023,7 @@ export class LevelDesigner {
         return out;
       }),
       defenses: Array.from(this.defenseCells).map((k) => k.split(',').map(Number)),
+      enemies: Array.from(this.enemyCells).map((k) => k.split(',').map(Number)),
       barriers: Array.from(this.barrierCells).map((k) => k.split(',').map(Number)),
       fire: Array.from(this.fireCells).map((k) => k.split(',').map(Number)),
       bases: this.bases.map((pb) => ({
@@ -2064,6 +2085,7 @@ export class LevelDesigner {
       return city;
     });
     this.defenseCells = new Set((level.defenses || []).map(([x, y]) => `${x},${y}`));
+    this.enemyCells = new Set((level.enemies || []).map(([x, y]) => `${x},${y}`));
     this.barrierCells = new Set((level.barriers || []).map(([x, y]) => `${x},${y}`));
     this.fireCells = new Set((level.fire || []).map(([x, y]) => `${x},${y}`));
     // Migration: accept both new "bases" (zoo-pattern shape) and old
@@ -2581,6 +2603,7 @@ export class LevelDesigner {
       { key: 'GRID', label: 'Grid lines', default: '#0a0a20' },
       { key: 'MIDLINE', label: 'Draw-zone midline', default: '#2a2a5a' },
       { key: 'CELL_CITY', label: 'City cells', default: '#ffff60' },
+      { key: 'CELL_ENEMY', label: 'Enemy cells', default: '#ff3344' },
       { key: 'CELL_EXPLOSION', label: 'Explosion cells', default: '#ff8800' },
       { key: 'CELL_FIRE', label: 'Fire cells', default: '#ff6622' },
       { key: 'HUD_TEXT', label: 'HUD text', default: '#e0e0ff' },

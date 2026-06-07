@@ -2585,6 +2585,70 @@ body {
   color: #a0a0a0;
   opacity: 1;
 }
+/* Enemy (red) active state */
+.ld-target-btn[data-target='enemy'].active {
+  color: #ff5566;
+  background: linear-gradient(135deg, rgba(255, 60, 80, 0.2), rgba(255, 100, 100, 0.08));
+  border-color: #ff3344;
+  box-shadow:
+    0 0 10px rgba(255, 60, 80, 0.4),
+    inset 0 0 8px rgba(255, 60, 80, 0.12);
+  text-shadow: 0 0 6px rgba(255, 80, 100, 0.6);
+}
+.ld-target-btn[data-target='enemy'].active .ld-target-icon {
+  filter: grayscale(0) drop-shadow(0 0 4px #ff5566);
+  transform: scale(1.1);
+}
+.ld-target-btn[data-target='enemy'].active .ld-target-desc {
+  color: #ff8888;
+  opacity: 1;
+}
+/* Fire (orange) active state */
+.ld-target-btn[data-target='fire'].active {
+  color: #ff8844;
+  background: linear-gradient(135deg, rgba(255, 120, 40, 0.22), rgba(255, 180, 60, 0.1));
+  border-color: #ff6622;
+  box-shadow:
+    0 0 12px rgba(255, 120, 40, 0.45),
+    inset 0 0 8px rgba(255, 120, 40, 0.15);
+  text-shadow: 0 0 6px rgba(255, 140, 60, 0.6);
+}
+.ld-target-btn[data-target='fire'].active .ld-target-icon {
+  filter: grayscale(0) drop-shadow(0 0 6px #ff6622);
+  transform: scale(1.1);
+  animation: fireFlicker 1.4s ease-in-out infinite;
+}
+.ld-target-btn[data-target='fire'].active .ld-target-desc {
+  color: #ffaa66;
+  opacity: 1;
+}
+@keyframes fireFlicker {
+  0%,
+  100% {
+    filter: grayscale(0) drop-shadow(0 0 6px #ff6622);
+  }
+  50% {
+    filter: grayscale(0) drop-shadow(0 0 10px #ff8844);
+  }
+}
+/* Erase (pink/red) active state */
+.ld-target-btn[data-target='erase'].active {
+  color: #ff88aa;
+  background: linear-gradient(135deg, rgba(255, 100, 140, 0.18), rgba(255, 80, 80, 0.08));
+  border-color: #ff6688;
+  box-shadow:
+    0 0 10px rgba(255, 100, 140, 0.35),
+    inset 0 0 8px rgba(255, 100, 140, 0.12);
+  text-shadow: 0 0 6px rgba(255, 120, 160, 0.6);
+}
+.ld-target-btn[data-target='erase'].active .ld-target-icon {
+  filter: grayscale(0) drop-shadow(0 0 4px #ff88aa);
+  transform: scale(1.1);
+}
+.ld-target-btn[data-target='erase'].active .ld-target-desc {
+  color: #ffaabb;
+  opacity: 1;
+}
 
 .ld-tool-group input[type='number'] {
   width: 60px;

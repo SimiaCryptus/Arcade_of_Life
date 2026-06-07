@@ -498,14 +498,11 @@ export class Renderer {
         const color = this._cellColorFor(t, cellColor[i], defenseVariants, missileVariants, colors);
         // Apply pan: display column = (x - panOffset) mod w
         const displayX = (((x - panOffset) % w) + w) % w;
-        const useGlow =
-          (t === CELL_TYPE.MISSILE || t === CELL_TYPE.FIRE) &&
-          cs >= 4 &&
-          CONFIG.VFX_CELL_GLOW !== false;
-        if (useGlow) {
+        const glowAmount = this._glowAmountFor(t, cs);
+        if (glowAmount > 0 && CONFIG.VFX_CELL_GLOW !== false) {
           ctx.save();
           ctx.shadowColor = color;
-          ctx.shadowBlur = t === CELL_TYPE.FIRE ? Math.min(10, cs * 1.2) : Math.min(8, cs);
+          ctx.shadowBlur = glowAmount;
           ctx.fillStyle = color;
           ctx.fillRect(displayX * cs, y * cs + gridYOffset, cs, cs);
           ctx.restore();
@@ -614,6 +611,36 @@ export class Renderer {
         return colors.CELL_FIRE || '#ff6622';
       default:
         return '#ffffff';
+    }
+  }
+  // Return the shadowBlur amount to use when rendering a cell of the
+  // given type, or 0 if no glow should be applied. Glow is suppressed
+  // for very small cells (cs < 4) to keep tiny grids from smearing.
+  // Per-type glow intensities:
+  //   - FIRE: brightest (active, hazardous static tile)
+  //   - MISSILE: strong (enemy/attacker cells, visually distinct)
+  //   - DEFENSE: medium (friendly living cells)
+  //   - CITY: medium-strong (objective, should stand out)
+  //   - EXPLOSION: strong (transient, dramatic)
+  //   - BARRIER: none (intentionally static/dull)
+  //   - EMPTY: none
+  _glowAmountFor(t, cs) {
+    if (cs < 4) return 0;
+    switch (t) {
+      case CELL_TYPE.FIRE:
+        return Math.min(10, cs * 1.2);
+      case CELL_TYPE.MISSILE:
+        return Math.min(8, cs);
+      case CELL_TYPE.DEFENSE:
+        return Math.min(7, cs * 0.9);
+      case CELL_TYPE.CITY:
+        return Math.min(9, cs * 1.1);
+      case CELL_TYPE.EXPLOSION:
+        return Math.min(12, cs * 1.4);
+      case CELL_TYPE.BARRIER:
+      case CELL_TYPE.EMPTY:
+      default:
+        return 0;
     }
   }
 
