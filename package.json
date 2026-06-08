@@ -20,6 +20,7 @@
     "preserve": "npm run gen:version",
     "import:lifewiki": "node src/patterns/lifewikiImporter.js --input /home/andrew/Downloads/all --output src/patterns/lifewiki.generated.json --verbose",
     "serve": "npx http-server -p 8080 -c-1",
+     "build:cws": "npm run gen:version && node scripts/build-cws.js",
     "lint": "eslint 'src/**/*.js' 'test/**/*.js'",
     "lint:fix": "eslint --fix 'src/**/*.js' 'test/**/*.js'",
     "format": "prettier --write 'src/**/*.js' 'test/**/*.js' '*.html' '*.css' '*.md'",
