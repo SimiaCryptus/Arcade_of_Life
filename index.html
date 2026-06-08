@@ -69,12 +69,64 @@
       <div id="draw-tools">
         <div class="tool-group">
           <label>Mode:</label>
-          <button class="mode-btn active" data-mode="freehand" title="Freehand draw (F)">
-            Freehand
-          </button>
-          <button class="mode-btn" data-mode="line" title="Straight line (L)">Line</button>
-          <button class="mode-btn" data-mode="pattern" title="Pattern stamp (P)">Pattern</button>
-          <button class="mode-btn" data-mode="fill" title="Region fill (B)">Fill</button>
+          <div class="mode-dropdown-wrap">
+            <button
+              id="mode-dropdown-trigger"
+              class="mode-dropdown-trigger"
+              type="button"
+              aria-haspopup="true"
+              aria-expanded="false"
+              title="Select drawing tool"
+            >
+              <span id="mode-dropdown-icon" class="mode-dropdown-icon">✎</span>
+              <span id="mode-dropdown-label">Freehand</span>
+              <span class="mode-dropdown-arrow">▾</span>
+            </button>
+            <div id="mode-dropdown-panel" class="mode-dropdown-panel hidden" role="menu">
+              <button
+                class="mode-option active"
+                data-mode="freehand"
+                role="menuitem"
+                title="Freehand draw (F)"
+              >
+                <span class="mode-option-icon">✎</span>
+                <span class="mode-option-label">Freehand</span>
+                <span class="mode-option-key">F</span>
+              </button>
+              <button
+                class="mode-option"
+                data-mode="line"
+                role="menuitem"
+                title="Straight line (L)"
+              >
+                <span class="mode-option-icon">／</span>
+                <span class="mode-option-label">Line</span>
+                <span class="mode-option-key">L</span>
+              </button>
+              <button
+                class="mode-option"
+                data-mode="pattern"
+                role="menuitem"
+                title="Pattern stamp (P)"
+              >
+                <span class="mode-option-icon">▦</span>
+                <span class="mode-option-label">Pattern</span>
+                <span class="mode-option-key">P</span>
+              </button>
+              <button class="mode-option" data-mode="fill" role="menuitem" title="Region fill (B)">
+                <span class="mode-option-icon">▣</span>
+                <span class="mode-option-label">Fill</span>
+                <span class="mode-option-key">B</span>
+              </button>
+            </div>
+          </div>
+          <!-- Hidden legacy buttons retained for compatibility with existing wiring. -->
+          <span id="mode-legacy-buttons" style="display: none">
+            <button class="mode-btn active" data-mode="freehand">Freehand</button>
+            <button class="mode-btn" data-mode="line">Line</button>
+            <button class="mode-btn" data-mode="pattern">Pattern</button>
+            <button class="mode-btn" data-mode="fill">Fill</button>
+          </span>
         </div>
         <div class="tool-group" id="line-tools">
           <label for="line-width">Width:</label>
@@ -251,28 +303,6 @@
             >none equipped</span
           >
         </div>
-        <span class="tool-hint"
-          >[F/L/P/B mode, Tab cycle, R rotate, X flip H, Y flip V, +/- width, Shift+1-8
-          preset]</span
-        >
-      </div>
-      <div id="threshold-display" class="threshold-display hidden">
-        <div class="threshold-row">
-          <span class="threshold-label">🏙 Cities:</span>
-          <span class="threshold-value" id="threshold-city-count">0</span>
-          <span class="threshold-divider">/</span>
-          <span class="threshold-min" id="threshold-city-min">0</span>
-          <span class="threshold-hint">min</span>
-        </div>
-        <div class="threshold-row">
-          <span class="threshold-label">☠ Enemies:</span>
-          <span class="threshold-value" id="threshold-enemy-count">0</span>
-          <span class="threshold-divider">/</span>
-          <span class="threshold-max" id="threshold-enemy-max">0</span>
-          <span class="threshold-hint">max for win</span>
-        </div>
-      </div>
-      <div id="speed-control">
         <!-- Time control widget is injected here by timeControl.js -->
         <div id="time-control-mount"></div>
         <!-- Hidden legacy speed slider (kept for backward compatibility with any code that reads it). -->
@@ -321,9 +351,22 @@
           <button id="restart-level-button"></button>
           <button id="exit-to-menu-button"></button>
         </span>
-        <span id="speed-hint" class="tc-hint"
-          >[Space=pause • N=step • [ ] slow/fast • Z undo • ?=hotkeys]</span
-        >
+      </div>
+      <div id="threshold-display" class="threshold-display hidden">
+        <div class="threshold-row">
+          <span class="threshold-label">🏙 Cities:</span>
+          <span class="threshold-value" id="threshold-city-count">0</span>
+          <span class="threshold-divider">/</span>
+          <span class="threshold-min" id="threshold-city-min">0</span>
+          <span class="threshold-hint">min</span>
+        </div>
+        <div class="threshold-row">
+          <span class="threshold-label">☠ Enemies:</span>
+          <span class="threshold-value" id="threshold-enemy-count">0</span>
+          <span class="threshold-divider">/</span>
+          <span class="threshold-max" id="threshold-enemy-max">0</span>
+          <span class="threshold-hint">max for win</span>
+        </div>
       </div>
       <div class="overlay hidden" id="pattern-editor-overlay">
         <div id="pattern-editor-content">

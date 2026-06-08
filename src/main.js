@@ -274,6 +274,15 @@ class Game {
     initPanControls(this);
     this._initThresholdSettingsInputs();
     window.addEventListener('resize', () => this._onWindowResize());
+    // Defer one fit pass to after first layout so we can measure
+    // actual toolbar heights instead of using fallback estimates.
+    requestAnimationFrame(() => {
+      const old = CONFIG.CELL_SIZE;
+      this._fitCellSize();
+      if (CONFIG.CELL_SIZE !== old && this.renderer) {
+        this.renderer.resize();
+      }
+    });
 
     // Diagnostic: log any click that hits the exit/edit buttons or their parents.
     document.addEventListener(
@@ -506,10 +515,27 @@ class Game {
   _fitCellSize() {
     const w = CONFIG.GRID_WIDTH;
     const h = CONFIG.GRID_HEIGHT;
-    const reservedH = CONFIG.HUD_HEIGHT + 200;
-    const reservedW = 24;
-    const availW = Math.max(200, window.innerWidth - reservedW);
-    const availH = Math.max(200, window.innerHeight - reservedH);
+    // Measure actual toolbar heights from the DOM so we use every
+    // available pixel. Fall back to estimates if the DOM isn't ready yet.
+    const drawTools = document.getElementById('draw-tools');
+    const speedControl = document.getElementById('speed-control');
+    const container = document.getElementById('game-container');
+    let topH = 0;
+    let bottomH = 0;
+    if (drawTools) topH = drawTools.getBoundingClientRect().height || 0;
+    if (speedControl) bottomH = speedControl.getBoundingClientRect().height || 0;
+    // If toolbars haven't been measured yet (initial load), estimate.
+    if (topH === 0) topH = 80;
+    if (bottomH === 0) bottomH = 50;
+    // Account for the 2px border on #game-container (top + bottom = 4px).
+    const borderH = 4;
+    const borderW = 4;
+    // HUD is drawn INSIDE the canvas at the top. The canvas occupies
+    // the area between the top toolbar and bottom toolbar. The grid
+    // itself must fit in (canvas height - HUD height).
+    const availW = Math.max(50, window.innerWidth - borderW);
+    const canvasAvailH = Math.max(50, window.innerHeight - topH - bottomH - borderH);
+    const availH = Math.max(50, canvasAvailH - CONFIG.HUD_HEIGHT);
     let topologyId = 'square';
     try {
       const ruleDef = getRuleset(CONFIG.ACTIVE_RULESET || 'conway');
@@ -535,8 +561,14 @@ class Game {
     }
     let size = Math.min(sizeByW, sizeByH);
     if (size < 1) size = 1;
-    if (size > 16) size = 16;
     CONFIG.CELL_SIZE = size;
+    // Stash the available viewport dimensions so the renderer can
+    // size the canvas to fill the area (centering the grid inside it).
+    CONFIG._AVAIL_W = availW;
+    CONFIG._AVAIL_H = availH;
+    // Also stash the full canvas-available height (including HUD area)
+    // so the renderer can size the canvas to fully fill the space.
+    CONFIG._CANVAS_AVAIL_H = canvasAvailH;
   }
 
   _onWindowResize() {

@@ -339,12 +339,22 @@ export class InputManager {
     // Scale for CSS-resized canvas.
     const scaleX = this.canvas.width / rect.width;
     const scaleY = this.canvas.height / rect.height;
-    const x = (e.clientX || 0) - rect.left;
-    const y = (e.clientY || 0) - rect.top - CONFIG.HUD_HEIGHT;
+    // Convert from CSS pixel coords (relative to canvas element) to
+    // internal canvas pixel coords, then subtract HUD height and the
+    // renderer's centering offsets so we get coordinates relative to
+    // the grid's top-left corner. Without subtracting offsetX/offsetY,
+    // clicks misalign with rendered cells whenever the grid is
+    // centered inside a larger canvas (e.g., on wide viewports).
+    const offX = CONFIG._GRID_OFFSET_X || 0;
+    const offY = CONFIG._GRID_OFFSET_Y || 0;
+    const cssX = (e.clientX || 0) - rect.left;
+    const cssY = (e.clientY || 0) - rect.top;
+    const x = cssX * scaleX - offX;
+    const y = cssY * scaleY - CONFIG.HUD_HEIGHT - offY;
     const topologyId = this.grid && this.grid.topologyId ? this.grid.topologyId : 'square';
     if (topologyId === 'square') {
-      const displayX = Math.floor((x * scaleX) / cs);
-      const gy = Math.floor((y * scaleY) / cs);
+      const displayX = Math.floor(x / cs);
+      const gy = Math.floor(y / cs);
       // Convert display x back to logical grid x using pan offset.
       const panOffset = this.grid.panOffset || 0;
       const w = this.grid.width;
@@ -353,7 +363,7 @@ export class InputManager {
     }
     // Hex / Tri: use topology helper.
     const topology = getTopology(topologyId);
-    const result = topology.pixelToCell(x * scaleX, y * scaleY, cs);
+    const result = topology.pixelToCell(x, y, cs);
     if (topologyId === 'tri') {
       // For tri, we encode (x, y, orient) into gx/gy by packing orient
       // into the low bit of gx*2.

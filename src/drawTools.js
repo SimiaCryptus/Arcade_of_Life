@@ -87,6 +87,73 @@ export class DrawToolsPanel {
         this.setMode(mode);
       });
     });
+    // Wire up the new dropdown selector for draw modes.
+    this._initModeDropdown();
+  }
+  _initModeDropdown() {
+    const trigger = document.getElementById('mode-dropdown-trigger');
+    const panel = document.getElementById('mode-dropdown-panel');
+    const wrap = trigger && trigger.closest('.mode-dropdown-wrap');
+    const labelEl = document.getElementById('mode-dropdown-label');
+    const iconEl = document.getElementById('mode-dropdown-icon');
+    if (!trigger || !panel || !wrap) {
+      Logger.warn('[DrawTools] Mode dropdown elements not found.');
+      return;
+    }
+    const MODE_META = {
+      freehand: { label: 'Freehand', icon: '✎' },
+      line: { label: 'Line', icon: '／' },
+      pattern: { label: 'Pattern', icon: '▦' },
+      fill: { label: 'Fill', icon: '▣' },
+    };
+    const setOpen = (open) => {
+      panel.classList.toggle('hidden', !open);
+      wrap.classList.toggle('open', open);
+      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setOpen(panel.classList.contains('hidden'));
+    });
+    const options = panel.querySelectorAll('.mode-option');
+    options.forEach((opt) => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mode = opt.dataset.mode;
+        if (!this._isToolUnlocked(mode)) {
+          Logger.info(`Tool "${mode}" is locked.`);
+          return;
+        }
+        this.setMode(mode);
+        setOpen(false);
+      });
+    });
+    // Sync visual state when mode changes externally.
+    this._syncModeDropdown = () => {
+      const cur = this.input ? this.input.mode : 'freehand';
+      const meta = MODE_META[cur] || MODE_META.freehand;
+      if (labelEl) labelEl.textContent = meta.label;
+      if (iconEl) iconEl.textContent = meta.icon;
+      options.forEach((opt) => {
+        const isCur = opt.dataset.mode === cur;
+        opt.classList.toggle('active', isCur);
+        const isLocked = !this._isToolUnlocked(opt.dataset.mode);
+        opt.disabled = isLocked;
+        opt.style.opacity = isLocked ? '0.35' : '';
+        opt.style.cursor = isLocked ? 'not-allowed' : '';
+      });
+    };
+    this._syncModeDropdown();
+    // Close on outside click.
+    document.addEventListener('click', (e) => {
+      if (!wrap.contains(e.target)) setOpen(false);
+    });
+    // Close on Esc.
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.classList.contains('hidden')) {
+        setOpen(false);
+      }
+    });
   }
 
   _isToolUnlocked(mode) {
@@ -137,6 +204,7 @@ export class DrawToolsPanel {
         btn.title = tips[mode] || '';
       }
     });
+    if (this._syncModeDropdown) this._syncModeDropdown();
     // If current mode is now locked, fall back to freehand.
     if (this.input && !this._isToolUnlocked(this.input.mode)) {
       this.setMode(DRAW_MODE.FREEHAND);
@@ -149,6 +217,7 @@ export class DrawToolsPanel {
     this.modeButtons.forEach((b) => {
       b.classList.toggle('active', b.dataset.mode === mode);
     });
+    if (this._syncModeDropdown) this._syncModeDropdown();
     this._updateVisibility();
     // If editor panel is open but we're leaving pattern mode, close it.
     if (mode !== DRAW_MODE.PATTERN && this._editorPanelOpen) {

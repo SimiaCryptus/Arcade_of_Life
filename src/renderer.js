@@ -74,15 +74,46 @@ export class Renderer {
   // Call this after resolution changes or grid replacement.
   resize() {
     const topologyId = this.grid.topologyId || 'square';
+    // Compute the natural drawing size for the grid at current CELL_SIZE.
+    let gridW, gridH;
     if (topologyId === 'square') {
-      this.canvas.width = this.grid.width * CONFIG.CELL_SIZE;
-      this.canvas.height = this.grid.height * CONFIG.CELL_SIZE + CONFIG.HUD_HEIGHT;
+      gridW = this.grid.width * CONFIG.CELL_SIZE;
+      gridH = this.grid.height * CONFIG.CELL_SIZE;
     } else {
       const topology = getTopology(topologyId);
       const dims = topology.canvasSize(this.grid.width, this.grid.height, CONFIG.CELL_SIZE);
-      this.canvas.width = Math.ceil(dims.w);
-      this.canvas.height = Math.ceil(dims.h) + CONFIG.HUD_HEIGHT;
+      gridW = Math.ceil(dims.w);
+      gridH = Math.ceil(dims.h);
     }
+    // Expand the canvas to fill the available viewport area so that
+    // the canvas itself is always as large as possible. The grid is
+    // then centered inside the canvas using offsetX/offsetY.
+    const availW = (CONFIG._AVAIL_W != null ? CONFIG._AVAIL_W : gridW) | 0;
+    const availH = (CONFIG._AVAIL_H != null ? CONFIG._AVAIL_H : gridH) | 0;
+    // Total canvas height available (play area + HUD). The renderer
+    // wants the canvas itself to fill the full available area so the
+    // grid can be centered in both dimensions inside it.
+    const canvasAvailH =
+      (CONFIG._CANVAS_AVAIL_H != null ? CONFIG._CANVAS_AVAIL_H : availH + CONFIG.HUD_HEIGHT) | 0;
+    const canvasW = Math.max(gridW, availW);
+    // Canvas height = full available height (HUD lives inside this).
+    // Ensure we have at least enough room for the grid + HUD.
+    const canvasH = Math.max(gridH + CONFIG.HUD_HEIGHT, canvasAvailH);
+    this.canvas.width = canvasW;
+    this.canvas.height = canvasH;
+    this.gridPixelWidth = gridW;
+    this.gridPixelHeight = gridH;
+    // Horizontal offset to center the grid in the canvas.
+    this.offsetX = Math.max(0, Math.floor((canvasW - gridW) / 2));
+    // Vertical offset to center the grid in the canvas area below the HUD.
+    const playAreaH = canvasH - CONFIG.HUD_HEIGHT;
+    this.offsetY = Math.max(0, Math.floor((playAreaH - gridH) / 2));
+    // Stash offsets on CONFIG so InputManager can use the same values
+    // when converting pointer coordinates to grid cells. Without this,
+    // clicks/touches land on the wrong cells whenever the grid is
+    // centered inside a larger canvas.
+    CONFIG._GRID_OFFSET_X = this.offsetX;
+    CONFIG._GRID_OFFSET_Y = this.offsetY;
   }
   // Return whether a floater with the same text would be a duplicate
   // of a recently-spawned one nearby. Helps prevent floater spam when
@@ -109,20 +140,22 @@ export class Renderer {
   _gridToCanvas(gx, gy) {
     const cs = CONFIG.CELL_SIZE;
     const topologyId = (this.grid && this.grid.topologyId) || 'square';
+    const ox = this.offsetX || 0;
+    const oy = this.offsetY || 0;
     if (topologyId === 'square') {
       return {
-        x: gx * cs + cs / 2,
-        y: gy * cs + CONFIG.HUD_HEIGHT + cs / 2,
+        x: ox + gx * cs + cs / 2,
+        y: oy + gy * cs + CONFIG.HUD_HEIGHT + cs / 2,
       };
     }
     const topology = getTopology(topologyId);
     if (topologyId === 'tri') {
       const c = topology.cellCenter(gx, gy, cs, 0);
-      return { x: c.px, y: c.py + CONFIG.HUD_HEIGHT };
+      return { x: ox + c.px, y: oy + c.py + CONFIG.HUD_HEIGHT };
     }
     // hex
     const c = topology.cellCenter(gx, gy, cs);
-    return { x: c.px, y: c.py + CONFIG.HUD_HEIGHT };
+    return { x: ox + c.px, y: oy + c.py + CONFIG.HUD_HEIGHT };
   }
 
   addFloater(gx, gy, text, color) {
@@ -351,11 +384,12 @@ export class Renderer {
     ctx.save();
     ctx.translate(shakeX, shakeY);
 
-    const gridYOffset = CONFIG.HUD_HEIGHT;
+    const gridYOffset = CONFIG.HUD_HEIGHT + (this.offsetY || 0);
+    const gridXOffset = this.offsetX || 0;
 
     // Draw the draw-zone boundary + a subtle tint over the drawable area.
     const topologyId = this.grid.topologyId || 'square';
-    const playfieldH = this.canvas.height - gridYOffset;
+    const playfieldH = this.gridPixelHeight || this.canvas.height - gridYOffset;
     let zoneRowToY;
     if (topologyId === 'square') {
       zoneRowToY = (row) => row * cs + gridYOffset;
@@ -372,23 +406,25 @@ export class Renderer {
     const midY = zoneRowToY(dzMinY);
     const rearY = zoneRowToY(this.grid.rearDeadZoneMinY());
     const playfieldBottom = gridYOffset + playfieldH;
+    // Width of the actual grid area (for zone tints/lines).
+    const gridPxW = this.gridPixelWidth || this.canvas.width;
     // Base zone band (between top dead zone and missile spawn line).
     const bz = this.grid.baseZoneBounds();
     if (CONFIG.SHOW_DRAW_ZONE !== false && CONFIG.VFX_DRAW_ZONE_TINT !== false) {
       // Subtle background tint for the drawable region.
       ctx.fillStyle = colors.DRAW_ZONE_TINT || 'rgba(0,255,136,0.04)';
-      ctx.fillRect(0, midY, this.canvas.width, rearY - midY);
+      ctx.fillRect(gridXOffset, midY, gridPxW, rearY - midY);
       // Rear dead zone tint (red-ish "no man's land").
       if (rearY < playfieldBottom) {
         ctx.fillStyle = 'rgba(255, 80, 80, 0.06)';
-        ctx.fillRect(0, rearY, this.canvas.width, playfieldBottom - rearY);
+        ctx.fillRect(gridXOffset, rearY, gridPxW, playfieldBottom - rearY);
       }
       // Base zone tint (subtle amber).
       if (bz) {
         const bzY = zoneRowToY(bz.minY);
         const bzH = zoneRowToY(bz.maxY + 1) - bzY;
         ctx.fillStyle = 'rgba(255, 180, 60, 0.05)';
-        ctx.fillRect(0, bzY, this.canvas.width, bzH);
+        ctx.fillRect(gridXOffset, bzY, gridPxW, bzH);
       }
       // Pulsing boundary line.
       const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 400);
@@ -398,15 +434,15 @@ export class Renderer {
       ctx.lineWidth = 1.5;
       ctx.setLineDash([8, 6]);
       ctx.beginPath();
-      ctx.moveTo(0, midY + 0.5);
-      ctx.lineTo(this.canvas.width, midY + 0.5);
+      ctx.moveTo(gridXOffset, midY + 0.5);
+      ctx.lineTo(gridXOffset + gridPxW, midY + 0.5);
       ctx.stroke();
       // Rear dead zone boundary line (red).
       if (rearY < playfieldBottom) {
         ctx.strokeStyle = 'rgba(255, 80, 80, 0.5)';
         ctx.beginPath();
-        ctx.moveTo(0, rearY + 0.5);
-        ctx.lineTo(this.canvas.width, rearY + 0.5);
+        ctx.moveTo(gridXOffset, rearY + 0.5);
+        ctx.lineTo(gridXOffset + gridPxW, rearY + 0.5);
         ctx.stroke();
       }
       // Base zone boundary lines (amber, no dashes for differentiation).
@@ -416,12 +452,12 @@ export class Renderer {
         const bzTop = zoneRowToY(bz.minY);
         const bzBot = zoneRowToY(bz.maxY + 1);
         ctx.beginPath();
-        ctx.moveTo(0, bzTop + 0.5);
-        ctx.lineTo(this.canvas.width, bzTop + 0.5);
+        ctx.moveTo(gridXOffset, bzTop + 0.5);
+        ctx.lineTo(gridXOffset + gridPxW, bzTop + 0.5);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(0, bzBot + 0.5);
-        ctx.lineTo(this.canvas.width, bzBot + 0.5);
+        ctx.moveTo(gridXOffset, bzBot + 0.5);
+        ctx.lineTo(gridXOffset + gridPxW, bzBot + 0.5);
         ctx.stroke();
       }
       ctx.setLineDash([]);
@@ -432,14 +468,14 @@ export class Renderer {
       ctx.font = 'bold 10px "Courier New", monospace';
       ctx.textBaseline = 'bottom';
       ctx.textAlign = 'left';
-      ctx.fillText('▼ DRAW ZONE', 4, midY - 2);
+      ctx.fillText('▼ DRAW ZONE', gridXOffset + 4, midY - 2);
       if (bz) {
         ctx.fillStyle = 'rgba(255, 180, 60, 0.7)';
-        ctx.fillText('◆ BASE ZONE', 4, zoneRowToY(bz.minY) - 2);
+        ctx.fillText('◆ BASE ZONE', gridXOffset + 4, zoneRowToY(bz.minY) - 2);
       }
       if (rearY < playfieldBottom) {
         ctx.fillStyle = 'rgba(255, 100, 100, 0.7)';
-        ctx.fillText('▲ REAR DEAD ZONE', 4, rearY - 2);
+        ctx.fillText('▲ REAR DEAD ZONE', gridXOffset + 4, rearY - 2);
       }
       ctx.restore();
     } else {
@@ -447,8 +483,8 @@ export class Renderer {
       ctx.strokeStyle = colors.MIDLINE;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
-      ctx.moveTo(0, midY);
-      ctx.lineTo(this.canvas.width, midY);
+      ctx.moveTo(gridXOffset, midY);
+      ctx.lineTo(gridXOffset + gridPxW, midY);
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -490,6 +526,7 @@ export class Renderer {
     const cellColor = this.grid.cellColor;
     const panOffset = this.grid.panOffset || 0;
     const w = this.grid.width;
+    const ox = this.offsetX || 0;
     for (let y = 0; y < this.grid.height; y++) {
       for (let x = 0; x < w; x++) {
         const i = y * this.grid.width + x;
@@ -504,11 +541,11 @@ export class Renderer {
           ctx.shadowColor = color;
           ctx.shadowBlur = glowAmount;
           ctx.fillStyle = color;
-          ctx.fillRect(displayX * cs, y * cs + gridYOffset, cs, cs);
+          ctx.fillRect(ox + displayX * cs, y * cs + gridYOffset, cs, cs);
           ctx.restore();
         } else {
           ctx.fillStyle = color;
-          ctx.fillRect(displayX * cs, y * cs + gridYOffset, cs, cs);
+          ctx.fillRect(ox + displayX * cs, y * cs + gridYOffset, cs, cs);
         }
       }
     }
@@ -524,6 +561,7 @@ export class Renderer {
     const cellColor = this.grid.cellColor;
     const topology = getTopology('hex');
     const w = this.grid.width;
+    const ox = this.offsetX || 0;
     for (let r = 0; r < this.grid.height; r++) {
       for (let q = 0; q < w; q++) {
         const i = r * w + q;
@@ -539,9 +577,9 @@ export class Renderer {
         }
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+        ctx.moveTo(ox + verts[0][0], verts[0][1] + gridYOffset);
         for (let v = 1; v < verts.length; v++) {
-          ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+          ctx.lineTo(ox + verts[v][0], verts[v][1] + gridYOffset);
         }
         ctx.closePath();
         ctx.fill();
@@ -561,6 +599,7 @@ export class Renderer {
     const topology = getTopology('tri');
     const w = this.grid.width;
     const stride = 2 * w;
+    const ox = this.offsetX || 0;
     for (let y = 0; y < this.grid.height; y++) {
       for (let x = 0; x < w; x++) {
         for (let o = 0; o < 2; o++) {
@@ -583,9 +622,9 @@ export class Renderer {
           }
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+          ctx.moveTo(ox + verts[0][0], verts[0][1] + gridYOffset);
           for (let v = 1; v < verts.length; v++) {
-            ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+            ctx.lineTo(ox + verts[v][0], verts[v][1] + gridYOffset);
           }
           ctx.closePath();
           ctx.fill();
@@ -651,6 +690,7 @@ export class Renderer {
     const w = this.grid.width;
     const pending = this.grid.pending;
     const panOffset = this.grid.panOffset || 0;
+    const ox = this.offsetX || 0;
     const computeAlpha = (i) => {
       const dryRemain = pendingDry[i];
       if (dryRemain === 0) return 0.35;
@@ -664,7 +704,7 @@ export class Renderer {
           if (pending[i]) {
             ctx.fillStyle = `rgba(0, 255, 136, ${computeAlpha(i)})`;
             const displayX = (((x - panOffset) % w) + w) % w;
-            ctx.fillRect(displayX * cs, y * cs + gridYOffset, cs, cs);
+            ctx.fillRect(ox + displayX * cs, y * cs + gridYOffset, cs, cs);
           }
         }
       }
@@ -679,9 +719,9 @@ export class Renderer {
             ctx.fillStyle = `rgba(0, 255, 136, ${computeAlpha(i)})`;
             const verts = topology.cellPolygon(q, r, cs);
             ctx.beginPath();
-            ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+            ctx.moveTo(ox + verts[0][0], verts[0][1] + gridYOffset);
             for (let v = 1; v < verts.length; v++) {
-              ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+              ctx.lineTo(ox + verts[v][0], verts[v][1] + gridYOffset);
             }
             ctx.closePath();
             ctx.fill();
@@ -701,9 +741,9 @@ export class Renderer {
               ctx.fillStyle = `rgba(0, 255, 136, ${computeAlpha(i)})`;
               const verts = topology.cellPolygon(x, y, cs, o);
               ctx.beginPath();
-              ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+              ctx.moveTo(ox + verts[0][0], verts[0][1] + gridYOffset);
               for (let v = 1; v < verts.length; v++) {
-                ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+                ctx.lineTo(ox + verts[v][0], verts[v][1] + gridYOffset);
               }
               ctx.closePath();
               ctx.fill();
@@ -722,6 +762,7 @@ export class Renderer {
     const cs = CONFIG.CELL_SIZE;
     const dzMinY = this.grid.drawZoneMinY();
     const topologyId = this.grid.topologyId || 'square';
+    const ox = this.offsetX || 0;
     // Pulse the alpha slightly so the preview is visually distinct.
     const pulse = 0.55 + 0.15 * Math.sin(performance.now() / 200);
     for (const c of cells) {
@@ -742,11 +783,11 @@ export class Renderer {
       }
       if (topologyId === 'square') {
         ctx.fillStyle = color;
-        ctx.fillRect(wx * cs, y * cs + gridYOffset, cs, cs);
+        ctx.fillRect(ox + wx * cs, y * cs + gridYOffset, cs, cs);
         // Outline for clarity.
         ctx.strokeStyle = `rgba(255, 255, 255, ${pulse * 0.4})`;
         ctx.lineWidth = 1;
-        ctx.strokeRect(wx * cs + 0.5, y * cs + gridYOffset + 0.5, cs - 1, cs - 1);
+        ctx.strokeRect(ox + wx * cs + 0.5, y * cs + gridYOffset + 0.5, cs - 1, cs - 1);
       } else {
         // Hex or tri: use topology to compute polygon.
         const topology = getTopology(topologyId);
@@ -758,9 +799,9 @@ export class Renderer {
             verts = topology.cellPolygon(wx, y, cs, o);
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+            ctx.moveTo(ox + verts[0][0], verts[0][1] + gridYOffset);
             for (let v = 1; v < verts.length; v++) {
-              ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+              ctx.lineTo(ox + verts[v][0], verts[v][1] + gridYOffset);
             }
             ctx.closePath();
             ctx.fill();
@@ -773,9 +814,9 @@ export class Renderer {
           verts = topology.cellPolygon(wx, y, cs);
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.moveTo(verts[0][0], verts[0][1] + gridYOffset);
+          ctx.moveTo(ox + verts[0][0], verts[0][1] + gridYOffset);
           for (let v = 1; v < verts.length; v++) {
-            ctx.lineTo(verts[v][0], verts[v][1] + gridYOffset);
+            ctx.lineTo(ox + verts[v][0], verts[v][1] + gridYOffset);
           }
           ctx.closePath();
           ctx.fill();
