@@ -3,7 +3,7 @@
  * Strategy: Cache-first for static assets, network-first for markdown docs.
  */
 
-const CACHE_NAME = 'arcade-of-life-v9';
+const CACHE_NAME = 'arcade-of-life-v10';
 // Resolve the scope path so cache keys are relative to wherever the SW
 // is registered (root or subdirectory).
 const SCOPE_PATH = new URL(self.registration ? self.registration.scope : './', self.location).pathname;
@@ -54,10 +54,21 @@ const STATIC_ASSETS = [
      './manifest.json',
 ];
 
+// These resources are always fetched from the network first so users see
+// updates immediately. version.js is critical: it drives the in-app
+// update prompt, so it must never be served from cache.
 const NETWORK_FIRST = [
      'README.md',
      'console_guide.md',
       'lifewiki.generated.json',
+      'src/version.js',
+];
+
+// Resources that must NEVER be intercepted by the SW (always go to network,
+// bypassing cache entirely). version.js is fetched with cache-busting query
+// strings by versionCheck.js; we honor that by not touching it at all.
+const NEVER_CACHE = [
+    'src/version.js',
 ];
 
 // ── Install: pre-cache all static assets ──────────────────────────────────
@@ -102,6 +113,9 @@ self.addEventListener('fetch', (event) => {
      // Skip chrome-extension and other non-http(s) schemes.
      if (!url.protocol.startsWith('http')) return;
 
+    // Bypass the SW entirely for never-cache resources so cache-busting
+    // query strings from versionCheck.js work as intended.
+    if (NEVER_CACHE.some((p) => url.pathname.endsWith(p))) return;
 
     const isNetworkFirst = NETWORK_FIRST.some((p) => url.pathname.endsWith(p));
 
@@ -148,9 +162,20 @@ async function networkFirst(request) {
     }
 }
 
-// ── Background sync: save high score when back online ─────────────────────
+// ── Message handling: skip waiting + clear caches on demand ───────────────
 self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SKIP_WAITING') {
+    if (!event.data) return;
+    if (event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
+    }
+    if (event.data.type === 'CLEAR_CACHES') {
+        event.waitUntil(
+            caches.keys().then((keys) =>
+                Promise.all(keys.map((k) => {
+                    console.log(`[SW] Clearing cache on request: ${k}`);
+                    return caches.delete(k);
+                }))
+            )
+        );
     }
 });

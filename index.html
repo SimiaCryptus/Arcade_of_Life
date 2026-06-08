@@ -951,24 +951,6 @@
                 </div>
                 <span class="setting-value" id="setting-cascade-ticks-value"></span>
               </div>
-              <div class="setting-row">
-                <label for="setting-age-contagion">
-                  Age Contagion Amount
-                  <span style="display: block; font-size: 10px; color: #8080a0; font-style: italic">
-                    Bump neighbor age by N ticks when a cell dies (0 = disabled). Creates a "decay
-                    spreads" effect that breaks loss-tolerant patterns.
-                  </span>
-                </label>
-                <input
-                  id="setting-age-contagion"
-                  type="range"
-                  min="0"
-                  max="200"
-                  step="1"
-                  value="0"
-                />
-                <span id="setting-age-contagion-value" class="setting-value">0</span>
-              </div>
               <div class="setting-section-header">Enemy Bases</div>
               <div class="setting-row setting-row-checks">
                 <label>Base Spawning</label>
@@ -1186,6 +1168,24 @@
                     <span class="setting-value" id="setting-miss-age-enemy-value"></span>
                   </div>
                 </div>
+              </div>
+              <div class="setting-row">
+                <label for="setting-age-contagion">
+                  Age Contagion Amount
+                  <span style="display: block; font-size: 10px; color: #8080a0; font-style: italic">
+                    Bump neighbor age by N ticks when a cell dies (0 = disabled). Creates a "decay
+                    spreads" effect that breaks loss-tolerant patterns.
+                  </span>
+                </label>
+                <input
+                  id="setting-age-contagion"
+                  type="range"
+                  min="0"
+                  max="200"
+                  step="1"
+                  value="0"
+                />
+                <span id="setting-age-contagion-value" class="setting-value">0</span>
               </div>
               <p class="settings-tab-desc" style="margin-top: 16px">
                 <strong>Tip:</strong> When the ∞ checkbox is unchecked, the slider value overrides

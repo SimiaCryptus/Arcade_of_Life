@@ -5,6 +5,7 @@
 
 import { Logger } from './logger.js';
 import { importLevelJSON, getLevel } from './levels.js';
+import { startPeriodicVersionCheck, BUNDLED_VERSION } from './versionCheck.js';
 // Compute base path so the app works whether served from the domain root
 // or from a subdirectory (e.g. http://host/Arcade_of_Life/).
 // Strips the trailing filename (if any) from the current pathname.
@@ -30,6 +31,9 @@ export function registerServiceWorker() {
         scope: basePath,
       });
       Logger.info('[PWA] Service worker registered:', reg.scope);
+      Logger.info(
+        `[PWA] Running build: ${BUNDLED_VERSION.gitShortHash} ` + `(${BUNDLED_VERSION.buildTime})`
+      );
 
       // Notify user when a new version is waiting.
       reg.addEventListener('updatefound', () => {
@@ -41,6 +45,21 @@ export function registerServiceWorker() {
           }
         });
       });
+      // Independent of the SW lifecycle, poll the uncached version.js
+      // to catch deploys where the SW didn't pick up the change yet
+      // (e.g. aggressive CDN caching of sw.js itself).
+      startPeriodicVersionCheck(
+        (deployed) => {
+          Logger.info(
+            `[PWA] Deployed version differs (deployed=${deployed.gitShortHash}); ` +
+              `prompting reload.`
+          );
+          // Try to nudge the SW into updating, then show the banner.
+          reg.update().catch(() => {});
+          showVersionUpdateBanner(reg, deployed);
+        },
+        { initialDelayMs: 30_000, intervalMs: 5 * 60_000 }
+      );
     } catch (err) {
       Logger.warn('[PWA] Service worker registration failed:', err);
     }
@@ -132,6 +151,43 @@ function showUpdateBanner(reg) {
     banner.remove();
   });
 
+  requestAnimationFrame(() => banner.classList.add('pwa-banner-visible'));
+}
+// ── Version-mismatch banner (driven by uncached version.js poll) ───────────
+function showVersionUpdateBanner(reg, deployed) {
+  if (document.getElementById('pwa-update-banner')) return;
+  if (document.getElementById('pwa-version-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'pwa-version-banner';
+  const short = (deployed && deployed.gitShortHash) || 'new build';
+  banner.innerHTML = `
+     <span class="pwa-banner-text">🆕 New version available (${short})</span>
+     <button id="pwa-version-btn">Reload</button>
+     <button id="pwa-version-dismiss" title="Dismiss">✕</button>
+   `;
+  document.body.appendChild(banner);
+  document.getElementById('pwa-version-btn').addEventListener('click', async () => {
+    try {
+      // Ask the SW to clear caches if it supports the message.
+      if (reg && reg.active) {
+        reg.active.postMessage({ type: 'CLEAR_CACHES' });
+      }
+      if (reg && reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+      // Best-effort: also clear caches from the page side.
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch (e) {
+      Logger.warn('[PWA] Cache clear before reload failed:', e);
+    }
+    window.location.reload();
+  });
+  document.getElementById('pwa-version-dismiss').addEventListener('click', () => {
+    banner.remove();
+  });
   requestAnimationFrame(() => banner.classList.add('pwa-banner-visible'));
 }
 

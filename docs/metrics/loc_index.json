@@ -1,94 +1,830 @@
 [
-  {"path": "/home/andrew/code/Arcade_of_Life/tech_stack.md", "ext": "md", "lines": 5, "blank": 1, "comment": 0, "code": 4, "bytes": 117},
-  {"path": "/home/andrew/code/Arcade_of_Life/manifest.json", "ext": "json", "lines": 80, "blank": 0, "comment": 0, "code": 80, "bytes": 2065},
-  {"path": "/home/andrew/code/Arcade_of_Life/README.md", "ext": "md", "lines": 201, "blank": 50, "comment": 0, "code": 151, "bytes": 6891},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/story.js", "ext": "js", "lines": 1873, "blank": 77, "comment": 138, "code": 1658, "bytes": 58194},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/storage.js", "ext": "js", "lines": 109, "blank": 8, "comment": 19, "code": 82, "bytes": 3090},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/logger.js", "ext": "js", "lines": 90, "blank": 7, "comment": 18, "code": 65, "bytes": 2287},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/guide.js", "ext": "js", "lines": 131, "blank": 8, "comment": 18, "code": 105, "bytes": 4077},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/rules/index.js", "ext": "js", "lines": 41, "blank": 1, "comment": 16, "code": 24, "bytes": 1678},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/rules/extraRulesets.js", "ext": "js", "lines": 336, "blank": 14, "comment": 80, "code": 242, "bytes": 8815},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/rules/exoticEngines.js", "ext": "js", "lines": 901, "blank": 46, "comment": 208, "code": 647, "bytes": 30657},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/rules/exoticRulesets.js", "ext": "js", "lines": 161, "blank": 11, "comment": 43, "code": 107, "bytes": 4878},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/rules/neighborhoods.js", "ext": "js", "lines": 529, "blank": 30, "comment": 126, "code": 373, "bytes": 14619},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/rules/ruleset.js", "ext": "js", "lines": 373, "blank": 23, "comment": 143, "code": 207, "bytes": 11631},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/main.js", "ext": "js", "lines": 3307, "blank": 70, "comment": 472, "code": 2765, "bytes": 130935},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/levels.js", "ext": "js", "lines": 125, "blank": 10, "comment": 28, "code": 87, "bytes": 3899},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/levelCatalog.js", "ext": "js", "lines": 156, "blank": 14, "comment": 27, "code": 115, "bytes": 5590},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/settings.js", "ext": "js", "lines": 1272, "blank": 26, "comment": 86, "code": 1160, "bytes": 49655},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/levelDesigner.js", "ext": "js", "lines": 3287, "blank": 31, "comment": 306, "code": 2950, "bytes": 134181},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/marked.min.js", "ext": "js", "lines": 69, "blank": 2, "comment": 9, "code": 58, "bytes": 39903},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/gameState.js", "ext": "js", "lines": 53, "blank": 3, "comment": 5, "code": 45, "bytes": 1155},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/hud.js", "ext": "js", "lines": 46, "blank": 3, "comment": 11, "code": 32, "bytes": 1421},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/sim/hashlife.js", "ext": "js", "lines": 95, "blank": 4, "comment": 29, "code": 62, "bytes": 2995},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/sim/lifeSim.js", "ext": "js", "lines": 551, "blank": 16, "comment": 153, "code": 382, "bytes": 15179},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/sim/cellCounts.js", "ext": "js", "lines": 41, "blank": 1, "comment": 12, "code": 28, "bytes": 1483},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/sim/tickHelpers.js", "ext": "js", "lines": 198, "blank": 13, "comment": 79, "code": 106, "bytes": 6747},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/sim/cpuBackend.js", "ext": "js", "lines": 353, "blank": 2, "comment": 101, "code": 250, "bytes": 12270},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/sim/gpuBackend.js", "ext": "js", "lines": 199, "blank": 12, "comment": 28, "code": 159, "bytes": 7312},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/patternZoo.js", "ext": "js", "lines": 1726, "blank": 48, "comment": 159, "code": 1519, "bytes": 68237},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/entities/defenses.js", "ext": "js", "lines": 91, "blank": 7, "comment": 13, "code": 71, "bytes": 2764},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/entities/cities.js", "ext": "js", "lines": 65, "blank": 6, "comment": 9, "code": 50, "bytes": 1975},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/entities/missiles.js", "ext": "js", "lines": 1270, "blank": 59, "comment": 242, "code": 969, "bytes": 44972},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/renderer.js", "ext": "js", "lines": 974, "blank": 35, "comment": 106, "code": 833, "bytes": 35229},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/abilities.js", "ext": "js", "lines": 304, "blank": 15, "comment": 38, "code": 251, "bytes": 9117},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/drawTools.js", "ext": "js", "lines": 1379, "blank": 20, "comment": 167, "code": 1192, "bytes": 54849},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/generate-icons.js", "ext": "js", "lines": 111, "blank": 13, "comment": 15, "code": 83, "bytes": 2919},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/pwa.js", "ext": "js", "lines": 389, "blank": 25, "comment": 54, "code": 310, "bytes": 14051},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/input.js", "ext": "js", "lines": 799, "blank": 39, "comment": 103, "code": 657, "bytes": 26108},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/audio.js", "ext": "js", "lines": 365, "blank": 24, "comment": 38, "code": 303, "bytes": 11650},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/scoring.js", "ext": "js", "lines": 242, "blank": 15, "comment": 70, "code": 157, "bytes": 9033},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/timeControl.js", "ext": "js", "lines": 183, "blank": 19, "comment": 15, "code": 149, "bytes": 5985},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/topology.js", "ext": "js", "lines": 523, "blank": 19, "comment": 169, "code": 335, "bytes": 17464},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/patternCapture.js", "ext": "js", "lines": 982, "blank": 36, "comment": 240, "code": 706, "bytes": 37394},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/simulation.js", "ext": "js", "lines": 1326, "blank": 19, "comment": 262, "code": 1045, "bytes": 50825},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/config.js", "ext": "js", "lines": 813, "blank": 14, "comment": 112, "code": 687, "bytes": 27341},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/grid.js", "ext": "js", "lines": 298, "blank": 15, "comment": 68, "code": 215, "bytes": 10805},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/abilitiesMenu.js", "ext": "js", "lines": 252, "blank": 10, "comment": 21, "code": 221, "bytes": 8832},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/patterns/lifewiki.generated.json", "ext": "json", "lines": 974225, "blank": 0, "comment": 0, "code": 974225, "bytes": 18703781},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/patterns/index.js", "ext": "js", "lines": 52, "blank": 4, "comment": 20, "code": 28, "bytes": 1259},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/patterns/library.js", "ext": "js", "lines": 892, "blank": 41, "comment": 152, "code": 699, "bytes": 24154},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/patterns/lifewikiImporter.js", "ext": "js", "lines": 757, "blank": 17, "comment": 134, "code": 606, "bytes": 27681},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/patterns/parsers.js", "ext": "js", "lines": 181, "blank": 3, "comment": 56, "code": 122, "bytes": 5321},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/patterns/inferMetadata.js", "ext": "js", "lines": 530, "blank": 8, "comment": 169, "code": 353, "bytes": 19173},
-  {"path": "/home/andrew/code/Arcade_of_Life/src/patterns/categories.js", "ext": "js", "lines": 9, "blank": 0, "comment": 0, "code": 9, "bytes": 204},
-  {"path": "/home/andrew/code/Arcade_of_Life/console_guide.md", "ext": "md", "lines": 785, "blank": 185, "comment": 0, "code": 600, "bytes": 20485},
-  {"path": "/home/andrew/code/Arcade_of_Life/.prettierrc.json", "ext": "json", "lines": 9, "blank": 0, "comment": 0, "code": 9, "bytes": 154},
-  {"path": "/home/andrew/code/Arcade_of_Life/bookmarks.md", "ext": "md", "lines": 43, "blank": 11, "comment": 0, "code": 32, "bytes": 1364},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/rules/exoticEngines.test.js", "ext": "js", "lines": 435, "blank": 40, "comment": 20, "code": 375, "bytes": 12565},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/rules/neighborhoods.test.js", "ext": "js", "lines": 291, "blank": 34, "comment": 8, "code": 249, "bytes": 7721},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/rules/ruleset.test.js", "ext": "js", "lines": 221, "blank": 26, "comment": 12, "code": 183, "bytes": 6752},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/sim/wrapShiftIntegration.test.js", "ext": "js", "lines": 144, "blank": 12, "comment": 20, "code": 112, "bytes": 4812},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/sim/simulation.test.js", "ext": "js", "lines": 385, "blank": 28, "comment": 62, "code": 295, "bytes": 14447},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/sim/lifeSim.test.js", "ext": "js", "lines": 202, "blank": 17, "comment": 11, "code": 174, "bytes": 4427},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/sim/wrapShift.test.js", "ext": "js", "lines": 156, "blank": 12, "comment": 35, "code": 109, "bytes": 5783},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/topology.test.js", "ext": "js", "lines": 146, "blank": 7, "comment": 7, "code": 132, "bytes": 4592},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/grid.test.js", "ext": "js", "lines": 167, "blank": 12, "comment": 23, "code": 132, "bytes": 5321},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/patterns/parsers.test.js", "ext": "js", "lines": 149, "blank": 19, "comment": 11, "code": 119, "bytes": 4850},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/patterns/simulation.test.js", "ext": "js", "lines": 644, "blank": 66, "comment": 81, "code": 497, "bytes": 26304},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/patterns/inferMetadata.test.js", "ext": "js", "lines": 177, "blank": 15, "comment": 10, "code": 152, "bytes": 5440},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/patterns/library.test.js", "ext": "js", "lines": 294, "blank": 32, "comment": 17, "code": 245, "bytes": 9205},
-  {"path": "/home/andrew/code/Arcade_of_Life/test/run-all.js", "ext": "js", "lines": 21, "blank": 2, "comment": 6, "code": 13, "bytes": 664},
-  {"path": "/home/andrew/code/Arcade_of_Life/package.json", "ext": "json", "lines": 37, "blank": 0, "comment": 0, "code": 37, "bytes": 1602},
-  {"path": "/home/andrew/code/Arcade_of_Life/notes.md", "ext": "md", "lines": 2, "blank": 0, "comment": 0, "code": 2, "bytes": 213},
-  {"path": "/home/andrew/code/Arcade_of_Life/index.html", "ext": "html", "lines": 1501, "blank": 5, "comment": 28, "code": 1468, "bytes": 71778},
-  {"path": "/home/andrew/code/Arcade_of_Life/eslint.config.js", "ext": "js", "lines": 37, "blank": 1, "comment": 9, "code": 27, "bytes": 934},
-  {"path": "/home/andrew/code/Arcade_of_Life/ops/copperhead.md", "ext": "md", "lines": 6, "blank": 1, "comment": 0, "code": 5, "bytes": 158},
-  {"path": "/home/andrew/code/Arcade_of_Life/style.css", "ext": "css", "lines": 5085, "blank": 627, "comment": 79, "code": 4379, "bytes": 94133},
-  {"path": "/home/andrew/code/Arcade_of_Life/package-lock.json", "ext": "json", "lines": 1615, "blank": 0, "comment": 0, "code": 1615, "bytes": 57344},
-  {"path": "/home/andrew/code/Arcade_of_Life/mechanics_and_theme.md", "ext": "md", "lines": 10, "blank": 3, "comment": 0, "code": 7, "bytes": 580},
-  {"path": "/home/andrew/code/Arcade_of_Life/README-modules.md", "ext": "md", "lines": 105, "blank": 33, "comment": 0, "code": 72, "bytes": 4287},
-  {"path": "/home/andrew/code/Arcade_of_Life/play_guide.md", "ext": "md", "lines": 340, "blank": 104, "comment": 0, "code": 236, "bytes": 11674},
-  {"path": "/home/andrew/code/Arcade_of_Life/sw.js", "ext": "js", "lines": 156, "blank": 12, "comment": 14, "code": 130, "bytes": 5346},
-  {"path": "/home/andrew/code/Arcade_of_Life/levels/pillbox.json", "ext": "json", "lines": 2960, "blank": 0, "comment": 0, "code": 2960, "bytes": 27856},
-  {"path": "/home/andrew/code/Arcade_of_Life/levels/firewalls.json", "ext": "json", "lines": 2136, "blank": 0, "comment": 0, "code": 2136, "bytes": 19805},
-  {"path": "/home/andrew/code/Arcade_of_Life/levels/mothership.json", "ext": "json", "lines": 2873, "blank": 0, "comment": 0, "code": 2873, "bytes": 32387},
-  {"path": "/home/andrew/code/Arcade_of_Life/levels/petri.json", "ext": "json", "lines": 1002, "blank": 0, "comment": 0, "code": 1002, "bytes": 10124},
-  {"path": "/home/andrew/code/Arcade_of_Life/levels/index.json", "ext": "json", "lines": 9, "blank": 0, "comment": 0, "code": 9, "bytes": 160},
-  {"path": "/home/andrew/code/Arcade_of_Life/levels/invaders.json", "ext": "json", "lines": 1136, "blank": 0, "comment": 0, "code": 1136, "bytes": 15492},
-  {"path": "/home/andrew/code/Arcade_of_Life/docs/lifewiki-import.md", "ext": "md", "lines": 68, "blank": 13, "comment": 0, "code": 55, "bytes": 2321},
-  {"path": "/home/andrew/code/Arcade_of_Life/docs/metrics/loc_viewer.html", "ext": "html", "lines": 797, "blank": 25, "comment": 0, "code": 772, "bytes": 26074},
-  {"path": "/home/andrew/code/Arcade_of_Life/docs/metrics/loc.sh", "ext": "sh", "lines": 348, "blank": 28, "comment": 49, "code": 271, "bytes": 13177},
-  {"path": "/home/andrew/code/Arcade_of_Life/docs/metrics/loc_report.json", "ext": "json", "lines": 17, "blank": 0, "comment": 0, "code": 17, "bytes": 3096},
-  {"path": "/home/andrew/code/Arcade_of_Life/docs/metrics/loc_index.json", "ext": "json", "lines": 78, "blank": 0, "comment": 0, "code": 78, "bytes": 11620}
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/tech_stack.md",
+    "ext": "md",
+    "lines": 5,
+    "blank": 1,
+    "comment": 0,
+    "code": 4,
+    "bytes": 117
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/manifest.json",
+    "ext": "json",
+    "lines": 80,
+    "blank": 0,
+    "comment": 0,
+    "code": 80,
+    "bytes": 2065
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/README.md",
+    "ext": "md",
+    "lines": 201,
+    "blank": 50,
+    "comment": 0,
+    "code": 151,
+    "bytes": 6891
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/story.js",
+    "ext": "js",
+    "lines": 1873,
+    "blank": 77,
+    "comment": 138,
+    "code": 1658,
+    "bytes": 58194
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/storage.js",
+    "ext": "js",
+    "lines": 109,
+    "blank": 8,
+    "comment": 19,
+    "code": 82,
+    "bytes": 3090
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/logger.js",
+    "ext": "js",
+    "lines": 90,
+    "blank": 7,
+    "comment": 18,
+    "code": 65,
+    "bytes": 2287
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/guide.js",
+    "ext": "js",
+    "lines": 131,
+    "blank": 8,
+    "comment": 18,
+    "code": 105,
+    "bytes": 4077
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/rules/index.js",
+    "ext": "js",
+    "lines": 41,
+    "blank": 1,
+    "comment": 16,
+    "code": 24,
+    "bytes": 1678
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/rules/extraRulesets.js",
+    "ext": "js",
+    "lines": 336,
+    "blank": 14,
+    "comment": 80,
+    "code": 242,
+    "bytes": 8815
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/rules/exoticEngines.js",
+    "ext": "js",
+    "lines": 901,
+    "blank": 46,
+    "comment": 208,
+    "code": 647,
+    "bytes": 30657
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/rules/exoticRulesets.js",
+    "ext": "js",
+    "lines": 161,
+    "blank": 11,
+    "comment": 43,
+    "code": 107,
+    "bytes": 4878
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/rules/neighborhoods.js",
+    "ext": "js",
+    "lines": 529,
+    "blank": 30,
+    "comment": 126,
+    "code": 373,
+    "bytes": 14619
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/rules/ruleset.js",
+    "ext": "js",
+    "lines": 373,
+    "blank": 23,
+    "comment": 143,
+    "code": 207,
+    "bytes": 11631
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/main.js",
+    "ext": "js",
+    "lines": 3307,
+    "blank": 70,
+    "comment": 472,
+    "code": 2765,
+    "bytes": 130935
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/levels.js",
+    "ext": "js",
+    "lines": 125,
+    "blank": 10,
+    "comment": 28,
+    "code": 87,
+    "bytes": 3899
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/levelCatalog.js",
+    "ext": "js",
+    "lines": 156,
+    "blank": 14,
+    "comment": 27,
+    "code": 115,
+    "bytes": 5590
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/settings.js",
+    "ext": "js",
+    "lines": 1272,
+    "blank": 26,
+    "comment": 86,
+    "code": 1160,
+    "bytes": 49655
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/levelDesigner.js",
+    "ext": "js",
+    "lines": 3287,
+    "blank": 31,
+    "comment": 306,
+    "code": 2950,
+    "bytes": 134181
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/marked.min.js",
+    "ext": "js",
+    "lines": 69,
+    "blank": 2,
+    "comment": 9,
+    "code": 58,
+    "bytes": 39903
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/gameState.js",
+    "ext": "js",
+    "lines": 53,
+    "blank": 3,
+    "comment": 5,
+    "code": 45,
+    "bytes": 1155
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/hud.js",
+    "ext": "js",
+    "lines": 46,
+    "blank": 3,
+    "comment": 11,
+    "code": 32,
+    "bytes": 1421
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/sim/hashlife.js",
+    "ext": "js",
+    "lines": 95,
+    "blank": 4,
+    "comment": 29,
+    "code": 62,
+    "bytes": 2995
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/sim/lifeSim.js",
+    "ext": "js",
+    "lines": 551,
+    "blank": 16,
+    "comment": 153,
+    "code": 382,
+    "bytes": 15179
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/sim/cellCounts.js",
+    "ext": "js",
+    "lines": 41,
+    "blank": 1,
+    "comment": 12,
+    "code": 28,
+    "bytes": 1483
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/sim/tickHelpers.js",
+    "ext": "js",
+    "lines": 198,
+    "blank": 13,
+    "comment": 79,
+    "code": 106,
+    "bytes": 6747
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/sim/cpuBackend.js",
+    "ext": "js",
+    "lines": 353,
+    "blank": 2,
+    "comment": 101,
+    "code": 250,
+    "bytes": 12270
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/sim/gpuBackend.js",
+    "ext": "js",
+    "lines": 199,
+    "blank": 12,
+    "comment": 28,
+    "code": 159,
+    "bytes": 7312
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/patternZoo.js",
+    "ext": "js",
+    "lines": 1726,
+    "blank": 48,
+    "comment": 159,
+    "code": 1519,
+    "bytes": 68237
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/entities/defenses.js",
+    "ext": "js",
+    "lines": 91,
+    "blank": 7,
+    "comment": 13,
+    "code": 71,
+    "bytes": 2764
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/entities/cities.js",
+    "ext": "js",
+    "lines": 65,
+    "blank": 6,
+    "comment": 9,
+    "code": 50,
+    "bytes": 1975
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/entities/missiles.js",
+    "ext": "js",
+    "lines": 1270,
+    "blank": 59,
+    "comment": 242,
+    "code": 969,
+    "bytes": 44972
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/renderer.js",
+    "ext": "js",
+    "lines": 974,
+    "blank": 35,
+    "comment": 106,
+    "code": 833,
+    "bytes": 35229
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/abilities.js",
+    "ext": "js",
+    "lines": 304,
+    "blank": 15,
+    "comment": 38,
+    "code": 251,
+    "bytes": 9117
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/drawTools.js",
+    "ext": "js",
+    "lines": 1379,
+    "blank": 20,
+    "comment": 167,
+    "code": 1192,
+    "bytes": 54849
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/generate-icons.js",
+    "ext": "js",
+    "lines": 111,
+    "blank": 13,
+    "comment": 15,
+    "code": 83,
+    "bytes": 2919
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/pwa.js",
+    "ext": "js",
+    "lines": 389,
+    "blank": 25,
+    "comment": 54,
+    "code": 310,
+    "bytes": 14051
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/input.js",
+    "ext": "js",
+    "lines": 799,
+    "blank": 39,
+    "comment": 103,
+    "code": 657,
+    "bytes": 26108
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/audio.js",
+    "ext": "js",
+    "lines": 365,
+    "blank": 24,
+    "comment": 38,
+    "code": 303,
+    "bytes": 11650
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/scoring.js",
+    "ext": "js",
+    "lines": 242,
+    "blank": 15,
+    "comment": 70,
+    "code": 157,
+    "bytes": 9033
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/timeControl.js",
+    "ext": "js",
+    "lines": 183,
+    "blank": 19,
+    "comment": 15,
+    "code": 149,
+    "bytes": 5985
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/topology.js",
+    "ext": "js",
+    "lines": 523,
+    "blank": 19,
+    "comment": 169,
+    "code": 335,
+    "bytes": 17464
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/patternCapture.js",
+    "ext": "js",
+    "lines": 982,
+    "blank": 36,
+    "comment": 240,
+    "code": 706,
+    "bytes": 37394
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/simulation.js",
+    "ext": "js",
+    "lines": 1326,
+    "blank": 19,
+    "comment": 262,
+    "code": 1045,
+    "bytes": 50825
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/config.js",
+    "ext": "js",
+    "lines": 813,
+    "blank": 14,
+    "comment": 112,
+    "code": 687,
+    "bytes": 27341
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/grid.js",
+    "ext": "js",
+    "lines": 298,
+    "blank": 15,
+    "comment": 68,
+    "code": 215,
+    "bytes": 10805
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/abilitiesMenu.js",
+    "ext": "js",
+    "lines": 252,
+    "blank": 10,
+    "comment": 21,
+    "code": 221,
+    "bytes": 8832
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/patterns/lifewiki.generated.json",
+    "ext": "json",
+    "lines": 974225,
+    "blank": 0,
+    "comment": 0,
+    "code": 974225,
+    "bytes": 18703781
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/patterns/index.js",
+    "ext": "js",
+    "lines": 52,
+    "blank": 4,
+    "comment": 20,
+    "code": 28,
+    "bytes": 1259
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/patterns/library.js",
+    "ext": "js",
+    "lines": 892,
+    "blank": 41,
+    "comment": 152,
+    "code": 699,
+    "bytes": 24154
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/patterns/lifewikiImporter.js",
+    "ext": "js",
+    "lines": 757,
+    "blank": 17,
+    "comment": 134,
+    "code": 606,
+    "bytes": 27681
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/patterns/parsers.js",
+    "ext": "js",
+    "lines": 181,
+    "blank": 3,
+    "comment": 56,
+    "code": 122,
+    "bytes": 5321
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/patterns/inferMetadata.js",
+    "ext": "js",
+    "lines": 530,
+    "blank": 8,
+    "comment": 169,
+    "code": 353,
+    "bytes": 19173
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/src/patterns/categories.js",
+    "ext": "js",
+    "lines": 9,
+    "blank": 0,
+    "comment": 0,
+    "code": 9,
+    "bytes": 204
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/console_guide.md",
+    "ext": "md",
+    "lines": 785,
+    "blank": 185,
+    "comment": 0,
+    "code": 600,
+    "bytes": 20485
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/.prettierrc.json",
+    "ext": "json",
+    "lines": 9,
+    "blank": 0,
+    "comment": 0,
+    "code": 9,
+    "bytes": 154
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/bookmarks.md",
+    "ext": "md",
+    "lines": 43,
+    "blank": 11,
+    "comment": 0,
+    "code": 32,
+    "bytes": 1364
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/rules/exoticEngines.test.js",
+    "ext": "js",
+    "lines": 435,
+    "blank": 40,
+    "comment": 20,
+    "code": 375,
+    "bytes": 12565
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/rules/neighborhoods.test.js",
+    "ext": "js",
+    "lines": 291,
+    "blank": 34,
+    "comment": 8,
+    "code": 249,
+    "bytes": 7721
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/rules/ruleset.test.js",
+    "ext": "js",
+    "lines": 221,
+    "blank": 26,
+    "comment": 12,
+    "code": 183,
+    "bytes": 6752
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/sim/wrapShiftIntegration.test.js",
+    "ext": "js",
+    "lines": 144,
+    "blank": 12,
+    "comment": 20,
+    "code": 112,
+    "bytes": 4812
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/sim/simulation.test.js",
+    "ext": "js",
+    "lines": 385,
+    "blank": 28,
+    "comment": 62,
+    "code": 295,
+    "bytes": 14447
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/sim/lifeSim.test.js",
+    "ext": "js",
+    "lines": 202,
+    "blank": 17,
+    "comment": 11,
+    "code": 174,
+    "bytes": 4427
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/sim/wrapShift.test.js",
+    "ext": "js",
+    "lines": 156,
+    "blank": 12,
+    "comment": 35,
+    "code": 109,
+    "bytes": 5783
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/topology.test.js",
+    "ext": "js",
+    "lines": 146,
+    "blank": 7,
+    "comment": 7,
+    "code": 132,
+    "bytes": 4592
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/grid.test.js",
+    "ext": "js",
+    "lines": 167,
+    "blank": 12,
+    "comment": 23,
+    "code": 132,
+    "bytes": 5321
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/patterns/parsers.test.js",
+    "ext": "js",
+    "lines": 149,
+    "blank": 19,
+    "comment": 11,
+    "code": 119,
+    "bytes": 4850
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/patterns/simulation.test.js",
+    "ext": "js",
+    "lines": 644,
+    "blank": 66,
+    "comment": 81,
+    "code": 497,
+    "bytes": 26304
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/patterns/inferMetadata.test.js",
+    "ext": "js",
+    "lines": 177,
+    "blank": 15,
+    "comment": 10,
+    "code": 152,
+    "bytes": 5440
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/patterns/library.test.js",
+    "ext": "js",
+    "lines": 294,
+    "blank": 32,
+    "comment": 17,
+    "code": 245,
+    "bytes": 9205
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/test/run-all.js",
+    "ext": "js",
+    "lines": 21,
+    "blank": 2,
+    "comment": 6,
+    "code": 13,
+    "bytes": 664
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/package.json",
+    "ext": "json",
+    "lines": 37,
+    "blank": 0,
+    "comment": 0,
+    "code": 37,
+    "bytes": 1602
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/notes.md",
+    "ext": "md",
+    "lines": 2,
+    "blank": 0,
+    "comment": 0,
+    "code": 2,
+    "bytes": 213
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/index.html",
+    "ext": "html",
+    "lines": 1501,
+    "blank": 5,
+    "comment": 28,
+    "code": 1468,
+    "bytes": 71778
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/eslint.config.js",
+    "ext": "js",
+    "lines": 37,
+    "blank": 1,
+    "comment": 9,
+    "code": 27,
+    "bytes": 934
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/ops/copperhead.md",
+    "ext": "md",
+    "lines": 6,
+    "blank": 1,
+    "comment": 0,
+    "code": 5,
+    "bytes": 158
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/style.css",
+    "ext": "css",
+    "lines": 5085,
+    "blank": 627,
+    "comment": 79,
+    "code": 4379,
+    "bytes": 94133
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/package-lock.json",
+    "ext": "json",
+    "lines": 1615,
+    "blank": 0,
+    "comment": 0,
+    "code": 1615,
+    "bytes": 57344
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/mechanics_and_theme.md",
+    "ext": "md",
+    "lines": 10,
+    "blank": 3,
+    "comment": 0,
+    "code": 7,
+    "bytes": 580
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/README-modules.md",
+    "ext": "md",
+    "lines": 105,
+    "blank": 33,
+    "comment": 0,
+    "code": 72,
+    "bytes": 4287
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/play_guide.md",
+    "ext": "md",
+    "lines": 340,
+    "blank": 104,
+    "comment": 0,
+    "code": 236,
+    "bytes": 11674
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/sw.js",
+    "ext": "js",
+    "lines": 156,
+    "blank": 12,
+    "comment": 14,
+    "code": 130,
+    "bytes": 5346
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/levels/pillbox.json",
+    "ext": "json",
+    "lines": 2960,
+    "blank": 0,
+    "comment": 0,
+    "code": 2960,
+    "bytes": 27856
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/levels/firewalls.json",
+    "ext": "json",
+    "lines": 2136,
+    "blank": 0,
+    "comment": 0,
+    "code": 2136,
+    "bytes": 19805
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/levels/mothership.json",
+    "ext": "json",
+    "lines": 2873,
+    "blank": 0,
+    "comment": 0,
+    "code": 2873,
+    "bytes": 32387
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/levels/petri.json",
+    "ext": "json",
+    "lines": 1002,
+    "blank": 0,
+    "comment": 0,
+    "code": 1002,
+    "bytes": 10124
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/levels/index.json",
+    "ext": "json",
+    "lines": 9,
+    "blank": 0,
+    "comment": 0,
+    "code": 9,
+    "bytes": 160
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/levels/invaders.json",
+    "ext": "json",
+    "lines": 1136,
+    "blank": 0,
+    "comment": 0,
+    "code": 1136,
+    "bytes": 15492
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/docs/lifewiki-import.md",
+    "ext": "md",
+    "lines": 68,
+    "blank": 13,
+    "comment": 0,
+    "code": 55,
+    "bytes": 2321
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/docs/metrics/loc_viewer.html",
+    "ext": "html",
+    "lines": 797,
+    "blank": 25,
+    "comment": 0,
+    "code": 772,
+    "bytes": 26074
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/docs/metrics/loc.sh",
+    "ext": "sh",
+    "lines": 348,
+    "blank": 28,
+    "comment": 49,
+    "code": 271,
+    "bytes": 13177
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/docs/metrics/loc_report.json",
+    "ext": "json",
+    "lines": 17,
+    "blank": 0,
+    "comment": 0,
+    "code": 17,
+    "bytes": 3096
+  },
+  {
+    "path": "/home/andrew/code/Arcade_of_Life/docs/metrics/loc_index.json",
+    "ext": "json",
+    "lines": 78,
+    "blank": 0,
+    "comment": 0,
+    "code": 78,
+    "bytes": 11620
+  }
 ]

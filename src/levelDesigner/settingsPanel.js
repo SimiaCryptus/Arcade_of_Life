@@ -11,8 +11,46 @@ const SETTING_SECTIONS = [
     title: '🎮 Gameplay',
     keys: ['HARDCORE_MODE', 'STARTING_SPEED', 'VICTORY_ENEMY_THRESHOLD', 'DEFEAT_CITY_THRESHOLD'],
   },
-  { title: '🚀 Enemy Pacing', keys: ['MISSILE_CASCADE_TICKS', 'AGE_CONTAGION_AMOUNT'] },
-  { title: '⚔ Bases', keys: ['BASE_ZONE_HEIGHT', 'BASE_GLIDER_BUFFER'] },
+  {
+    title: '⚔ Layout',
+    keys: ['BASE_ZONE_HEIGHT', 'BASE_GLIDER_BUFFER', 'DRAW_ZONE_FRACTION', 'REAR_DEAD_ZONE_HEIGHT'],
+  },
+  {
+    title: '✏️ Drawing & Ink',
+    keys: [
+      'INITIAL_INK',
+      'MAX_INK',
+      'INK_REGEN_RATE',
+      'CLEAR_REFUND_FRACTION',
+      'INK_DRY_TICKS',
+      'SHOW_DRAW_ZONE',
+    ],
+  },
+  {
+    title: '⏳ Region-Specific Aging',
+    keys: [
+      'DEFENSE_AGE_FRIENDLY',
+      'DEFENSE_AGE_NEUTRAL',
+      'DEFENSE_AGE_ENEMY',
+      'MISSILE_AGE_FRIENDLY',
+      'MISSILE_AGE_NEUTRAL',
+      'MISSILE_AGE_ENEMY',
+      'AGE_CONTAGION_AMOUNT',
+    ],
+  },
+  {
+    title: '⚡ Abilities',
+    keys: [
+      'ABILITY_DOUBLE_SCORE',
+      'ABILITY_NO_DRY',
+      'ABILITY_WAVE_BONUS',
+      'ABILITY_SAFE_ZONE',
+      'ABILITY_SLOW_MISSILES',
+      'ABILITY_EMP_BURST',
+      'ABILITY_INK_SURGE',
+      'ABILITY_FREEZE',
+    ],
+  },
   {
     title: '🏆 Scoring',
     keys: [
@@ -33,43 +71,6 @@ const SETTING_SECTIONS = [
       'COMBO_WINDOW_MS',
       'COMBO_MAX_MULT',
       'COMBO_INCREMENT',
-    ],
-  },
-  {
-    title: '✏️ Drawing & Ink',
-    keys: [
-      'INITIAL_INK',
-      'MAX_INK',
-      'INK_REGEN_RATE',
-      'CLEAR_REFUND_FRACTION',
-      'INK_DRY_TICKS',
-      'DRAW_ZONE_FRACTION',
-      'REAR_DEAD_ZONE_HEIGHT',
-      'SHOW_DRAW_ZONE',
-    ],
-  },
-  {
-    title: '⏳ Region-Specific Aging',
-    keys: [
-      'DEFENSE_AGE_FRIENDLY',
-      'DEFENSE_AGE_NEUTRAL',
-      'DEFENSE_AGE_ENEMY',
-      'MISSILE_AGE_FRIENDLY',
-      'MISSILE_AGE_NEUTRAL',
-      'MISSILE_AGE_ENEMY',
-    ],
-  },
-  {
-    title: '⚡ Abilities',
-    keys: [
-      'ABILITY_DOUBLE_SCORE',
-      'ABILITY_NO_DRY',
-      'ABILITY_WAVE_BONUS',
-      'ABILITY_SAFE_ZONE',
-      'ABILITY_SLOW_MISSILES',
-      'ABILITY_EMP_BURST',
-      'ABILITY_INK_SURGE',
-      'ABILITY_FREEZE',
     ],
   },
   {
