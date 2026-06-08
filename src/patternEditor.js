@@ -24,7 +24,8 @@ import { inferPatternMetadata } from './patterns/inferMetadata.js';
  *      - onOpen / onClose: lifecycle hooks
  */
 
-const EDITOR_SIZE = 16;
+const EDITOR_MIN_SIZE = 3;
+const EDITOR_MAX_SIZE = 64;
 const PREVIEW_GRID_SIZE = 32; // larger grid so simulation has room
 const PREVIEW_DEFAULT_SPEED = 8; // ticks/sec
 
@@ -110,7 +111,9 @@ export class PatternEditor {
     this.onOpen = typeof onOpen === 'function' ? onOpen : null;
     this.onClose = typeof onClose === 'function' ? onClose : null;
 
-    this.editorSize = EDITOR_SIZE;
+    // Dynamic grid dimensions — grow/shrink with pattern.
+    this.editorWidth = EDITOR_MIN_SIZE;
+    this.editorHeight = EDITOR_MIN_SIZE;
     this.editorCells = new Set(); // "x,y" strings
 
     // Mode tracking:
@@ -162,6 +165,16 @@ export class PatternEditor {
     if (!this.overlayEl || !this.panelEl || !this.canvasEl) {
       Logger.error('[PatternEditor] Required DOM elements missing.');
       return;
+    }
+    // Inject a primary Save button next to the Close button in the footer.
+    if (this.closeBtn && !document.getElementById('editor-save-btn')) {
+      const saveBtn = document.createElement('button');
+      saveBtn.id = 'editor-save-btn';
+      saveBtn.type = 'button';
+      saveBtn.className = 'editor-action-btn editor-action-primary';
+      saveBtn.textContent = '💾 Save Pattern';
+      saveBtn.style.cssText = 'margin-right:8px;';
+      this.closeBtn.parentNode.insertBefore(saveBtn, this.closeBtn);
     }
   }
   // ─────────────────────────────────────────────────────────────
@@ -441,9 +454,7 @@ export class PatternEditor {
            title="Re-run simulation to auto-detect category, period, direction, etc.">
            🔍 Re-infer Metadata
          </button>
-         <button id="editor-save-btn" class="editor-action-btn editor-action-primary" type="button">💾 Save as New Pattern</button>
-         <button id="editor-saveas-btn" class="editor-action-btn" type="button">Save As...</button>
-         <span id="editor-save-status" class="editor-save-status"></span>
+          <span id="editor-meta-status" class="editor-save-status"></span>
        </div>
        <div id="editor-reinfer-result" style="
          margin-top: 10px;
@@ -530,13 +541,21 @@ export class PatternEditor {
       const scaleY = this.canvasEl.height / rect.height;
       const px = (e.clientX - rect.left) * scaleX;
       const py = (e.clientY - rect.top) * scaleY;
-      const cs = this.canvasEl.width / this.editorSize;
-      const x = Math.floor(px / cs);
-      const y = Math.floor(py / cs);
-      if (x < 0 || x >= this.editorSize || y < 0 || y >= this.editorSize) return;
+      const csX = this.canvasEl.width / this.editorWidth;
+      const csY = this.canvasEl.height / this.editorHeight;
+      const x = Math.floor(px / csX);
+      const y = Math.floor(py / csY);
+      if (x < 0 || x >= this.editorWidth || y < 0 || y >= this.editorHeight) return;
       const key = `${x},${y}`;
-      if (this.editorCells.has(key)) this.editorCells.delete(key);
-      else this.editorCells.add(key);
+      if (this.editorCells.has(key)) {
+        this.editorCells.delete(key);
+        // Removed a cell — auto-trim/recenter.
+        this._autoFitGrid();
+      } else {
+        this.editorCells.add(key);
+        // Added a cell — may need to grow if on border.
+        this._autoFitGrid();
+      }
       this._editorDirty = true;
       this._activePresetName = '';
       this._syncPresetCombobox();
@@ -549,6 +568,8 @@ export class PatternEditor {
     if (this.clearBtn) {
       this.clearBtn.addEventListener('click', () => {
         this.editorCells.clear();
+        this.editorWidth = EDITOR_MIN_SIZE;
+        this.editorHeight = EDITOR_MIN_SIZE;
         this._editorDirty = true;
         this._activePresetName = '';
         this._syncPresetCombobox();
@@ -564,26 +585,85 @@ export class PatternEditor {
     const ctx = this.editorCtx;
     const w = this.canvasEl.width;
     const h = this.canvasEl.height;
-    const cs = w / this.editorSize;
+    const csX = w / this.editorWidth;
+    const csY = h / this.editorHeight;
     ctx.fillStyle = '#000010';
     ctx.fillRect(0, 0, w, h);
     ctx.strokeStyle = '#1a1a3a';
     ctx.lineWidth = 1;
-    for (let i = 0; i <= this.editorSize; i++) {
+    for (let i = 0; i <= this.editorWidth; i++) {
+      const px = i * csX + 0.5;
       ctx.beginPath();
-      ctx.moveTo(i * cs + 0.5, 0);
-      ctx.lineTo(i * cs + 0.5, h);
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, h);
       ctx.stroke();
+    }
+    for (let i = 0; i <= this.editorHeight; i++) {
+      const py = i * csY + 0.5;
       ctx.beginPath();
-      ctx.moveTo(0, i * cs + 0.5);
-      ctx.lineTo(w, i * cs + 0.5);
+      ctx.moveTo(0, py);
+      ctx.lineTo(w, py);
       ctx.stroke();
     }
     ctx.fillStyle = '#00ff88';
     for (const key of this.editorCells) {
       const [x, y] = key.split(',').map(Number);
-      ctx.fillRect(x * cs + 1, y * cs + 1, cs - 2, cs - 2);
+      ctx.fillRect(x * csX + 1, y * csY + 1, csX - 2, csY - 2);
     }
+    // Show size indicator in corner.
+    ctx.fillStyle = 'rgba(136,221,255,0.6)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${this.editorWidth}×${this.editorHeight}`, 4, 4);
+  }
+  /**
+   * Auto-fit the grid to the current cell set:
+   *  - Compute bounding box of live cells.
+   *  - Target size = bbox + 1-cell border on each side (min 3×3).
+   *  - Recenter cells inside the new grid.
+   *  - Capped at EDITOR_MAX_SIZE.
+   */
+  _autoFitGrid() {
+    if (this.editorCells.size === 0) {
+      this.editorWidth = EDITOR_MIN_SIZE;
+      this.editorHeight = EDITOR_MIN_SIZE;
+      return;
+    }
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const key of this.editorCells) {
+      const [x, y] = key.split(',').map(Number);
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    const bw = maxX - minX + 1;
+    const bh = maxY - minY + 1;
+    // Target grid: bbox + 1 border each side = bbox + 2; min 3.
+    let targetW = Math.max(EDITOR_MIN_SIZE, bw + 2);
+    let targetH = Math.max(EDITOR_MIN_SIZE, bh + 2);
+    if (targetW > EDITOR_MAX_SIZE) targetW = EDITOR_MAX_SIZE;
+    if (targetH > EDITOR_MAX_SIZE) targetH = EDITOR_MAX_SIZE;
+    // New origin: place bbox so there's a 1-cell border on the top/left.
+    // i.e., shift so that minX→1, minY→1 (when target = bbox+2).
+    const offX = Math.floor((targetW - bw) / 2) - minX;
+    const offY = Math.floor((targetH - bh) / 2) - minY;
+    const newCells = new Set();
+    for (const key of this.editorCells) {
+      const [x, y] = key.split(',').map(Number);
+      const nx = x + offX;
+      const ny = y + offY;
+      if (nx >= 0 && nx < targetW && ny >= 0 && ny < targetH) {
+        newCells.add(`${nx},${ny}`);
+      }
+    }
+    this.editorCells = newCells;
+    this.editorWidth = targetW;
+    this.editorHeight = targetH;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -637,27 +717,11 @@ export class PatternEditor {
 
   _replaceEditorCells(coords) {
     if (coords.length === 0) return;
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const [x, y] of coords) {
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
-    }
-    const w = maxX - minX + 1;
-    const h = maxY - minY + 1;
-    const offX = Math.floor((this.editorSize - w) / 2) - minX;
-    const offY = Math.floor((this.editorSize - h) / 2) - minY;
     this.editorCells.clear();
     for (const [x, y] of coords) {
-      const nx = x + offX;
-      const ny = y + offY;
-      if (nx < 0 || nx >= this.editorSize || ny < 0 || ny >= this.editorSize) continue;
-      this.editorCells.add(`${nx},${ny}`);
+      this.editorCells.add(`${x},${y}`);
     }
+    this._autoFitGrid();
     if (this.input) {
       this.input.patternRotation = 0;
       this.input.patternFlipH = false;
@@ -765,17 +829,13 @@ export class PatternEditor {
     this._sourceLibraryId = libraryId;
     if (cells && cells.length > 0) {
       const norm = normalizeCells(cells);
-      const pw = norm.width;
-      const ph = norm.height;
-      const offX = Math.max(0, Math.floor((this.editorSize - pw) / 2));
-      const offY = Math.max(0, Math.floor((this.editorSize - ph) / 2));
       for (const [x, y] of norm.cells) {
-        const px = x + offX;
-        const py = y + offY;
-        if (px >= 0 && px < this.editorSize && py >= 0 && py < this.editorSize) {
-          this.editorCells.add(`${px},${py}`);
-        }
+        this.editorCells.add(`${x},${y}`);
       }
+      this._autoFitGrid();
+    } else {
+      this.editorWidth = EDITOR_MIN_SIZE;
+      this.editorHeight = EDITOR_MIN_SIZE;
     }
     this._activePresetName = customName || libraryId || '';
     this._editorDirty = false;
@@ -1021,9 +1081,7 @@ export class PatternEditor {
   // ─────────────────────────────────────────────────────────────
   _wireSaveControls() {
     const saveBtn = document.getElementById('editor-save-btn');
-    const saveAsBtn = document.getElementById('editor-saveas-btn');
     if (saveBtn) saveBtn.addEventListener('click', () => this._save(false));
-    if (saveAsBtn) saveAsBtn.addEventListener('click', () => this._save(true));
   }
 
   _populateRulesetSelect() {
@@ -1090,7 +1148,7 @@ export class PatternEditor {
     if (this._editorMode === 'edit' && this._editorEditingName) {
       saveBtn.textContent = `💾 Update "${this._editorEditingName}"`;
       if (statusEl) {
-        statusEl.textContent = `Editing existing custom pattern "${this._editorEditingName}".`;
+        statusEl.textContent = `Editing "${this._editorEditingName}".`;
         statusEl.style.color = '#ffcc44';
       }
     } else if (this._editorMode === 'library') {
