@@ -1025,15 +1025,30 @@ export class Simulation {
     return count;
   }
   // Augment neighbor-count arrays so FIRE cells act as live neighbors
-  // for Life-rule purposes (births and survivals) without being
-  // treated as defenses. FIRE is "activated" for both friendly and
-  // enemy paints: it should help patterns of either type live/grow
-  // nearby, but it should NOT:
-  //   - cause missiles to annihilate (which checks defenseNbr > 0)
-  //   - bias empty-cell births toward DEFENSE (which compares
-  //     missileNbr vs defenseNbr)
-  // Therefore we only increment lifeNbr here. The defenseNbr param is
-  // retained for signature compatibility but intentionally unused.
+  // for whichever side has "captured" them this tick.
+  //
+  // Capture rule:
+  //   - Each FIRE tile tallies DEFENSE vs MISSILE cells in its 3x3
+  //     ring of neighbors.
+  //   - Territory bias adds +1 to the side that owns the row the
+  //     FIRE sits on: friendly region (draw zone) gives +1 DEFENSE,
+  //     enemy region (top dead/base zone) gives +1 MISSILE. The
+  //     neutral middle band gives no bias.
+  //   - Ties = the FIRE is NOT activated this tick (contributes
+  //     nothing). This means an isolated FIRE in neutral territory
+  //     sits dormant until a cell wanders next to it.
+  //   - The winning side "captures" the FIRE for this tick. The FIRE
+  //     then contributes a live neighbor only for cells/births of
+  //     the owning side:
+  //       * Defense-captured: boosts adjacent DEFENSE survival and
+  //         defense-side births in adjacent EMPTY cells.
+  //       * Missile-captured: boosts adjacent MISSILE survival and
+  //         missile-side births (also nudges the type-selection vote
+  //         in adjacent EMPTY cells toward MISSILE).
+  //   - The FIRE never touches defenseNbr, so it can't cause missile
+  //     annihilation regardless of who captured it.
+  //
+  // The defenseNbr parameter is retained for signature compatibility.
   _addFireNeighborCounts(cells, w, h, lifeNbr, defenseNbr, missileNbr) {
     void defenseNbr;
     const shift = this.grid.wrapVerticalShift | 0;
@@ -1042,15 +1057,26 @@ export class Simulation {
     const topDeadMax = Math.min(h - 1, CONFIG.RETURN_FIRE_ZONE_MAX_Y | 0);
     const baseZoneH = Math.max(0, CONFIG.BASE_ZONE_HEIGHT | 0);
     const enemyRegionMaxY = Math.min(h - 1, topDeadMax + baseZoneH);
+    const dzMinY = this.grid.drawZoneMinY();
+    // FIRE tile capture-by-vote:
+    //   - Count adjacent DEFENSE vs MISSILE cells.
+    //   - Apply +1 territory bias toward the side that "owns" this
+    //     row (friendly bias in draw zone, enemy bias in base/dead
+    //     zone). Neutral middle gets no bias.
+    //   - Tie => FIRE is unactivated this tick (contributes nothing).
+    //   - Otherwise the winning side "captures" the FIRE and it
+    //     contributes as a live neighbor ONLY for that side:
+    //       * boosts survival of same-type cells in the 3x3 ring
+    //       * boosts births of the owning type in empty neighbors
+    //     The losing side gets no benefit (and FIRE does not bias
+    //     missile annihilation since we never touch defenseNbr).
     for (let i = 0; i < n; i++) {
       if (cells[i] !== CELL_TYPE.FIRE) continue;
       const y = (i / w) | 0;
       const x = i - y * w;
-      // FIRE tiles in enemy territory bias births toward MISSILE so the
-      // enemy can spawn new attacker cells nearby. FIRE in friendly or
-      // neutral territory remains neutral (only contributes to lifeNbr)
-      // to avoid causing missile self-annihilation against friendly FIRE.
-      const inEnemyRegion = y <= enemyRegionMaxY;
+      // --- Vote tally over the 8 neighbors. ---
+      let defVotes = 0;
+      let missVotes = 0;
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           if (dx === 0 && dy === 0) continue;
@@ -1063,15 +1089,60 @@ export class Simulation {
           nx = ((nx % w) + w) % w;
           if (ny < 0 || ny >= h) continue;
           const ni = ny * w + nx;
-          lifeNbr[ni]++;
-          if (inEnemyRegion && missileNbr) {
-            missileNbr[ni]++;
+          const nt = cells[ni];
+          if (nt === CELL_TYPE.DEFENSE) defVotes++;
+          else if (nt === CELL_TYPE.MISSILE) missVotes++;
+        }
+      }
+      // Territory bias: +1 to the side that owns this row.
+      const inEnemyRegion = y <= enemyRegionMaxY;
+      const inFriendlyRegion = y >= dzMinY;
+      if (inFriendlyRegion) defVotes += 1;
+      else if (inEnemyRegion) missVotes += 1;
+      // Tie => no activation.
+      if (defVotes === missVotes) continue;
+      const ownerIsDefense = defVotes > missVotes;
+      // --- Distribute the capture's influence to neighbors. ---
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          let nx = x + dx;
+          let ny = y + dy;
+          if (shift !== 0) {
+            if (nx < 0) ny += shift;
+            else if (nx >= w) ny -= shift;
           }
-          if (inEnemyRegion) {
-            // Bias empty-cell births toward MISSILE in enemy territory.
-            // We use a scratch missileNbr array — look it up via the
-            // simulation's stored buffer.
-            this._missileNbr[ni]++;
+          nx = ((nx % w) + w) % w;
+          if (ny < 0 || ny >= h) continue;
+          const ni = ny * w + nx;
+          const nt = cells[ni];
+          if (ownerIsDefense) {
+            // Boost defense survival and defense-side births.
+            // Only count toward lifeNbr if the neighbor is DEFENSE
+            // (helps it survive) or EMPTY (helps a defense birth).
+            // Skip MISSILE neighbors so a defense-captured FIRE
+            // does not accidentally sustain enemy patterns.
+            if (nt === CELL_TYPE.DEFENSE || nt === CELL_TYPE.EMPTY) {
+              lifeNbr[ni]++;
+            }
+            // Do NOT touch defenseNbr or missileNbr: that would
+            // bias missile annihilation and empty-cell type
+            // selection in unintended ways. The empty-cell type
+            // decision is driven by missileNbr vs defenseNbr from
+            // real adjacent cells; FIRE only nudges via lifeNbr.
+          } else {
+            // Missile-captured FIRE: boost missile survival and
+            // missile-side births.
+            if (nt === CELL_TYPE.MISSILE || nt === CELL_TYPE.EMPTY) {
+              lifeNbr[ni]++;
+            }
+            // Bias empty-cell birth-type decision toward MISSILE
+            // by bumping the missile neighbor count. We must NOT
+            // bump defenseNbr (would trigger missile annihilation
+            // on adjacent missile cells).
+            if (nt === CELL_TYPE.EMPTY && missileNbr) {
+              missileNbr[ni]++;
+            }
           }
         }
       }

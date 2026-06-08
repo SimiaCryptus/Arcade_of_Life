@@ -3,6 +3,7 @@
     "levels/pillbox.json",
     "levels/invaders.json",
     "levels/firewalls.json",
-    "levels/mothership.json"
+    "levels/mothership.json",
+    "levels/petri.json"
   ]
 }
