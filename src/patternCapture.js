@@ -219,16 +219,34 @@ export class PatternCapture {
     const containerRect = container.getBoundingClientRect();
     const overlay = document.createElement('div');
     overlay.id = 'pattern-capture-overlay';
-    // Convert HUD offset from canvas-pixel space to CSS-pixel space.
+    // Convert HUD offset and grid centering offsets from canvas-pixel
+    // space to CSS-pixel space. The renderer centers the grid inside
+    // the (possibly larger) canvas; the overlay must be positioned
+    // over the GRID area, not the full canvas, so that pixel coords
+    // used by _updateRect (which are grid-relative) line up.
+    const scaleX = canvasRect.width / this.canvas.width;
     const scaleY = canvasRect.height / this.canvas.height;
     const hudCss = CONFIG.HUD_HEIGHT * scaleY;
-    const playfieldCss = canvasRect.height - hudCss;
+    const gridOffXCanvas = CONFIG._GRID_OFFSET_X || 0;
+    const gridOffYCanvas = CONFIG._GRID_OFFSET_Y || 0;
+    const gridOffXCss = gridOffXCanvas * scaleX;
+    const gridOffYCss = gridOffYCanvas * scaleY;
+    // Width/height of the actual grid area in CSS pixels. Fall back
+    // to remaining canvas if renderer hasn't published pixel sizes.
+    const rendererGridW =
+      this.game && this.game.renderer ? this.game.renderer.gridPixelWidth : null;
+    const rendererGridH =
+      this.game && this.game.renderer ? this.game.renderer.gridPixelHeight : null;
+    const gridWCss =
+      rendererGridW != null ? rendererGridW * scaleX : canvasRect.width - gridOffXCss * 2;
+    const gridHCss =
+      rendererGridH != null ? rendererGridH * scaleY : canvasRect.height - hudCss - gridOffYCss * 2;
     overlay.style.cssText = `
           position: absolute;
-          top: ${canvasRect.top - containerRect.top + hudCss}px;
-          left: ${canvasRect.left - containerRect.left}px;
-          width: ${canvasRect.width}px;
-          height: ${playfieldCss}px;
+          top: ${canvasRect.top - containerRect.top + hudCss + gridOffYCss}px;
+          left: ${canvasRect.left - containerRect.left + gridOffXCss}px;
+          width: ${gridWCss}px;
+          height: ${gridHCss}px;
           pointer-events: none;
           z-index: 8;
           background: rgba(255, 200, 60, 0.06);
@@ -380,9 +398,17 @@ export class PatternCapture {
     const rect = this.canvas.getBoundingClientRect();
     const scaleX = this.canvas.width / rect.width;
     const scaleY = this.canvas.height / rect.height;
+    // Match InputManager._getPos: subtract HUD height AND the
+    // renderer's grid centering offsets so the returned pixel coords
+    // are relative to the grid's top-left corner (0,0). Without this,
+    // any time the canvas is wider/taller than the grid (which is the
+    // normal case on wide viewports) the selection misaligns by the
+    // centering offset.
+    const offX = CONFIG._GRID_OFFSET_X || 0;
+    const offY = CONFIG._GRID_OFFSET_Y || 0;
     return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY - CONFIG.HUD_HEIGHT,
+      x: (clientX - rect.left) * scaleX - offX,
+      y: (clientY - rect.top) * scaleY - CONFIG.HUD_HEIGHT - offY,
     };
   }
 

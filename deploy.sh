@@ -12,5 +12,7 @@ aws s3 cp --recursive ./ s3://aol.cognotik.com/ \
   --exclude ".git/*" \
   --exclude "android-twa/*" \
   --exclude "terraform/*" \
+  --exclude "demo/*" \
+  --exclude ".*/*" \
   --exclude "*.sh" \
   --exclude "LICENSE"
