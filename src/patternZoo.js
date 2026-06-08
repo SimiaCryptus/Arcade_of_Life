@@ -1368,12 +1368,14 @@ export class PatternZoo {
   _openEditorForPattern(pattern) {
     if (!this.game || !this.game.drawTools) return;
     const dt = this.game.drawTools;
-    // Load pattern cells into the editor.
-    dt.loadPatternIntoEditor(
-      pattern.cells,
-      pattern._customName || null,
-      pattern._isCustom ? 'edit' : 'view'
-    );
+    // Load pattern cells into the editor. Built-in (library) patterns
+    // load in read-only "library" mode (must save-as-new). Custom
+    // patterns load in editable "edit" mode.
+    if (pattern._isCustom) {
+      dt.loadPatternIntoEditor(pattern.cells, pattern._customName, 'edit', null);
+    } else {
+      dt.loadPatternIntoEditor(pattern.cells, null, 'library', pattern.id);
+    }
     // Open the editor on top of the zoo. The editor has a higher z-index
     // than the zoo, so it will appear above. We intentionally keep the
     // zoo open so closing the editor returns the user to the zoo rather
@@ -1383,7 +1385,7 @@ export class PatternZoo {
   _openEditorForNew() {
     if (!this.game || !this.game.drawTools) return;
     const dt = this.game.drawTools;
-    dt.loadPatternIntoEditor([], null, 'new');
+    dt.loadPatternIntoEditor([], null, 'new', null);
     dt._openEditorPanel();
   }
   _deleteCustomPattern(pattern) {
