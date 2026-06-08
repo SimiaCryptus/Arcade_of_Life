@@ -1307,6 +1307,21 @@ export class LevelDesigner {
 
   hide() {
     if (!this.visible) return;
+    try {
+      const url = new URL(window.location.href);
+      let changed = false;
+      if (url.searchParams.has('mode')) {
+        url.searchParams.delete('mode');
+        changed = true;
+      }
+      if (changed) {
+        const newHref = url.pathname + (url.search ? url.search : '') + url.hash;
+        window.history.replaceState({}, '', newHref);
+        Logger.info('Cleared level/autostart query params from URL.');
+      }
+    } catch (e) {
+      Logger.warn('Failed to clean URL on exit:', e);
+    }
     this.visible = false;
     this.overlay.classList.add('hidden');
     this.overlay.setAttribute('aria-hidden', 'true');

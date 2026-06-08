@@ -771,6 +771,10 @@ class Game {
         url.searchParams.delete('level');
         changed = true;
       }
+      if (url.searchParams.has('mode')) {
+        url.searchParams.delete('mode');
+        changed = true;
+      }
       if (url.searchParams.has('autostart')) {
         url.searchParams.delete('autostart');
         changed = true;
