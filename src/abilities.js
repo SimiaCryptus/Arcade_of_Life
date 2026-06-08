@@ -164,8 +164,11 @@ export class FreeplayAbilityManager {
     if (this.waveInkBonus > 0 && this.game.defenses) {
       this.game.defenses.refill(this.waveInkBonus);
     }
-    // Hook scoring multiplier into sim callbacks.
-    if (this.scoreMult > 1) this._hookScoreMult();
+    // Push scoring multiplier into the ScoreManager so it applies to
+    // every kill and wave bonus uniformly. No more callback hooks.
+    if (this.scoreMult > 1 && this.game.score) {
+      this.game.score.setGlobalMultiplier(this.scoreMult);
+    }
     // Hook wave-start bonus.
     if (this.waveInkBonus > 0) this._hookWaveBonus();
     // Build / show buttons.
@@ -181,24 +184,10 @@ export class FreeplayAbilityManager {
     this._installed = false;
     this.activeAbilities = [];
     this._removeButtons();
-  }
-
-  _hookScoreMult() {
-    const sim = this.game.simulation;
-    const mgr = this;
-    const origDestroy = sim.onMissileDestroyed;
-    sim.onMissileDestroyed = () => {
-      const bonus = Math.round(10 * (mgr.scoreMult - 1));
-      if (bonus > 0) mgr.game.hud.addScore(bonus);
-      if (origDestroy) origDestroy();
-    };
-    const origRet = sim.onMissileReturn;
-    sim.onMissileReturn = (x, y, kind) => {
-      const base = kind === 'ricochet' ? 50 : 20;
-      const bonus = Math.round(base * (mgr.scoreMult - 1));
-      if (bonus > 0) mgr.game.hud.addScore(bonus);
-      if (origRet) origRet(x, y, kind);
-    };
+    // Reset the score multiplier so a new game starts clean.
+    if (this.game && this.game.score) {
+      this.game.score.setGlobalMultiplier(1.0);
+    }
   }
 
   _hookWaveBonus() {

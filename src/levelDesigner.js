@@ -2725,6 +2725,28 @@ export class LevelDesigner {
         keys: ['BASE_ZONE_HEIGHT', 'BASE_GLIDER_BUFFER'],
       },
       {
+        title: '🏆 Scoring',
+        keys: [
+          'SCORE_TARGET_DESTROYED',
+          'SCORE_FORTRESS_DESTROYED',
+          'SCORE_BUNKER_DESTROYED',
+          'SCORE_CRUISER_DESTROYED',
+          'SCORE_SPAWNER_DESTROYED',
+          'SCORE_CITY_SURVIVAL_PER_WAVE',
+          'SCORE_WAVE_CLEAR_BASE',
+          'SCORE_INK_EFFICIENCY',
+          'SCORE_VICTORY_CITY_BONUS',
+          'SCORE_VICTORY_FLAT',
+          'SCORE_VICTORY_INK',
+          'SCORE_CITY_CELL_LOST',
+          'SCORE_FRIENDLY_FIRE_PENALTY',
+          'SCORE_BREACH_PENALTY',
+          'COMBO_WINDOW_MS',
+          'COMBO_MAX_MULT',
+          'COMBO_INCREMENT',
+        ],
+      },
+      {
         title: '✏️ Drawing & Ink',
         keys: [
           'INITIAL_INK',
@@ -2822,6 +2844,55 @@ export class LevelDesigner {
         key: 'DEFEAT_CITY_THRESHOLD',
         id: 'setting-defeat-threshold',
         format: (v) => `${v | 0} cells`,
+      };
+    }
+    // Synthetic defs for scoring keys.
+    const scoreKeys = [
+      'SCORE_TARGET_DESTROYED',
+      'SCORE_FORTRESS_DESTROYED',
+      'SCORE_BUNKER_DESTROYED',
+      'SCORE_CRUISER_DESTROYED',
+      'SCORE_SPAWNER_DESTROYED',
+      'SCORE_CITY_SURVIVAL_PER_WAVE',
+      'SCORE_WAVE_CLEAR_BASE',
+      'SCORE_VICTORY_CITY_BONUS',
+      'SCORE_VICTORY_FLAT',
+      'SCORE_CITY_CELL_LOST',
+      'SCORE_FRIENDLY_FIRE_PENALTY',
+      'SCORE_BREACH_PENALTY',
+    ];
+    for (const k of scoreKeys) {
+      if (!sliderDefs[k]) {
+        sliderDefs[k] = {
+          key: k,
+          id: `setting-${k.toLowerCase().replace(/_/g, '-')}`,
+          format: (v) => `${v | 0} pts`,
+        };
+      }
+    }
+    // Scoring keys that are floats (per-unit multipliers).
+    const scoreFloatKeys = ['SCORE_INK_EFFICIENCY', 'SCORE_VICTORY_INK', 'COMBO_INCREMENT'];
+    for (const k of scoreFloatKeys) {
+      if (!sliderDefs[k]) {
+        sliderDefs[k] = {
+          key: k,
+          id: `setting-${k.toLowerCase().replace(/_/g, '-')}`,
+          format: (v) => v.toFixed(2),
+        };
+      }
+    }
+    if (!sliderDefs.COMBO_WINDOW_MS) {
+      sliderDefs.COMBO_WINDOW_MS = {
+        key: 'COMBO_WINDOW_MS',
+        id: 'setting-combo-window-ms',
+        format: (v) => `${v | 0} ms`,
+      };
+    }
+    if (!sliderDefs.COMBO_MAX_MULT) {
+      sliderDefs.COMBO_MAX_MULT = {
+        key: 'COMBO_MAX_MULT',
+        id: 'setting-combo-max-mult',
+        format: (v) => `${v.toFixed(2)}x`,
       };
     }
     this._settingsInputs = {}; // key → {input, valueEl, type}
@@ -3083,6 +3154,28 @@ export class LevelDesigner {
       BASE_GLIDER_BUFFER: { min: 1, max: 12, step: 1 },
       VICTORY_ENEMY_THRESHOLD: { min: 0, max: 100, step: 1 },
       DEFEAT_CITY_THRESHOLD: { min: 0, max: 200, step: 1 },
+      // Scoring: structural kills.
+      SCORE_TARGET_DESTROYED: { min: 0, max: 10000, step: 50 },
+      SCORE_FORTRESS_DESTROYED: { min: 0, max: 10000, step: 50 },
+      SCORE_BUNKER_DESTROYED: { min: 0, max: 10000, step: 50 },
+      SCORE_CRUISER_DESTROYED: { min: 0, max: 10000, step: 50 },
+      SCORE_SPAWNER_DESTROYED: { min: 0, max: 10000, step: 50 },
+      // Scoring: wave completion.
+      SCORE_CITY_SURVIVAL_PER_WAVE: { min: 0, max: 2000, step: 25 },
+      SCORE_WAVE_CLEAR_BASE: { min: 0, max: 5000, step: 50 },
+      SCORE_INK_EFFICIENCY: { min: 0, max: 5, step: 0.05 },
+      // Scoring: victory.
+      SCORE_VICTORY_CITY_BONUS: { min: 0, max: 10000, step: 50 },
+      SCORE_VICTORY_FLAT: { min: 0, max: 20000, step: 100 },
+      SCORE_VICTORY_INK: { min: 0, max: 10, step: 0.1 },
+      // Scoring: penalties (negative).
+      SCORE_CITY_CELL_LOST: { min: -1000, max: 0, step: 5 },
+      SCORE_FRIENDLY_FIRE_PENALTY: { min: -1000, max: 0, step: 5 },
+      SCORE_BREACH_PENALTY: { min: -1000, max: 0, step: 5 },
+      // Combo system.
+      COMBO_WINDOW_MS: { min: 500, max: 15000, step: 100 },
+      COMBO_MAX_MULT: { min: 1, max: 20, step: 0.25 },
+      COMBO_INCREMENT: { min: 0, max: 2, step: 0.05 },
     };
     // For BASE_ZONE_HEIGHT, the maximum depends on grid height AND the
     // current draw zone fraction. The base zone has to fit between the

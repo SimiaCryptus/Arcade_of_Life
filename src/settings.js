@@ -76,6 +76,68 @@ export const SETTING_DEFS = [
   { key: 'BASE_SPAWN_COUNT_INC', id: 'setting-base-count-inc', format: (v) => v.toFixed(1) },
   { key: 'BASE_SPAWN_MAX', id: 'setting-base-max', format: (v) => v },
   { key: 'BASE_GLIDER_BUFFER', id: 'setting-base-glider-buffer', format: (v) => `${v} rows` },
+  // ── Scoring ──────────────────────────────────────────────────
+  {
+    key: 'SCORE_TARGET_DESTROYED',
+    id: 'setting-score-target-destroyed',
+    format: (v) => `${v} pts`,
+  },
+  {
+    key: 'SCORE_FORTRESS_DESTROYED',
+    id: 'setting-score-fortress-destroyed',
+    format: (v) => `${v} pts`,
+  },
+  {
+    key: 'SCORE_BUNKER_DESTROYED',
+    id: 'setting-score-bunker-destroyed',
+    format: (v) => `${v} pts`,
+  },
+  {
+    key: 'SCORE_CRUISER_DESTROYED',
+    id: 'setting-score-cruiser-destroyed',
+    format: (v) => `${v} pts`,
+  },
+  {
+    key: 'SCORE_SPAWNER_DESTROYED',
+    id: 'setting-score-spawner-destroyed',
+    format: (v) => `${v} pts`,
+  },
+  {
+    key: 'SCORE_CITY_SURVIVAL_PER_WAVE',
+    id: 'setting-score-city-survival-per-wave',
+    format: (v) => `${v} pts/city/wave`,
+  },
+  {
+    key: 'SCORE_WAVE_CLEAR_BASE',
+    id: 'setting-score-wave-clear-base',
+    format: (v) => `${v} pts/wave`,
+  },
+  {
+    key: 'SCORE_INK_EFFICIENCY',
+    id: 'setting-score-ink-efficiency',
+    format: (v) => `${v.toFixed(2)}/ink`,
+  },
+  {
+    key: 'SCORE_VICTORY_CITY_BONUS',
+    id: 'setting-score-victory-city-bonus',
+    format: (v) => `${v} pts/city`,
+  },
+  { key: 'SCORE_VICTORY_FLAT', id: 'setting-score-victory-flat', format: (v) => `${v} pts` },
+  {
+    key: 'SCORE_VICTORY_INK',
+    id: 'setting-score-victory-ink',
+    format: (v) => `${v.toFixed(2)}/ink`,
+  },
+  { key: 'SCORE_CITY_CELL_LOST', id: 'setting-score-city-cell-lost', format: (v) => `${v} pts` },
+  {
+    key: 'SCORE_FRIENDLY_FIRE_PENALTY',
+    id: 'setting-score-friendly-fire-penalty',
+    format: (v) => `${v} pts`,
+  },
+  { key: 'SCORE_BREACH_PENALTY', id: 'setting-score-breach-penalty', format: (v) => `${v} pts` },
+  { key: 'COMBO_WINDOW_MS', id: 'setting-combo-window-ms', format: (v) => `${v} ms` },
+  { key: 'COMBO_MAX_MULT', id: 'setting-combo-max-mult', format: (v) => `${v.toFixed(2)}x` },
+  { key: 'COMBO_INCREMENT', id: 'setting-combo-increment', format: (v) => `+${v.toFixed(2)}/kill` },
 ];
 
 // Boolean settings (checkboxes), e.g. enabled glider types.

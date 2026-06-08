@@ -26,6 +26,7 @@ import { initLevelCatalog } from './levelCatalog.js';
 import { countCells } from './sim/cellCounts.js';
 import { TimeControl } from './timeControl.js';
 import { AbilitiesMenu } from './abilitiesMenu.js';
+import { ScoreManager, SCORE_VALUES } from './scoring.js';
 import {
   registerServiceWorker,
   initInstallPrompt,
@@ -82,6 +83,7 @@ class Game {
     this.renderer = new Renderer(this.canvas, this.grid);
     this.renderer.setInput(this.input);
     this.hud = new HUD();
+    this.score = new ScoreManager(this.hud, this.renderer, this.grid);
     this.gameState = new GameState();
     this.settingsPanel = new SettingsPanel(this.settings, {
       onClose: () => {
@@ -506,6 +508,12 @@ class Game {
       addScore(n) {
         self.hud.addScore(n | 0);
       },
+      setComboMult(m) {
+        if (self.score) {
+          self.score.setGlobalMultiplier(m);
+          Logger.info(`Cheat: global score multiplier = ${m}.`);
+        }
+      },
       setSpeed(mult) {
         CONFIG.SPEED_MULTIPLIER = +mult;
         if (self.speedLabel) self.speedLabel.textContent = `${mult}x`;
@@ -867,11 +875,10 @@ class Game {
     // Wrap callbacks defensively: an error inside a sim hook must not
     // abort the simulation tick.
     this.simulation.onMissileDestroyed = () => {
-      try {
-        this.hud.addScore(10);
-      } catch (e) {
-        Logger.error('onMissileDestroyed handler failed.', e);
-      }
+      // Intentionally no score: missile cells die constantly as Life
+      // patterns evolve. Rewarding this would print giant numbers for
+      // ambient simulation noise, not player skill. Visual/audio
+      // feedback (if any) still fires from elsewhere.
     };
     // Target FX hooks: dramatic spawn + destruction effects.
     this.missiles.onTargetSpawn = (cx, cy) => {
@@ -898,9 +905,8 @@ class Game {
     };
     this.missiles.onTargetDestroyed = (cx, cy) => {
       try {
-        this.hud.addScore(500);
+        this.score.awardKill('TARGET DOWN', SCORE_VALUES.TARGET_DESTROYED, cx, cy);
         if (!this.renderer) return;
-        this.renderer.addBigFloater(cx, cy, 'TARGET DOWN! +500', '#ffff44', 1.8);
         this.renderer.addShockwave(cx, cy, {
           maxRadius: 60,
           color: '#ffff44',
@@ -958,6 +964,11 @@ class Game {
         if (!CONFIG.EVENT_CITY_HIT) return;
         if (attacker === 'defense') Sfx.friendlyFire();
         else Sfx.cityHit();
+        // Penalize the player for losing a city cell. Friendly fire
+        // (your own defenses killing a city) is punished harder.
+        const penalty =
+          attacker === 'defense' ? SCORE_VALUES.FRIENDLY_FIRE_PENALTY : SCORE_VALUES.CITY_CELL_LOST;
+        this.score.penalty(attacker === 'defense' ? 'FRIENDLY FIRE' : 'CITY HIT', penalty, x, y);
         if (!this.renderer) return;
         const isFriendly = attacker === 'defense';
         // Color-code: red/orange for enemy missile fire, sickly green/yellow
@@ -1018,7 +1029,6 @@ class Game {
       try {
         if (kind === 'ricochet') {
           Sfx.ricochet();
-          this.hud.addScore(50);
           if (this.renderer) {
             this.renderer.addFloater(x, y, 'RICOCHET!', CONFIG.COLORS.RICOCHET_TEXT);
             this.renderer.addParticleBurst(x, y, {
@@ -1038,7 +1048,6 @@ class Game {
           }
         } else {
           Sfx.returnFire();
-          this.hud.addScore(20);
           if (this.renderer) {
             this.renderer.addFloater(x, y, 'RETURN FIRE!', CONFIG.COLORS.RETURN_FIRE_TEXT);
             this.renderer.addParticleBurst(x, y, {
@@ -1051,6 +1060,10 @@ class Game {
             });
           }
         }
+        // Note: return-fire and ricochets are byproducts of Life
+        // evolution, not player decisions, so they no longer award
+        // score. The visual/audio feedback stays — it's the score
+        // inflation that was the problem.
       } catch (e) {
         Logger.error('onMissileReturn handler failed.', e);
       }
@@ -1120,8 +1133,8 @@ class Game {
           });
           this.renderer.addShake(3, 18);
         }
-        // Slight score penalty — they got past your defenses.
-        this.hud.addScore(-15);
+        // Real penalty: a missile slipped past your defenses.
+        this.score.penalty('BREACH', SCORE_VALUES.BREACH_PENALTY, x, y);
       } catch (e) {
         Logger.error('onBreach handler failed.', e);
       }
@@ -1164,16 +1177,22 @@ class Game {
     };
     this.missiles.onBaseDestroyed = (cx, cy, kind) => {
       try {
-        const scoreMap = {
-          fortress: 600,
-          bunker: 350,
-          cruiser_e: 450,
-          cruiser_w: 450,
+        const valueMap = {
+          fortress: SCORE_VALUES.FORTRESS_DESTROYED,
+          bunker: SCORE_VALUES.BUNKER_DESTROYED,
+          cruiser_e: SCORE_VALUES.CRUISER_DESTROYED,
+          cruiser_w: SCORE_VALUES.CRUISER_DESTROYED,
         };
-        const score = scoreMap[kind] || 400;
-        this.hud.addScore(score);
+        const labelMap = {
+          fortress: 'FORTRESS DOWN',
+          bunker: 'BUNKER DOWN',
+          cruiser_e: 'CRUISER DOWN',
+          cruiser_w: 'CRUISER DOWN',
+        };
+        const basePts = valueMap[kind] || SCORE_VALUES.BUNKER_DESTROYED;
+        const label = labelMap[kind] || 'BASE DOWN';
+        this.score.awardKill(label, basePts, cx, cy);
         if (!this.renderer) return;
-        this.renderer.addBigFloater(cx, cy, `BASE DOWN! +${score}`, '#ffff44', 1.8);
         this.renderer.addShockwave(cx, cy, {
           maxRadius: 70,
           color: '#ffff44',
@@ -2169,6 +2188,8 @@ class Game {
     this.defenses.maxInk = CONFIG.MAX_INK;
     this.defenses.reset();
     this.hud.reset();
+    this.score.resetCombo();
+    this.score.setGlobalMultiplier(1.0);
     // Clear grid.
     this.grid.cells.fill(0);
     this.grid.pending.fill(0);
@@ -2783,8 +2804,10 @@ class Game {
     this.hud.wave++;
     Logger.info(`Advancing to wave ${this.hud.wave}.`);
     Sfx.waveStart();
-    this.hud.addScore(this.cities.aliveCount() * 100);
-    this.hud.addScore((Math.floor(this.defenses.ink) * 0.5) | 0);
+    // Award wave-completion bonus for the wave we just finished.
+    // (this.hud.wave is now the upcoming wave; the cleared one is wave-1.)
+    const clearedWave = this.hud.wave - 1;
+    this.score.awardWaveClear(clearedWave, this.cities.aliveCount(), this.defenses.ink);
     this.defenses.refill(80);
     // Clear any friendly paint outside the drawable area before the next wave starts.
     this._clearFriendlyOutsideDrawZone();
@@ -2915,6 +2938,8 @@ class Game {
       if (this.freeplayAbilities && !(this.story && this.story.isActive())) {
         this.freeplayAbilities.update(safeDt);
       }
+      // Tick combo expiry.
+      if (this.score) this.score.update(safeDt);
 
       this.renderer.render(this.hud);
       // Successful frame: decay error count.
@@ -3132,8 +3157,7 @@ class Game {
     Logger.info('[Game] Custom level victory!');
     Sfx.waveStart();
     // Bonus score for surviving cities + remaining ink.
-    this.hud.addScore(this.cities.aliveCount() * 500);
-    this.hud.addScore((Math.floor(this.defenses.ink) * 1.0) | 0);
+    this.score.awardVictory(this.cities.aliveCount(), this.defenses.ink);
     releaseWakeLock();
     this.gameState.set(STATE.GAME_OVER);
     const levelName = this._activeCustomLevel.name || 'Custom Level';
