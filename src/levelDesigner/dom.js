@@ -125,11 +125,35 @@ export const LEVEL_DESIGNER_HTML = `
                 <span id="ld-brush-label">1</span>
               </div>
               <div class="ld-tool-group">
-                <label>Grid:</label>
-                <input id="ld-grid-w" type="number" min="60" max="400" step="10" value="120" title="Width" />
-                <span>×</span>
-                <input id="ld-grid-h" type="number" min="40" max="300" step="10" value="80" title="Height" />
-                <button id="ld-resize-btn" class="ld-btn">Resize</button>
+               <div class="ld-grid-size-wrap" style="position:relative;">
+                 <button id="ld-grid-size-btn" class="ld-btn" title="Change grid size">
+                   📐 <span id="ld-grid-size-label">120 × 80</span>
+                 </button>
+                 <div id="ld-grid-size-popover" class="ld-popover hidden">
+                   <div class="ld-popover-title">Grid Size</div>
+                   <div class="ld-popover-row">
+                     <label>Width:
+                       <input id="ld-grid-w" type="number" min="60" max="400" step="10" value="120" />
+                     </label>
+                     <label>Height:
+                       <input id="ld-grid-h" type="number" min="40" max="300" step="10" value="80" />
+                     </label>
+                   </div>
+                   <div class="ld-popover-title" style="margin-top:8px;">Presets</div>
+                   <div class="ld-popover-presets">
+                     <button class="ld-btn ld-grid-preset" data-w="80" data-h="60">Small (80×60)</button>
+                     <button class="ld-btn ld-grid-preset" data-w="120" data-h="80">Medium (120×80)</button>
+                     <button class="ld-btn ld-grid-preset" data-w="160" data-h="100">Large (160×100)</button>
+                     <button class="ld-btn ld-grid-preset" data-w="200" data-h="120">XL (200×120)</button>
+                     <button class="ld-btn ld-grid-preset" data-w="100" data-h="100">Square (100×100)</button>
+                     <button class="ld-btn ld-grid-preset" data-w="240" data-h="80">Wide (240×80)</button>
+                   </div>
+                   <div class="ld-popover-actions">
+                     <button id="ld-resize-btn" class="ld-btn ld-btn-primary">Apply</button>
+                     <button id="ld-grid-size-cancel" class="ld-btn">Cancel</button>
+                   </div>
+                 </div>
+               </div>
               </div>
               <div class="ld-tool-group">
                 <button id="ld-clear-btn" class="ld-btn ld-btn-danger">Clear All</button>
@@ -299,5 +323,67 @@ export function createDesignerOverlay() {
   overlay.innerHTML = LEVEL_DESIGNER_HTML;
   const container = document.getElementById('game-container') || document.body;
   container.appendChild(overlay);
+  _injectPopoverStyles();
   return overlay;
+}
+function _injectPopoverStyles() {
+  if (document.getElementById('ld-popover-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'ld-popover-styles';
+  style.textContent = `
+     .ld-popover {
+       position: absolute;
+       top: calc(100% + 4px);
+       left: 0;
+       z-index: 100;
+       background: #1a1a2e;
+       border: 1px solid #4040a0;
+       border-radius: 6px;
+       padding: 10px;
+       min-width: 240px;
+       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+     }
+     .ld-popover.hidden { display: none; }
+     .ld-popover-title {
+       font-size: 11px;
+       font-weight: bold;
+       color: #a0a0c0;
+       text-transform: uppercase;
+       letter-spacing: 0.5px;
+       margin-bottom: 6px;
+     }
+     .ld-popover-row {
+       display: flex;
+       gap: 8px;
+     }
+     .ld-popover-row label {
+       display: flex;
+       flex-direction: column;
+       font-size: 11px;
+       color: #c0c0e0;
+       flex: 1;
+     }
+     .ld-popover-row input {
+       margin-top: 2px;
+       width: 100%;
+       box-sizing: border-box;
+     }
+     .ld-popover-presets {
+       display: grid;
+       grid-template-columns: 1fr 1fr;
+       gap: 4px;
+     }
+     .ld-popover-presets .ld-btn {
+       font-size: 11px;
+       padding: 4px 6px;
+       text-align: left;
+     }
+     .ld-popover-actions {
+       margin-top: 10px;
+       display: flex;
+       gap: 6px;
+       justify-content: flex-end;
+     }
+   `;
+  document.head.appendChild(style);
 }

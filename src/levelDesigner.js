@@ -232,6 +232,18 @@ export class LevelDesigner {
         ov.querySelector('#ld-paint-target-group').style.display = usesPaintTarget
           ? 'flex'
           : 'none';
+        // Brush size is only meaningful for freehand (defense) and line tools.
+        const usesBrush = this.mode === DESIGNER_MODE.DEFENSE || this.mode === DESIGNER_MODE.LINE;
+        const brushInputEl = ov.querySelector('#ld-brush-size');
+        const brushGroup =
+          (brushInputEl &&
+            (brushInputEl.closest('.ld-control-group') ||
+              brushInputEl.closest('.ld-tool-group') ||
+              brushInputEl.parentElement)) ||
+          null;
+        if (brushGroup) {
+          brushGroup.style.display = usesBrush ? 'flex' : 'none';
+        }
         this._lineStart = null;
         this._linePreview = null;
         this._fillStart = null;
@@ -310,6 +322,53 @@ export class LevelDesigner {
       brushLabel.textContent = String(this.brushSize);
     });
     // Grid resize.
+    const gridSizeBtn = ov.querySelector('#ld-grid-size-btn');
+    const gridSizePopover = ov.querySelector('#ld-grid-size-popover');
+    const gridSizeCancel = ov.querySelector('#ld-grid-size-cancel');
+    const gridSizeLabel = ov.querySelector('#ld-grid-size-label');
+    const gridWInput = ov.querySelector('#ld-grid-w');
+    const gridHInput = ov.querySelector('#ld-grid-h');
+    const updateGridSizeLabel = () => {
+      if (gridSizeLabel) gridSizeLabel.textContent = `${this.gridWidth} × ${this.gridHeight}`;
+    };
+    updateGridSizeLabel();
+    const closePopover = () => {
+      if (gridSizePopover) gridSizePopover.classList.add('hidden');
+    };
+    const openPopover = () => {
+      if (!gridSizePopover) return;
+      if (gridWInput) gridWInput.value = this.gridWidth;
+      if (gridHInput) gridHInput.value = this.gridHeight;
+      gridSizePopover.classList.remove('hidden');
+    };
+    if (gridSizeBtn) {
+      gridSizeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (gridSizePopover.classList.contains('hidden')) openPopover();
+        else closePopover();
+      });
+    }
+    if (gridSizeCancel) {
+      gridSizeCancel.addEventListener('click', () => closePopover());
+    }
+    if (gridSizePopover) {
+      gridSizePopover.addEventListener('click', (e) => e.stopPropagation());
+      ov.querySelectorAll('.ld-grid-preset').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const w = parseInt(btn.dataset.w, 10);
+          const h = parseInt(btn.dataset.h, 10);
+          if (gridWInput) gridWInput.value = w;
+          if (gridHInput) gridHInput.value = h;
+        });
+      });
+    }
+    // Click outside to close popover.
+    document.addEventListener('click', (e) => {
+      if (!gridSizePopover || gridSizePopover.classList.contains('hidden')) return;
+      if (!this.visible) return;
+      const wrap = gridSizePopover.closest('.ld-grid-size-wrap');
+      if (wrap && !wrap.contains(e.target)) closePopover();
+    });
     ov.querySelector('#ld-resize-btn').addEventListener('click', () => {
       const w = parseInt(ov.querySelector('#ld-grid-w').value, 10) || 120;
       const h = parseInt(ov.querySelector('#ld-grid-h').value, 10) || 80;
@@ -318,12 +377,15 @@ export class LevelDesigner {
       this.gridHeight = Math.max(40, Math.min(300, h));
       this._clipContent();
       this._resizeCanvas();
+      updateGridSizeLabel();
+      closePopover();
       const bzInput = ov.querySelector('#ld-set-BASE_ZONE_HEIGHT');
       if (bzInput) {
         const newMax = Math.max(20, Math.floor(this.gridHeight * 0.6));
         bzInput.max = String(newMax);
       }
     });
+    this._updateGridSizeLabel = updateGridSizeLabel;
     // Wrap shift.
     const wrapShiftInput = ov.querySelector('#ld-wrap-shift');
     if (wrapShiftInput) {
@@ -1064,11 +1126,27 @@ export class LevelDesigner {
     if (enemySel) enemySel.value = this.enemyRuleset || '';
     ov.querySelector('#ld-grid-w').value = this.gridWidth;
     ov.querySelector('#ld-grid-h').value = this.gridHeight;
+    if (this._updateGridSizeLabel) this._updateGridSizeLabel();
     const wrapInp = ov.querySelector('#ld-wrap-shift');
     if (wrapInp) wrapInp.value = this.wrapVerticalShift;
     if (this._settingsController) this._settingsController.syncFromState();
     if (this._toolsController) this._toolsController.syncFromState();
     if (this._themeController) this._themeController.syncFromState();
+    // Refresh brush visibility based on current mode.
+    const activeModeBtn = ov.querySelector('.ld-mode-btn.active');
+    if (activeModeBtn) {
+      const usesBrush = this.mode === DESIGNER_MODE.DEFENSE || this.mode === DESIGNER_MODE.LINE;
+      const brushInputEl = ov.querySelector('#ld-brush-size');
+      const brushGroup =
+        (brushInputEl &&
+          (brushInputEl.closest('.ld-control-group') ||
+            brushInputEl.closest('.ld-tool-group') ||
+            brushInputEl.parentElement)) ||
+        null;
+      if (brushGroup) {
+        brushGroup.style.display = usesBrush ? 'flex' : 'none';
+      }
+    }
   }
 
   _save() {
