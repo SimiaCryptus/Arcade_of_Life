@@ -65,6 +65,10 @@ export class InputManager {
     this.patternRotation = 0; // 0..3, multiples of 90 degrees CW
     this.patternFlipH = false; // horizontal flip
     this.patternFlipV = false; // vertical flip
+    // Touch pattern placement state: when true, pattern is shown as
+    // preview during touch-drag and stamped on touch end (better UX
+    // for touch than instant stamping on tap-start).
+    this._touchPatternPending = false;
     // Stroke history for undo. Each entry is an array of {x, y} cells
     // that were placed as pending during a single stroke.
     this.strokeHistory = [];
@@ -201,7 +205,30 @@ export class InputManager {
     add(
       this.canvas,
       'mousedown',
-      safe((e) => this._onStart(this._getPos(e)), 'mousedown')
+      safe((e) => {
+        // Right-click (button 2) in pattern mode rotates the pattern.
+        // Also support middle-click as an alternate rotate trigger.
+        if (this.mode === DRAW_MODE.PATTERN && (e.button === 2 || e.button === 1)) {
+          e.preventDefault();
+          this.cyclePatternRotation(e.shiftKey);
+          // Update hover so the preview reflects the new rotation immediately.
+          this.hoverCell = this._getPos(e);
+          return;
+        }
+        // Only left-click (button 0) triggers normal start.
+        if (e.button !== 0) return;
+        this._onStart(this._getPos(e));
+      }, 'mousedown')
+    );
+    // Suppress the browser context menu on the canvas so right-click
+    // rotation works cleanly in pattern mode (and doesn't pop a menu
+    // elsewhere either — the canvas has no useful context menu).
+    add(
+      this.canvas,
+      'contextmenu',
+      safe((e) => {
+        e.preventDefault();
+      }, 'contextmenu')
     );
     add(
       this.canvas,
@@ -231,8 +258,23 @@ export class InputManager {
       safe((e) => {
         e.preventDefault();
         if (!e.touches || e.touches.length === 0) return;
+        // Two-finger tap in pattern mode rotates the pattern.
+        if (this.mode === DRAW_MODE.PATTERN && e.touches.length === 2) {
+          this.cyclePatternRotation(false);
+          // Refresh hover from first touch so preview updates.
+          const pos = this._getPos(e.touches[0]);
+          this.hoverCell = pos;
+          this._touchPatternPending = true;
+          return;
+        }
         const pos = this._getPos(e.touches[0]);
         this.hoverCell = pos;
+        // Mark touch-pattern as pending so _onStart shows preview
+        // instead of stamping immediately. The stamp will fire on
+        // touchend at the final position.
+        if (this.mode === DRAW_MODE.PATTERN) {
+          this._touchPatternPending = true;
+        }
         this._onStart(pos);
       }, 'touchstart'),
       { passive: false }
@@ -256,12 +298,29 @@ export class InputManager {
     add(
       window,
       'touchend',
-      safe(() => this._onEnd(), 'touchend')
+      safe((e) => {
+        // In pattern mode, if this was a touch-driven preview (deferred
+        // stamp), commit the pattern at the final hover position now.
+        if (this.mode === DRAW_MODE.PATTERN && this._touchPatternPending && this.hoverCell) {
+          this._touchPatternPending = false;
+          // Re-issue start at the final position to stamp + record.
+          this._onStart(this.hoverCell);
+          this._onEnd();
+        } else {
+          this._onEnd();
+        }
+        // Clear hover so the preview doesn't linger after touch ends.
+        this.hoverCell = null;
+      }, 'touchend')
     );
     add(
       window,
       'touchcancel',
-      safe(() => this.cancelDrawing(), 'touchcancel')
+      safe(() => {
+        this._touchPatternPending = false;
+        this.hoverCell = null;
+        this.cancelDrawing();
+      }, 'touchcancel')
     );
     add(
       window,
@@ -309,6 +368,17 @@ export class InputManager {
 
   _onStart(pos) {
     if (this.mode === DRAW_MODE.PATTERN) {
+      // For touch input in pattern mode, defer stamping until touch end
+      // and show a live preview during the drag. Detected indirectly:
+      // if _touchPatternPending was set true by touchstart, skip stamping
+      // here and just record the hover position.
+      if (this._touchPatternPending) {
+        this.startCell = pos;
+        this.currentCell = pos;
+        this.hoverCell = pos;
+        return;
+      }
+      // Mouse / non-touch: stamp immediately on click.
       // Click = stamp pattern at cursor. No drag tracking needed.
       this.startCell = pos;
       this.currentCell = pos;
