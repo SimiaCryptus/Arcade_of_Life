@@ -1,5 +1,7 @@
 {
   "type": "module",
+  "name": "arcade-of-life",
+  "version": "0.1.0",
   "scripts": {
     "test": "node test/run-all.js",
     "test:patterns": "node test/patterns/library.test.js",

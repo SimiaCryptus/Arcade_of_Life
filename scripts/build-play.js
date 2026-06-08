@@ -95,7 +95,12 @@
 
     function run(cmd, opts = {}) {
       log(`$ ${cmd}`);
-      execSync(cmd, { stdio: 'inherit', cwd: projectRoot, ...opts });
+     execSync(cmd, {
+       stdio: 'inherit',
+       cwd: projectRoot,
+       ...opts,
+       env: { ...process.env, ...(opts.env || {}) },
+     });
     }
 
     function getVersion() {
@@ -124,6 +129,24 @@
 
     function preflight() {
       log('Running preflight checks...');
+     // Reconcile Android SDK env vars. Gradle/AGP fail hard if ANDROID_HOME and
+     // ANDROID_SDK_ROOT point to different directories. Prefer ANDROID_HOME
+     // (ANDROID_SDK_ROOT is deprecated) and force them to match for child
+     // processes (gradle, bubblewrap) that we spawn.
+     const home = process.env.ANDROID_HOME;
+     const root = process.env.ANDROID_SDK_ROOT;
+     if (home && root && home !== root) {
+       warn(
+         `ANDROID_HOME (${home}) and ANDROID_SDK_ROOT (${root}) disagree.\n` +
+           `  Forcing both to ANDROID_HOME for this build.`,
+       );
+       process.env.ANDROID_SDK_ROOT = home;
+     } else if (home && !root) {
+       process.env.ANDROID_SDK_ROOT = home;
+     } else if (!home && root) {
+       process.env.ANDROID_HOME = root;
+     }
+
 
       // Verify manifest exists and has required fields for TWA.
       const manifestPath = join(projectRoot, 'manifest.json');
