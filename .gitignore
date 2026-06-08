@@ -42,5 +42,5 @@ terraform.tfstate
 
 demo/
 android-twa/
-
+src/version.js
 
