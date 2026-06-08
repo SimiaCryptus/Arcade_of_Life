@@ -73,6 +73,30 @@
           "sizes": "96x96"
         }
       ]
+     },
+     {
+       "name": "Pattern Zoo",
+       "short_name": "Zoo",
+       "description": "Browse the Game of Life pattern zoo",
+       "url": "./?mode=zoo",
+       "icons": [
+         {
+           "src": "icons/icon-96.png",
+           "sizes": "96x96"
+         }
+       ]
+     },
+     {
+       "name": "Level Designer",
+       "short_name": "Designer",
+       "description": "Create and edit custom levels",
+       "url": "./?mode=designer",
+       "icons": [
+         {
+           "src": "icons/icon-96.png",
+           "sizes": "96x96"
+         }
+       ]
     }
   ]
 }

@@ -48,6 +48,7 @@ import {
 } from './gameMenu.js';
 import { wireMenuTabs, activateMenuTab, relocateLevelCatalog } from './menuOverlay.js';
 import { wireSimCallbacks } from './simCallbacks.js';
+import { processUrlParams } from './urlParams.js';
 
 class Game {
   constructor() {
@@ -302,6 +303,16 @@ class Game {
     );
     this._exposeGlobals();
     this._printHackBanner();
+    // Process URL parameters once everything is wired up. This may
+    // open panels, switch modes, or start levels based on the query
+    // string. Deferred slightly so DOM is fully ready.
+    setTimeout(() => {
+      try {
+        processUrlParams(this);
+      } catch (e) {
+        Logger.warn('[Game] processUrlParams failed', e);
+      }
+    }, 50);
 
     requestAnimationFrame(this._loop.bind(this));
   }

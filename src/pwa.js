@@ -217,11 +217,10 @@ export function initNetworkIndicator() {
 
 // ── Auto-start via URL param (?autostart=1) ────────────────────────────────
 export function checkAutoStart(startGameFn) {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('autostart') === '1') {
-    // Wait one tick so the game is fully initialised.
-    setTimeout(startGameFn, 100);
-  }
+  // Deprecated: URL parameter handling is now centralised in
+  // src/urlParams.js (processUrlParams). Kept as a no-op for
+  // backwards compatibility with any external callers.
+  Logger.info('[PWA] checkAutoStart() is deprecated; use processUrlParams().');
 }
 // ── Load level from URL param (?level=<encoded-url>) ────────────────────────
 /**
@@ -240,47 +239,10 @@ export function checkAutoStart(startGameFn) {
  *                                 level's name on success.
  */
 export function checkLevelUrlParam(startLevelFn) {
-  const params = new URLSearchParams(window.location.search);
-  const levelUrl = params.get('level');
-  if (!levelUrl) return;
-  // Decode (URLSearchParams already decodes once, but be defensive
-  // against double-encoding).
-  let url = levelUrl;
-  try {
-    // If the value still looks encoded, decode it.
-    if (url.startsWith('https%3A') || url.includes('%2F')) {
-      url = decodeURIComponent(url);
-    }
-  } catch (e) {
-    Logger.warn('[PWA] Failed to decode level URL param:', e);
-    showLevelLoadError('Invalid level URL encoding.');
-    return;
-  }
-  // If the URL is relative (no scheme), resolve it against the current
-  // document location so users can write ?level=levels/invaders.json.
-  try {
-    const resolved = new URL(url, window.location.href);
-    url = resolved.href;
-  } catch (e) {
-    Logger.warn('[PWA] Failed to resolve level URL:', e);
-    showLevelLoadError('Invalid level URL.');
-    return;
-  }
-  Logger.info(`[PWA] Loading level from URL: ${url}`);
-  showLevelLoadingBanner(url);
-  // Fetch + import.
-  loadLevelFromUrl(url)
-    .then((levelName) => {
-      hideLevelLoadingBanner();
-      Logger.info(`[PWA] Level "${levelName}" loaded from URL; auto-starting.`);
-      // Wait one tick so the game is fully initialised.
-      setTimeout(() => startLevelFn(levelName), 200);
-    })
-    .catch((err) => {
-      hideLevelLoadingBanner();
-      Logger.error('[PWA] Failed to load level from URL:', err);
-      showLevelLoadError(err.message || 'Unknown error loading level.');
-    });
+  // Deprecated: URL parameter handling is now centralised in
+  // src/urlParams.js (processUrlParams). Kept as a no-op for
+  // backwards compatibility.
+  Logger.info('[PWA] checkLevelUrlParam() is deprecated; use processUrlParams().');
 }
 /**
  * Fetch and import a level JSON from a URL.
