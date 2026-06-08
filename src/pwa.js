@@ -66,6 +66,9 @@ export function registerServiceWorker() {
   });
 }
 
+// Key for permanent dismissal of the install banner.
+const INSTALL_DISMISS_KEY = 'arcadeOfLifeInstallDismissed';
+
 // ── Install prompt (A2HS) ──────────────────────────────────────────────────
 let _deferredInstallPrompt = null;
 
@@ -74,6 +77,21 @@ export function initInstallPrompt() {
     e.preventDefault();
     _deferredInstallPrompt = e;
     Logger.info('[PWA] Install prompt deferred.');
+    // Respect prior "don't show again" preference.
+    try {
+      if (localStorage.getItem(INSTALL_DISMISS_KEY) === 'true') {
+        Logger.info('[PWA] Install banner suppressed by user preference.');
+        return;
+      }
+    } catch (_e) {
+      /* private mode — fall through and show banner */
+    }
+    // Respect per-session dismissal.
+    try {
+      if (sessionStorage.getItem('pwa-install-dismissed') === '1') return;
+    } catch (_e) {
+      /* ignore */
+    }
     showInstallBanner();
   });
 
@@ -103,6 +121,10 @@ function showInstallBanner() {
     <span class="pwa-banner-icon">🕹️</span>
     <span class="pwa-banner-text">Install <strong>Arcade of Life</strong> for offline play!</span>
     <button id="pwa-install-btn">Install</button>
+     <label class="pwa-banner-dont-show" title="Don't show this banner again">
+       <input type="checkbox" id="pwa-install-dont-show" />
+       <span>Don't show again</span>
+     </label>
     <button id="pwa-install-dismiss" title="Dismiss">✕</button>
   `;
   document.body.appendChild(banner);
@@ -112,6 +134,15 @@ function showInstallBanner() {
     if (accepted) hideInstallBanner();
   });
   document.getElementById('pwa-install-dismiss').addEventListener('click', () => {
+    const dontShow = document.getElementById('pwa-install-dont-show');
+    if (dontShow && dontShow.checked) {
+      try {
+        localStorage.setItem(INSTALL_DISMISS_KEY, 'true');
+        Logger.info('[PWA] Install banner permanently dismissed.');
+      } catch (_e) {
+        /* private mode — fall back to session-only */
+      }
+    }
     hideInstallBanner();
     // Don't show again this session.
     sessionStorage.setItem('pwa-install-dismissed', '1');

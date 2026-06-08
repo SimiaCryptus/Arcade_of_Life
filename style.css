@@ -281,6 +281,188 @@ body {
   background: #2a2a5a;
   margin: 4px 0;
 }
+/* ── Game-menu audio section ─────────────────────────────────────────── */
+#gm-audio-section {
+   display: flex;
+   flex-direction: column;
+   gap: 1px;
+}
+.gm-audio-header {
+   font-size: 9px;
+   font-weight: bold;
+   color: #ffcc44;
+   letter-spacing: 2px;
+   text-transform: uppercase;
+   padding: 6px 12px 4px;
+   opacity: 0.85;
+}
+.gm-mute-item {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   width: 100%;
+   background: transparent;
+   color: #c0c0e0;
+   border: none;
+   padding: 7px 12px;
+   font-family: inherit;
+   font-size: 12px;
+   cursor: pointer;
+   border-radius: 3px;
+   text-align: left;
+   transition: all 0.12s;
+   letter-spacing: 0.3px;
+}
+.gm-mute-item:hover {
+   background: rgba(0, 255, 255, 0.15);
+   color: #00ffff;
+   padding-left: 16px;
+}
+.gm-mute-icon {
+   font-size: 15px;
+   line-height: 1;
+   width: 20px;
+   text-align: center;
+   flex-shrink: 0;
+   transition: transform 0.15s;
+}
+.gm-mute-item:hover .gm-mute-icon {
+   transform: scale(1.15);
+}
+.gm-mute-label {
+   flex: 1;
+}
+.gm-mute-hint {
+   display: inline-block;
+   background: #1a1a3a;
+   color: #00ffff;
+   border: 1px solid #4040a0;
+   border-radius: 3px;
+   padding: 1px 6px;
+   font-size: 10px;
+   font-weight: bold;
+   min-width: 16px;
+   text-align: center;
+   font-family: inherit;
+   opacity: 0.75;
+}
+.gm-mute-item.gm-muted {
+   color: #ff8888;
+}
+.gm-mute-item.gm-muted .gm-mute-hint {
+   color: #ff8888;
+   border-color: #ff8888;
+}
+.gm-mute-item.gm-muted:hover {
+   background: rgba(255, 136, 136, 0.15);
+   color: #ffaaaa;
+}
+/* Volume slider row */
+.gm-volume-item {
+   padding: 6px 12px 10px;
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+   cursor: default;
+   transition: opacity 0.15s;
+}
+.gm-volume-item.gm-volume-dim {
+   opacity: 0.45;
+}
+.gm-volume-row {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   font-size: 12px;
+   color: #c0c0e0;
+   letter-spacing: 0.3px;
+}
+.gm-volume-icon {
+   font-size: 14px;
+   line-height: 1;
+   width: 20px;
+   text-align: center;
+   flex-shrink: 0;
+}
+.gm-volume-text {
+   flex: 1;
+}
+.gm-volume-value {
+   color: #00ffff;
+   font-weight: bold;
+   min-width: 38px;
+   text-align: right;
+   font-variant-numeric: tabular-nums;
+   font-size: 11px;
+   background: rgba(0, 0, 16, 0.5);
+   border: 1px solid #2a2a5a;
+   border-radius: 3px;
+   padding: 1px 6px;
+}
+/* Custom-styled slider with gradient fill */
+.gm-volume-slider {
+   --gm-vol-pct: 35%;
+   -webkit-appearance: none;
+   appearance: none;
+   width: 100%;
+   height: 6px;
+   background: linear-gradient(
+     to right,
+     #00ffff 0%,
+     #00ffff var(--gm-vol-pct),
+     #1a1a3a var(--gm-vol-pct),
+     #1a1a3a 100%
+   );
+   border: 1px solid #2a2a5a;
+   border-radius: 4px;
+   outline: none;
+   cursor: pointer;
+   transition: box-shadow 0.15s;
+}
+.gm-volume-slider:hover {
+   box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+}
+.gm-volume-slider::-webkit-slider-thumb {
+   -webkit-appearance: none;
+   appearance: none;
+   width: 14px;
+   height: 14px;
+   border-radius: 50%;
+   background: #00ffff;
+   border: 2px solid #050514;
+   cursor: pointer;
+   box-shadow: 0 0 6px rgba(0, 255, 255, 0.6);
+   transition:
+     transform 0.12s,
+     box-shadow 0.12s;
+}
+.gm-volume-slider::-webkit-slider-thumb:hover {
+   transform: scale(1.2);
+   box-shadow: 0 0 10px rgba(0, 255, 255, 0.9);
+}
+.gm-volume-slider::-webkit-slider-thumb:active {
+   transform: scale(1.1);
+   background: #ffffff;
+}
+.gm-volume-slider::-moz-range-thumb {
+   width: 14px;
+   height: 14px;
+   border-radius: 50%;
+   background: #00ffff;
+   border: 2px solid #050514;
+   cursor: pointer;
+   box-shadow: 0 0 6px rgba(0, 255, 255, 0.6);
+   transition:
+     transform 0.12s,
+     box-shadow 0.12s;
+}
+.gm-volume-slider::-moz-range-thumb:hover {
+   transform: scale(1.2);
+   box-shadow: 0 0 10px rgba(0, 255, 255, 0.9);
+}
+.gm-volume-slider:focus-visible {
+   box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.4);
+}
 
 /* Hide the legacy hint label since the new widget is more compact. */
 #speed-hint {
@@ -5302,4 +5484,14 @@ body {
   font-weight: bold;
   min-width: 14px;
   text-align: center;
+}
+
+.pwa-banner-dont-show {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #aaa;
+  cursor: pointer;
+  user-select: none;
 }
