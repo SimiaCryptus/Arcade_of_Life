@@ -443,13 +443,21 @@ export class Simulation {
         if (t !== CELL_TYPE.MISSILE && t !== CELL_TYPE.DEFENSE) continue;
         const y = (i / w) | 0;
         const x = i - y * w;
+        const shiftC = g.wrapVerticalShift | 0;
         for (let dy = -1; dy <= 1; dy++) {
           const ny = y + dy;
           if (ny < 0 || ny >= h) continue;
           for (let dx = -1; dx <= 1; dx++) {
             if (dx === 0 && dy === 0) continue;
-            const nx = (((x + dx) % w) + w) % w;
-            const ni = ny * w + nx;
+            let nx = x + dx;
+            let nyAdj = ny;
+            if (shiftC !== 0) {
+              if (nx < 0) nyAdj += shiftC;
+              else if (nx >= w) nyAdj -= shiftC;
+            }
+            nx = ((nx % w) + w) % w;
+            if (nyAdj < 0 || nyAdj >= h) continue;
+            const ni = nyAdj * w + nx;
             const nt = cells[ni];
             if (nt !== CELL_TYPE.MISSILE && nt !== CELL_TYPE.DEFENSE) continue;
             if (annihilated[ni] || ageDespawn[ni]) continue;
@@ -1212,6 +1220,7 @@ export class Simulation {
     const h = g.height;
     const cells = g.cells;
     const fired = this.returnFireFired;
+    const shift = g.wrapVerticalShift | 0;
     // Bounds sanity check.
     if (minY < 0) minY = 0;
     if (maxY >= h) maxY = h - 1;
@@ -1231,9 +1240,17 @@ export class Simulation {
         for (let dy = -2; dy <= 2; dy++) {
           for (let dx = -2; dx <= 2; dx++) {
             if (dx === 0 && dy === 0) continue;
-            const ny = y + dy;
+            let nx = x + dx;
+            let ny = y + dy;
+            if (shift !== 0) {
+              if (nx < 0) ny += shift;
+              else if (nx >= w) ny -= shift;
+              // Handle dx = -2 / +2 double-wrap edge cases.
+              if (nx < 0) ny += shift;
+              else if (nx >= w) ny -= shift;
+            }
             if (ny < 0 || ny >= h) continue;
-            const nx = (((x + dx) % w) + w) % w;
+            nx = ((nx % w) + w) % w;
             const nt = cells[ny * w + nx];
             if (nt === cellType) neighbors++;
           }
@@ -1252,9 +1269,14 @@ export class Simulation {
         if (kind === 'ricochet') {
           for (let dy = -1; dy <= 1; dy++) {
             for (let dx = -1; dx <= 1; dx++) {
-              const ny = y + dy;
+              let nx = x + dx;
+              let ny = y + dy;
+              if (shift !== 0) {
+                if (nx < 0) ny += shift;
+                else if (nx >= w) ny -= shift;
+              }
               if (ny < 0 || ny >= h) continue;
-              const nx = (((x + dx) % w) + w) % w;
+              nx = ((nx % w) + w) % w;
               const ni = ny * w + nx;
               if (cells[ni] === CELL_TYPE.MISSILE || cells[ni] === CELL_TYPE.DEFENSE) {
                 cells[ni] = CELL_TYPE.EXPLOSION;
