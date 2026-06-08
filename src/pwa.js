@@ -135,8 +135,9 @@ function showUpdateBanner(reg) {
   const banner = document.createElement('div');
   banner.id = 'pwa-update-banner';
   banner.innerHTML = `
-    <span class="pwa-banner-text">🆕 A new version is available!</span>
-    <button id="pwa-update-btn">Reload</button>
+     <span class="pwa-banner-icon">✨</span>
+     <span class="pwa-banner-text">A new version is available — <strong>reload to upgrade</strong></span>
+     <button id="pwa-update-btn">↻ Reload</button>
     <button id="pwa-update-dismiss" title="Dismiss">✕</button>
   `;
   document.body.appendChild(banner);
@@ -161,8 +162,9 @@ function showVersionUpdateBanner(reg, deployed) {
   banner.id = 'pwa-version-banner';
   const short = (deployed && deployed.gitShortHash) || 'new build';
   banner.innerHTML = `
-     <span class="pwa-banner-text">🆕 New version available (${short})</span>
-     <button id="pwa-version-btn">Reload</button>
+      <span class="pwa-banner-icon">✨</span>
+      <span class="pwa-banner-text">New version available — <strong>${short}</strong></span>
+      <button id="pwa-version-btn">↻ Reload</button>
      <button id="pwa-version-dismiss" title="Dismiss">✕</button>
    `;
   document.body.appendChild(banner);

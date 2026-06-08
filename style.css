@@ -449,7 +449,8 @@ body {
 
 /* ── PWA install / update banners ──────────────────────────────────────── */
 #pwa-install-banner,
-#pwa-update-banner {
+#pwa-update-banner,
+#pwa-version-banner {
   position: fixed;
   bottom: -80px;
   left: 50%;
@@ -471,8 +472,82 @@ body {
 }
 
 #pwa-install-banner.pwa-banner-visible,
-#pwa-update-banner.pwa-banner-visible {
+#pwa-update-banner.pwa-banner-visible,
+#pwa-version-banner.pwa-banner-visible {
   bottom: 16px;
+}
+/* ── Update / version banners: extra flair ─────────────────────────── */
+#pwa-update-banner,
+#pwa-version-banner {
+  background:
+    linear-gradient(135deg, rgba(255, 204, 68, 0.12), rgba(255, 128, 255, 0.1)),
+    rgba(5, 5, 20, 0.97);
+  border: 1px solid #ffcc44;
+  border-radius: 10px;
+  padding: 12px 20px;
+  gap: 14px;
+  color: #ffe9a8;
+  box-shadow:
+    0 0 24px rgba(255, 204, 68, 0.45),
+    0 0 48px rgba(255, 128, 255, 0.18),
+    inset 0 0 0 1px rgba(255, 204, 68, 0.25);
+  animation: pwaUpdateGlow 2.4s ease-in-out infinite;
+  overflow: hidden;
+  position: fixed;
+}
+/* Animated shimmer sweep across the update banners */
+#pwa-update-banner::before,
+#pwa-version-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  animation: pwaUpdateShimmer 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+#pwa-update-banner .pwa-banner-text,
+#pwa-version-banner .pwa-banner-text {
+  color: #ffe9a8;
+  font-weight: bold;
+  letter-spacing: 0.6px;
+  text-shadow: 0 0 6px rgba(255, 204, 68, 0.5);
+  position: relative;
+  z-index: 1;
+}
+@keyframes pwaUpdateGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 24px rgba(255, 204, 68, 0.45),
+      0 0 48px rgba(255, 128, 255, 0.18),
+      inset 0 0 0 1px rgba(255, 204, 68, 0.25);
+    border-color: #ffcc44;
+  }
+  50% {
+    box-shadow:
+      0 0 32px rgba(255, 204, 68, 0.65),
+      0 0 64px rgba(255, 128, 255, 0.32),
+      inset 0 0 0 1px rgba(255, 204, 68, 0.45);
+    border-color: #ffe080;
+  }
+}
+@keyframes pwaUpdateShimmer {
+  0% {
+    left: -60%;
+  }
+  60%,
+  100% {
+    left: 130%;
+  }
 }
 
 .pwa-banner-icon {
@@ -484,7 +559,8 @@ body {
 }
 
 #pwa-install-btn,
-#pwa-update-btn {
+#pwa-update-btn,
+#pwa-version-btn {
   background: #00ffff;
   color: #000010;
   border: none;
@@ -498,13 +574,51 @@ body {
 }
 
 #pwa-install-btn:hover,
-#pwa-update-btn:hover {
+#pwa-update-btn:hover,
+#pwa-version-btn:hover {
   background: #ffffff;
   box-shadow: 0 0 10px #00ffff;
 }
+/* Reload buttons get the gold/magenta treatment */
+#pwa-update-btn,
+#pwa-version-btn {
+  background: linear-gradient(135deg, #ffcc44, #ff80ff);
+  color: #1a0a20;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 11px;
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    0 0 8px rgba(255, 204, 68, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease;
+}
+#pwa-update-btn:hover,
+#pwa-version-btn:hover {
+  background: linear-gradient(135deg, #ffe080, #ffa0ff);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 16px rgba(255, 204, 68, 0.8),
+    0 0 28px rgba(255, 128, 255, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  filter: brightness(1.08);
+}
+#pwa-update-btn:active,
+#pwa-version-btn:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
 
 #pwa-install-dismiss,
-#pwa-update-dismiss {
+#pwa-update-dismiss,
+#pwa-version-dismiss {
   background: transparent;
   color: #8080a0;
   border: none;
@@ -513,10 +627,13 @@ body {
   padding: 0 4px;
   line-height: 1;
   transition: color 0.15s;
+  position: relative;
+  z-index: 1;
 }
 
 #pwa-install-dismiss:hover,
-#pwa-update-dismiss:hover {
+#pwa-update-dismiss:hover,
+#pwa-version-dismiss:hover {
   color: #e0e0ff;
 }
 
