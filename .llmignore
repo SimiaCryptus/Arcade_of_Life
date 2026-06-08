@@ -2,8 +2,8 @@
 *.log
 *.png
 *.generated.json
-src/story.js
 src/marked.min.js
 *.md
+#src/story.js
 #test/
-levels/
+#levels/

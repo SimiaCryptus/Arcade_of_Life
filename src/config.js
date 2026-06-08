@@ -15,9 +15,14 @@ export const CONFIG = {
   ATTACKER_TICKS: 1,
 
   // Ink
-  INITIAL_INK: 200,
-  MAX_INK: 300,
-  INK_REGEN_RATE: 0.5, // per simulation tick
+  // Tuned so ink is a visible resource from wave 1 (players will see the
+  // bar deplete on their first defensive paint) and becomes a real
+  // constraint by wave 3, when missile spawn intervals tighten and
+  // wave size grows. Starting ink covers ~one solid defensive line
+  // across the play field; max cap prevents hoarding between waves.
+  INITIAL_INK: 120,
+  MAX_INK: 180,
+  INK_REGEN_RATE: 0.3, // per simulation tick (~3 ink/sec at 10 ticks/sec)
 
   // Missiles
   MISSILE_SPAWN_INTERVAL: 800, // ms between spawns at start
@@ -332,9 +337,9 @@ export const GAME_MODE_PRESETS = [
     desc: 'Balanced default experience. Conway rules, SE + SW gliders, moderate pace.',
     patch: {
       ACTIVE_RULESET: 'conway',
-      INITIAL_INK: 200,
-      MAX_INK: 300,
-      INK_REGEN_RATE: 0.5,
+      INITIAL_INK: 120,
+      MAX_INK: 180,
+      INK_REGEN_RATE: 0.3,
       MISSILES_PER_WAVE_BASE: 8,
       MISSILES_PER_WAVE_INC: 3,
       MISSILE_SPAWN_INTERVAL: 800,
