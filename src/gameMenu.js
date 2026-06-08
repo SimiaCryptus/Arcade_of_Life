@@ -31,25 +31,25 @@ function applyStoredAudioPrefs() {
 function updateMuteLabel() {
   const el = document.getElementById('gm-mute');
   if (!el) return;
-   const icon = el.querySelector('.gm-mute-icon');
-   const label = el.querySelector('.gm-mute-label');
-   if (icon) icon.textContent = Sfx.muted ? '🔇' : '🔊';
-   if (label) label.textContent = Sfx.muted ? 'Unmute Sound' : 'Mute Sound';
-   el.classList.toggle('gm-muted', !!Sfx.muted);
+  const icon = el.querySelector('.gm-mute-icon');
+  const label = el.querySelector('.gm-mute-label');
+  if (icon) icon.textContent = Sfx.muted ? '🔇' : '🔊';
+  if (label) label.textContent = Sfx.muted ? 'Unmute Sound' : 'Mute Sound';
+  el.classList.toggle('gm-muted', !!Sfx.muted);
 }
 function updateVolumeLabel() {
   const el = document.getElementById('gm-volume-label');
   if (!el) return;
   el.textContent = `${Math.round(Sfx.volume * 100)}%`;
-   // Also update the slider's visual fill via a CSS var.
-   const slider = document.getElementById('gm-volume');
-   if (slider) {
-     const pct = Math.round(Sfx.volume * 100);
-     slider.style.setProperty('--gm-vol-pct', `${pct}%`);
-     // Dim the row if muted.
-     const row = slider.closest('.gm-volume-item');
-     if (row) row.classList.toggle('gm-volume-dim', !!Sfx.muted);
-   }
+  // Also update the slider's visual fill via a CSS var.
+  const slider = document.getElementById('gm-volume');
+  if (slider) {
+    const pct = Math.round(Sfx.volume * 100);
+    slider.style.setProperty('--gm-vol-pct', `${pct}%`);
+    // Dim the row if muted.
+    const row = slider.closest('.gm-volume-item');
+    if (row) row.classList.toggle('gm-volume-dim', !!Sfx.muted);
+  }
 }
 function ensureAudioMenuItems(dropdown) {
   if (document.getElementById('gm-audio-section')) return;
