@@ -1,0 +1,11 @@
+{
+  "totals": {"files": 92, "lines": 1027907, "code": 1020454, "comment": 5089, "blank": 2364, "bytes": 20327894},
+  "by_extension": [
+    {"ext": "json", "files": 13, "lines": 986177, "code": 986177, "comment": 0, "blank": 0, "bytes": 18885486, "avg_lines": 75859.77, "largest_file": "/home/andrew/code/Arcade_of_Life/src/patterns/lifewiki.generated.json", "largest_lines": 974225},
+    {"ext": "js", "files": 65, "lines": 32434, "code": 26223, "comment": 4933, "blank": 1278, "bytes": 1189156, "avg_lines": 498.98, "largest_file": "/home/andrew/code/Arcade_of_Life/src/main.js", "largest_lines": 3307},
+    {"ext": "css", "files": 1, "lines": 5085, "code": 4379, "comment": 79, "blank": 627, "bytes": 94133, "avg_lines": 5085.00, "largest_file": "/home/andrew/code/Arcade_of_Life/style.css", "largest_lines": 5085},
+    {"ext": "html", "files": 2, "lines": 2298, "code": 2240, "comment": 28, "blank": 30, "bytes": 97852, "avg_lines": 1149.00, "largest_file": "/home/andrew/code/Arcade_of_Life/index.html", "largest_lines": 1501},
+    {"ext": "md", "files": 10, "lines": 1565, "code": 1164, "comment": 0, "blank": 401, "bytes": 48090, "avg_lines": 156.50, "largest_file": "/home/andrew/code/Arcade_of_Life/console_guide.md", "largest_lines": 785},
+    {"ext": "sh", "files": 1, "lines": 348, "code": 271, "comment": 49, "blank": 28, "bytes": 13177, "avg_lines": 348.00, "largest_file": "/home/andrew/code/Arcade_of_Life/docs/metrics/loc.sh", "largest_lines": 348}
+  ]
+}

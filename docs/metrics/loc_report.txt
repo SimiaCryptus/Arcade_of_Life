@@ -1,0 +1,10 @@
+EXT         FILES      LINES       CODE    COMMENT      BLANK        BYTES        AVG  LARGEST
+---         -----      -----       ----    -------      -----        -----        ---  -------
+json           13     986177     986177          0          0     18885486    75859.8  /home/andrew/code/Arcade_of_Life/src/patterns/lifewiki.generated.json (974225)
+js             65      32434      26223       4933       1278      1189156      499.0  /home/andrew/code/Arcade_of_Life/src/main.js (3307)
+css             1       5085       4379         79        627        94133     5085.0  /home/andrew/code/Arcade_of_Life/style.css (5085)
+html            2       2298       2240         28         30        97852     1149.0  /home/andrew/code/Arcade_of_Life/index.html (1501)
+md             10       1565       1164          0        401        48090      156.5  /home/andrew/code/Arcade_of_Life/console_guide.md (785)
+sh              1        348        271         49         28        13177      348.0  /home/andrew/code/Arcade_of_Life/docs/metrics/loc.sh (348)
+
+TOTALS: files=92 lines=1027907 code=1020454 comment=5089 blank=2364 bytes=20327894
