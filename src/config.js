@@ -172,6 +172,16 @@ export const CONFIG = {
   ABILITY_FREEZE: true,
   // Fraction of ink refunded when using the "Clear Defenses" button (0..1).
   CLEAR_REFUND_FRACTION: 0.5,
+  // Tower Defense mode: per-ink-type budgets for barriers and fire.
+  // When either is > 0, the level becomes a "tower defense" scenario:
+  // the game starts paused, player can pre-place barrier/fire/defense
+  // ink, and barrier/fire ink does not regenerate or refund.
+  TD_BARRIER_INK: 0,
+  TD_FIRE_INK: 0,
+  // When true, barrier/fire ink can also be drawn after the game starts
+  // (subject to remaining budget). When false, those inks are only
+  // available during the pre-game pause.
+  TD_ALLOW_INGAME_PLACEMENT: true,
   // Simulation backend selection: 'auto' | 'cpu' | 'gpu'.
   // - 'auto' picks GPU for grids >= 200x200 if WebGL2 is available.
   // - 'cpu' forces the bitpacked CPU path (best for tiny grids and debugging).

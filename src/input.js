@@ -476,7 +476,12 @@ export class InputManager {
       const { gx, gy } = this.startCell;
       if (this._isDrawZone(gy) && this.grid.inBounds(gx, gy)) {
         const existing = this.grid.get(gx, gy);
-        if (existing === CELL_TYPE.DEFENSE) {
+        const td = this.towerDefense || null;
+        const tdActive = td && td.active;
+        // Barrier/fire are permanent placements — cannot be toggled off.
+        if (tdActive && (existing === CELL_TYPE.BARRIER || existing === CELL_TYPE.FIRE)) {
+          // No-op: locked.
+        } else if (existing === CELL_TYPE.DEFENSE) {
           this.grid.set(gx, gy, CELL_TYPE.EMPTY);
           const wx = this.grid.wrapX(gx);
           const i = gy * this.grid.width + wx;
@@ -507,11 +512,39 @@ export class InputManager {
     if (!this.grid.inBounds(gx, gy)) return false;
     if (this.grid.getPending(gx, gy)) return false;
     if (this.grid.get(gx, gy) !== CELL_TYPE.EMPTY) return false;
-    if (!this.defenses.canDraw()) return false;
+    // Tower Defense integration: check budget for the active ink type
+    // (barrier/fire have their own budgets; defense uses normal ink).
+    const td = this.towerDefense || null;
+    const tdActive = td && td.active;
+    if (tdActive) {
+      // Pre-game: defense ink is also locked (player should place
+      // barriers/fire first). Actually defense is allowed any time —
+      // canDraw handles this.
+      if (!td.canDraw(td.activeInkType)) return false;
+      // Pre-game blocks all painting outside of the allowed types? No,
+      // defense is always allowed. Just check budget.
+      if (td.activeInkType === 'defense') {
+        if (!this.defenses.canDraw()) return false;
+      }
+      // Barrier/fire: budget check is inside canDraw above.
+    } else {
+      if (!this.defenses.canDraw()) return false;
+    }
     if (applyDash && !this._dashEmit()) return false;
 
-    this.grid.setPending(gx, gy, 1);
-    this.defenses.consume(1);
+    // For barrier/fire, place the cell DIRECTLY (no drying phase).
+    // For defense (and non-TD), use the normal pending → dry → defense path.
+    if (tdActive && td.activeInkType !== 'defense') {
+      const finalType = td.resolveDrawCellType();
+      this.grid.set(gx, gy, finalType);
+      const wx = this.grid.wrapX(gx);
+      const i = gy * this.grid.width + wx;
+      if (this.grid.cellAge) this.grid.cellAge[i] = 1;
+      td.spendInk(1);
+    } else {
+      this.grid.setPending(gx, gy, 1);
+      this.defenses.consume(1);
+    }
     this.placedThisDrag.push({ x: this.grid.wrapX(gx), y: gy });
     return true;
   }
@@ -556,7 +589,18 @@ export class InputManager {
     if (!this.grid.inBounds(gx, gy)) return false;
     if (this.grid.getPending(gx, gy)) return false;
     if (this.grid.get(gx, gy) !== CELL_TYPE.EMPTY) return false;
-    this.grid.setPending(gx, gy, 1);
+    // In TD mode with barrier/fire active, brush expansion also places
+    // final cells directly (still free, brush bonus). Otherwise pending.
+    const td = this.towerDefense || null;
+    if (td && td.active && td.activeInkType !== 'defense') {
+      const finalType = td.resolveDrawCellType();
+      this.grid.set(gx, gy, finalType);
+      const wx = this.grid.wrapX(gx);
+      const i = gy * this.grid.width + wx;
+      if (this.grid.cellAge) this.grid.cellAge[i] = 1;
+    } else {
+      this.grid.setPending(gx, gy, 1);
+    }
     this.placedThisDrag.push({ x: this.grid.wrapX(gx), y: gy });
     return true;
   }
@@ -783,10 +827,17 @@ export class InputManager {
     let removed = 0;
     let refund = 0;
     const refundFrac = Math.max(0, Math.min(1, CONFIG.CLEAR_REFUND_FRACTION));
+    const td = this.towerDefense || null;
+    const tdActive = td && td.active;
     for (const { x, y } of stroke) {
       if (!this.grid.inBounds(x, y)) continue;
       const wx = this.grid.wrapX(x);
       const i = y * this.grid.width + wx;
+      const cellType = this.grid.cells[i];
+      // Barrier/fire cells are not refundable in TD mode.
+      if (tdActive && (cellType === CELL_TYPE.BARRIER || cellType === CELL_TYPE.FIRE)) {
+        continue;
+      }
       if (this.grid.pending[i]) {
         this.grid.pending[i] = 0;
         this.grid.pendingDry[i] = 0;

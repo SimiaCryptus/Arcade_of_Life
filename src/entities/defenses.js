@@ -78,6 +78,8 @@ export class Defenses {
         if (grid.cellDir) grid.cellDir[i] = 0;
         defenseCleared++;
       }
+      // Note: BARRIER and FIRE are intentionally NOT cleared — they are
+      // permanent placements (used by tower-defense levels & static obstacles).
       if (pending[i]) {
         pending[i] = 0;
         if (grid.pendingDry) grid.pendingDry[i] = 0;

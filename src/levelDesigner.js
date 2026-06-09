@@ -1295,6 +1295,11 @@ export class LevelDesigner {
       const lbl = document.getElementById('speed-label');
       if (lbl) lbl.textContent = 'PAUSED (designer)';
     }
+    // Ensure any active Tower Defense UI (ink selector, ready overlay)
+    // is torn down when re-entering the designer.
+    if (this.game && this.game.towerDefense && this.game.towerDefense.active) {
+      this.game.towerDefense.deactivate();
+    }
     const menuOverlay = document.getElementById('overlay');
     if (menuOverlay) menuOverlay.classList.add('hidden');
     this.overlay.classList.remove('hidden');

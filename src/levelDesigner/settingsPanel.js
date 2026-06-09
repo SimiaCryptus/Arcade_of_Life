@@ -12,6 +12,10 @@ const SETTING_SECTIONS = [
     keys: ['HARDCORE_MODE', 'STARTING_SPEED', 'VICTORY_ENEMY_THRESHOLD', 'DEFEAT_CITY_THRESHOLD'],
   },
   {
+    title: '🛡 Tower Defense',
+    keys: ['TD_BARRIER_INK', 'TD_FIRE_INK', 'TD_ALLOW_INGAME_PLACEMENT'],
+  },
+  {
     title: '⚔ Layout',
     keys: ['BASE_ZONE_HEIGHT', 'BASE_GLIDER_BUFFER', 'DRAW_ZONE_FRACTION', 'REAR_DEAD_ZONE_HEIGHT'],
   },
@@ -129,6 +133,12 @@ export function captureCurrentSettings() {
   const out = {};
   for (const def of SETTING_DEFS) out[def.key] = CONFIG[def.key];
   for (const def of BOOLEAN_SETTING_DEFS) out[def.key] = CONFIG[def.key];
+  // Explicitly capture Tower Defense settings even if not registered
+  // in the standard SETTING_DEFS list.
+  const TD_KEYS = ['TD_BARRIER_INK', 'TD_FIRE_INK', 'TD_ALLOW_INGAME_PLACEMENT'];
+  for (const k of TD_KEYS) {
+    if (CONFIG[k] !== undefined) out[k] = CONFIG[k];
+  }
   Logger.info(
     `[LevelDesigner] captureCurrentSettings: ` +
       `DEFENSE_AGE_FRIENDLY=${out.DEFENSE_AGE_FRIENDLY}, ` +
@@ -186,6 +196,20 @@ function buildSliderDefs() {
       format: (v) => `${v.toFixed(2)}x`,
     };
   }
+  if (!out.TD_BARRIER_INK) {
+    out.TD_BARRIER_INK = {
+      key: 'TD_BARRIER_INK',
+      id: 'setting-td-barrier-ink',
+      format: (v) => `${v | 0} ink`,
+    };
+  }
+  if (!out.TD_FIRE_INK) {
+    out.TD_FIRE_INK = {
+      key: 'TD_FIRE_INK',
+      id: 'setting-td-fire-ink',
+      format: (v) => `${v | 0} ink`,
+    };
+  }
   if (!out.VICTORY_ENEMY_THRESHOLD) {
     out.VICTORY_ENEMY_THRESHOLD = {
       key: 'VICTORY_ENEMY_THRESHOLD',
@@ -240,6 +264,12 @@ function buildBoolDefs() {
   for (const d of BOOLEAN_SETTING_DEFS) out[d.key] = d;
   for (const k of EVENT_KEYS) {
     if (!out[k]) out[k] = { key: k, id: `setting-${k.toLowerCase()}` };
+  }
+  if (!out.TD_ALLOW_INGAME_PLACEMENT) {
+    out.TD_ALLOW_INGAME_PLACEMENT = {
+      key: 'TD_ALLOW_INGAME_PLACEMENT',
+      id: 'setting-td-allow-ingame-placement',
+    };
   }
   return out;
 }
@@ -505,6 +535,8 @@ function guessSliderRange(d, key) {
     COMBO_WINDOW_MS: { min: 500, max: 15000, step: 100 },
     COMBO_MAX_MULT: { min: 1, max: 20, step: 0.25 },
     COMBO_INCREMENT: { min: 0, max: 2, step: 0.05 },
+    TD_BARRIER_INK: { min: 0, max: 2000, step: 10 },
+    TD_FIRE_INK: { min: 0, max: 2000, step: 10 },
   };
   if (key === 'BASE_ZONE_HEIGHT' && d.gridHeight) {
     const settings = d.levelSettings || {};

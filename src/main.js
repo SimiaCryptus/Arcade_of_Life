@@ -49,6 +49,7 @@ import {
 import { wireMenuTabs, activateMenuTab, relocateLevelCatalog } from './menuOverlay.js';
 import { wireSimCallbacks } from './simCallbacks.js';
 import { processUrlParams } from './urlParams.js';
+import { TowerDefenseManager } from './towerDefense.js';
 
 class Game {
   constructor() {
@@ -222,6 +223,7 @@ class Game {
     this.freeplayAbilities = new FreeplayAbilityManager(this);
     this.missileDefenderMode = new MissileDefenderMode(this);
     this.spaceInvadersMode = new SpaceInvadersMode(this);
+    this.towerDefense = new TowerDefenseManager(this);
 
     this.lastTime = 0;
     this._defAccum = 0;
@@ -414,7 +416,37 @@ class Game {
 
   _onClearDefenses() {
     if (this.input) this.input.cancelDrawing();
-    this.defenses.clearAll(this.grid);
+    // In TD mode, only clear DEFENSE cells — barriers and fire are
+    // permanent placements that cannot be refunded or removed.
+    if (this.towerDefense && this.towerDefense.active) {
+      const g = this.grid;
+      const len = g.cells ? g.cells.length : 0;
+      let defenseCleared = 0;
+      let pendingCleared = 0;
+      for (let i = 0; i < len; i++) {
+        const t = g.cells[i];
+        if (t === CELL_TYPE.DEFENSE) {
+          g.cells[i] = CELL_TYPE.EMPTY;
+          if (g.cellAge) g.cellAge[i] = 0;
+          if (g.cellColor) g.cellColor[i] = 0;
+          defenseCleared++;
+        }
+        if (g.pending && g.pending[i]) {
+          g.pending[i] = 0;
+          if (g.pendingDry) g.pendingDry[i] = 0;
+          pendingCleared++;
+        }
+      }
+      // Refund: full refund for pending, partial for committed defense.
+      const refundFrac = Math.max(0, Math.min(1, CONFIG.CLEAR_REFUND_FRACTION));
+      this.defenses.refill(pendingCleared + defenseCleared * refundFrac);
+      Logger.info(
+        `[TD] Cleared ${defenseCleared} defense + ${pendingCleared} pending cells ` +
+          `(barriers/fire preserved).`
+      );
+    } else {
+      this.defenses.clearAll(this.grid);
+    }
   }
 
   _wirePatternCaptureButton() {
@@ -486,6 +518,9 @@ class Game {
       }
     }
     this.input = new InputManager(this.canvas, this.grid, this.defenses);
+    // Bridge so the InputManager can ask the TD manager whether/how to
+    // route the next stroke. Properties are checked lazily inside input.
+    this.input.towerDefense = this.towerDefense || null;
     if (prevInput) {
       this.input.setMode(prevInput.mode);
       this.input.setLineWidth(prevInput.lineWidth);
@@ -756,7 +791,20 @@ class Game {
   }
 
   startCustomLevel(levelName) {
-    return startCustomLevelImpl(this, levelName);
+    const result = startCustomLevelImpl(this, levelName);
+    // After custom-level settings have been applied to CONFIG, check
+    // for tower-defense mode (non-zero barrier or fire ink budgets).
+    try {
+      if (TowerDefenseManager.isTowerDefenseLevel(CONFIG)) {
+        Logger.info('[Game] Detected tower-defense level; activating TD manager.');
+        this.towerDefense.activate();
+      } else {
+        this.towerDefense.deactivate();
+      }
+    } catch (e) {
+      Logger.warn('[Game] TD activation check failed', e);
+    }
+    return result;
   }
 
   openIngameSettings() {
@@ -831,6 +879,7 @@ class Game {
     if (this.story && this.story.isActive()) this.story.stopStory();
     if (this.spaceInvadersMode && this.spaceInvadersMode.active) this.spaceInvadersMode.stop();
     if (this.freeplayAbilities) this.freeplayAbilities.uninstall();
+    if (this.towerDefense) this.towerDefense.deactivate();
     releaseWakeLock();
     if (this.input) this.input.cancelDrawing();
     CONFIG.SPEED_MULTIPLIER = 1.0;
@@ -960,6 +1009,7 @@ class Game {
         this.freeplayAbilities.update(safeDt);
       }
       if (this.score) this.score.update(safeDt);
+      if (this.towerDefense) this.towerDefense.update();
 
       this.renderer.render(this.hud);
       if (this._frameErrorCount > 0) this._frameErrorCount--;

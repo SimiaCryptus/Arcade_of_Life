@@ -1,0 +1,482 @@
+{
+  "name": "Tower Defense Simulation",
+  "createdAt": 1781017814197,
+  "gridWidth": 120,
+  "gridHeight": 80,
+  "cities": [
+    {
+      "x": 109,
+      "y": 75,
+      "width": 5,
+      "height": 3
+    }
+  ],
+  "defenses": [
+    [
+      75,
+      60
+    ],
+    [
+      77,
+      59
+    ],
+    [
+      75,
+      59
+    ],
+    [
+      87,
+      58
+    ],
+    [
+      86,
+      58
+    ],
+    [
+      79,
+      58
+    ],
+    [
+      78,
+      58
+    ],
+    [
+      65,
+      58
+    ],
+    [
+      64,
+      58
+    ],
+    [
+      88,
+      57
+    ],
+    [
+      84,
+      57
+    ],
+    [
+      79,
+      57
+    ],
+    [
+      78,
+      57
+    ],
+    [
+      65,
+      57
+    ],
+    [
+      64,
+      57
+    ],
+    [
+      99,
+      56
+    ],
+    [
+      98,
+      56
+    ],
+    [
+      89,
+      56
+    ],
+    [
+      83,
+      56
+    ],
+    [
+      79,
+      56
+    ],
+    [
+      78,
+      56
+    ],
+    [
+      99,
+      55
+    ],
+    [
+      98,
+      55
+    ],
+    [
+      89,
+      55
+    ],
+    [
+      85,
+      55
+    ],
+    [
+      83,
+      55
+    ],
+    [
+      82,
+      55
+    ],
+    [
+      77,
+      55
+    ],
+    [
+      75,
+      55
+    ],
+    [
+      89,
+      54
+    ],
+    [
+      83,
+      54
+    ],
+    [
+      75,
+      54
+    ],
+    [
+      88,
+      53
+    ],
+    [
+      84,
+      53
+    ],
+    [
+      87,
+      52
+    ],
+    [
+      86,
+      52
+    ]
+  ],
+  "enemies": [],
+  "barriers": [
+    [
+      38,
+      17
+    ],
+    [
+      39,
+      17
+    ],
+    [
+      40,
+      17
+    ],
+    [
+      41,
+      17
+    ],
+    [
+      42,
+      17
+    ],
+    [
+      43,
+      17
+    ],
+    [
+      44,
+      17
+    ],
+    [
+      45,
+      17
+    ],
+    [
+      46,
+      17
+    ],
+    [
+      47,
+      17
+    ],
+    [
+      48,
+      17
+    ],
+    [
+      49,
+      17
+    ],
+    [
+      50,
+      17
+    ],
+    [
+      51,
+      17
+    ],
+    [
+      52,
+      17
+    ],
+    [
+      53,
+      17
+    ],
+    [
+      54,
+      17
+    ]
+  ],
+  "fire": [],
+  "bases": [
+    {
+      "patternId": "gosper_gun",
+      "name": "Gosper Glider Gun",
+      "x": 41,
+      "y": 7,
+      "width": 36,
+      "height": 9,
+      "cells": [
+        [
+          24,
+          0
+        ],
+        [
+          22,
+          1
+        ],
+        [
+          24,
+          1
+        ],
+        [
+          12,
+          2
+        ],
+        [
+          13,
+          2
+        ],
+        [
+          20,
+          2
+        ],
+        [
+          21,
+          2
+        ],
+        [
+          34,
+          2
+        ],
+        [
+          35,
+          2
+        ],
+        [
+          11,
+          3
+        ],
+        [
+          15,
+          3
+        ],
+        [
+          20,
+          3
+        ],
+        [
+          21,
+          3
+        ],
+        [
+          34,
+          3
+        ],
+        [
+          35,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          10,
+          4
+        ],
+        [
+          16,
+          4
+        ],
+        [
+          20,
+          4
+        ],
+        [
+          21,
+          4
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          5
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          14,
+          5
+        ],
+        [
+          16,
+          5
+        ],
+        [
+          17,
+          5
+        ],
+        [
+          22,
+          5
+        ],
+        [
+          24,
+          5
+        ],
+        [
+          10,
+          6
+        ],
+        [
+          16,
+          6
+        ],
+        [
+          24,
+          6
+        ],
+        [
+          11,
+          7
+        ],
+        [
+          15,
+          7
+        ],
+        [
+          12,
+          8
+        ],
+        [
+          13,
+          8
+        ]
+      ]
+    }
+  ],
+  "spawners": [],
+  "ruleset": "conway",
+  "enemyRuleset": null,
+  "description": "",
+  "settings": {
+    "INITIAL_INK": 120,
+    "MAX_INK": 180,
+    "INK_REGEN_RATE": 0.3,
+    "TICK_RATE": 100,
+    "STARTING_SPEED": 1,
+    "DEFENDER_TICKS": 1,
+    "ATTACKER_TICKS": 1,
+    "MISSILES_PER_WAVE_BASE": 8,
+    "MISSILES_PER_WAVE_INC": 3,
+    "MISSILE_SPAWN_INTERVAL": 800,
+    "MISSILE_SPAWN_DECREMENT": 75,
+    "MISSILE_SPAWN_MIN": 300,
+    "DEFENSE_AGE_FRIENDLY": 8,
+    "DEFENSE_AGE_ENEMY": 8,
+    "DEFENSE_AGE_NEUTRAL": 8,
+    "MISSILE_AGE_FRIENDLY": 8,
+    "MISSILE_AGE_ENEMY": 8,
+    "MISSILE_AGE_NEUTRAL": 8,
+    "AGE_CONTAGION_AMOUNT": 8,
+    "CLEAR_REFUND_FRACTION": 0.5,
+    "INK_DRY_TICKS": 5,
+    "DRAW_ZONE_FRACTION": 0.5,
+    "REAR_DEAD_ZONE_HEIGHT": 2,
+    "BASE_ZONE_HEIGHT": 12,
+    "BASE_SPAWN_COUNT_BASE": 1,
+    "BASE_SPAWN_COUNT_INC": 0.5,
+    "BASE_SPAWN_MAX": 6,
+    "BASE_GLIDER_BUFFER": 4,
+    "SCORE_TARGET_DESTROYED": 1000,
+    "SCORE_FORTRESS_DESTROYED": 1500,
+    "SCORE_BUNKER_DESTROYED": 800,
+    "SCORE_CRUISER_DESTROYED": 1200,
+    "SCORE_SPAWNER_DESTROYED": 750,
+    "SCORE_CITY_SURVIVAL_PER_WAVE": 200,
+    "SCORE_WAVE_CLEAR_BASE": 500,
+    "SCORE_INK_EFFICIENCY": 0.25,
+    "SCORE_VICTORY_CITY_BONUS": 1500,
+    "SCORE_VICTORY_FLAT": 3000,
+    "SCORE_VICTORY_INK": 1,
+    "SCORE_CITY_CELL_LOST": -50,
+    "SCORE_FRIENDLY_FIRE_PENALTY": -100,
+    "SCORE_BREACH_PENALTY": -75,
+    "COMBO_WINDOW_MS": 4000,
+    "COMBO_MAX_MULT": 5,
+    "COMBO_INCREMENT": 0.25,
+    "GLIDER_SE": true,
+    "GLIDER_SW": true,
+    "GLIDER_HEAVY": false,
+    "GLIDER_LWSS": false,
+    "GLIDER_MWSS": false,
+    "GLIDER_TWIN": false,
+    "GLIDER_GUN": false,
+    "HARDCORE_MODE": false,
+    "SHOW_DRAW_ZONE": true,
+    "BASE_SPAWN_ENABLED": true,
+    "ABILITY_DOUBLE_SCORE": true,
+    "ABILITY_NO_DRY": true,
+    "ABILITY_WAVE_BONUS": true,
+    "ABILITY_SAFE_ZONE": true,
+    "ABILITY_SLOW_MISSILES": true,
+    "ABILITY_EMP_BURST": true,
+    "ABILITY_INK_SURGE": true,
+    "ABILITY_FREEZE": true,
+    "SIM_HASHLIFE_ENABLED": true,
+    "VFX_PARTICLES": true,
+    "VFX_SHOCKWAVES": true,
+    "VFX_FLOATERS": true,
+    "VFX_SCREEN_SHAKE": true,
+    "VFX_CELL_GLOW": true,
+    "VFX_DRAW_ZONE_TINT": true,
+    "TD_BARRIER_INK": 50,
+    "TD_FIRE_INK": 10,
+    "TD_ALLOW_INGAME_PLACEMENT": true,
+    "UNLIMITED_DEF_AGE_FRIENDLY": true,
+    "UNLIMITED_DEF_AGE_NEUTRAL": false,
+    "UNLIMITED_DEF_AGE_ENEMY": false,
+    "UNLIMITED_MISS_AGE_FRIENDLY": false,
+    "UNLIMITED_MISS_AGE_NEUTRAL": false,
+    "UNLIMITED_MISS_AGE_ENEMY": false
+  },
+  "allowedTools": {
+    "freehand": true,
+    "line": true,
+    "pattern": true,
+    "fill": true
+  },
+  "allowedPatterns": [],
+  "colorTheme": {},
+  "wrapVerticalShift": 0
+}

@@ -5,6 +5,7 @@
     "levels/firewalls.json",
     "levels/mothership.json",
     "levels/petri.json",
-    "levels/fireline.json"
+    "levels/fireline.json",
+    "levels/tds.json"
   ]
 }
