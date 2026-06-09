@@ -99,8 +99,11 @@ export class Renderer {
     // Canvas height = full available height (HUD lives inside this).
     // Ensure we have at least enough room for the grid + HUD.
     const canvasH = Math.max(gridH + CONFIG.HUD_HEIGHT, canvasAvailH);
-    this.canvas.width = canvasW;
-    this.canvas.height = canvasH;
+    // Only mutate canvas dimensions when they actually change, to
+    // avoid the implicit buffer clear that happens on assignment
+    // (and the redundant GPU texture upload that follows).
+    if (this.canvas.width !== canvasW) this.canvas.width = canvasW;
+    if (this.canvas.height !== canvasH) this.canvas.height = canvasH;
     this.gridPixelWidth = gridW;
     this.gridPixelHeight = gridH;
     // Horizontal offset to center the grid in the canvas.
@@ -114,6 +117,13 @@ export class Renderer {
     // centered inside a larger canvas.
     CONFIG._GRID_OFFSET_X = this.offsetX;
     CONFIG._GRID_OFFSET_Y = this.offsetY;
+    // VFX positions are stored in canvas pixel coordinates. After a
+    // resize the canvas dimensions and grid offsets may have changed,
+    // leaving in-flight effects positioned at stale locations. Clear
+    // them rather than render them in the wrong place.
+    if (this.particles) this.particles.length = 0;
+    if (this.shockwaves) this.shockwaves.length = 0;
+    if (this.floaters) this.floaters.length = 0;
   }
   // Return whether a floater with the same text would be a duplicate
   // of a recently-spawned one nearby. Helps prevent floater spam when

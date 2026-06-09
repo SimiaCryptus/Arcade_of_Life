@@ -607,7 +607,25 @@ class Game {
   }
 
   _onWindowResize() {
+    // Debounce + defer to next animation frame so DOM has reflowed
+    // and toolbar heights are accurate when we measure them.
+    if (this._resizeRaf) cancelAnimationFrame(this._resizeRaf);
+    this._resizeRaf = requestAnimationFrame(() => {
+      this._resizeRaf = null;
+      // Double-rAF: first frame lets the browser reflow toolbars
+      // (whose heights depend on the new viewport width). Second
+      // frame measures the now-stable layout. Without this, on some
+      // resize events we measure stale toolbar heights and compute
+      // a wrong cell size / canvas size, corrupting the grid.
+      requestAnimationFrame(() => this._performResize());
+    });
+  }
+
+  _performResize() {
     const old = CONFIG.CELL_SIZE;
+    const oldAvailW = CONFIG._AVAIL_W;
+    const oldAvailH = CONFIG._AVAIL_H;
+    const oldCanvasAvailH = CONFIG._CANVAS_AVAIL_H;
     const idx = this.settings.values.RESOLUTION_INDEX | 0;
     const preset = RESOLUTION_PRESETS[idx];
     if (preset && preset.auto) {
@@ -621,6 +639,10 @@ class Game {
         CONFIG.GRID_HEIGHT = dims.height;
         this._fitCellSize();
         this._buildWorld();
+        // _buildWorld() does NOT itself resize the renderer's canvas;
+        // setGrid() below will. Make sure renderer references the new
+        // grid AND recomputes canvas dimensions/offsets before we copy
+        // any state into it.
         const newW = this.grid.width;
         const newH = this.grid.height;
         const copyW = Math.min(oldW, newW);
@@ -656,9 +678,21 @@ class Game {
       }
     }
     this._fitCellSize();
-    if (CONFIG.CELL_SIZE !== old && this.renderer) {
-      this.renderer.resize();
-    }
+    // Always resize the renderer on any resize event. The canvas
+    // dimensions and grid centering offsets depend on CELL_SIZE,
+    // _AVAIL_W/_AVAIL_H, and _CANVAS_AVAIL_H — any of which can
+    // shift on window resize. We used to skip resize() when none of
+    // these appeared to change, but that gate is fragile: the canvas
+    // element's CSS layout can still have shifted (e.g. when toolbars
+    // wrap/unwrap), leaving the backing buffer out of sync with the
+    // visible area. The cost of calling resize() is negligible, and
+    // calling it unconditionally guarantees correctness.
+    if (this.renderer) this.renderer.resize();
+    // Silence unused-var lint warnings; these are kept for diagnostics.
+    void old;
+    void oldAvailW;
+    void oldAvailH;
+    void oldCanvasAvailH;
   }
 
   _initSpeedControls() {

@@ -138,6 +138,32 @@ export const SETTING_DEFS = [
   { key: 'COMBO_WINDOW_MS', id: 'setting-combo-window-ms', format: (v) => `${v} ms` },
   { key: 'COMBO_MAX_MULT', id: 'setting-combo-max-mult', format: (v) => `${v.toFixed(2)}x` },
   { key: 'COMBO_INCREMENT', id: 'setting-combo-increment', format: (v) => `+${v.toFixed(2)}/kill` },
+  // ── Tower Defense mode ──────────────────────────────────────
+  { key: 'TD_BARRIER_INK', id: 'setting-td-barrier-ink', format: (v) => (v > 0 ? `${v}` : 'off') },
+  { key: 'TD_FIRE_INK', id: 'setting-td-fire-ink', format: (v) => (v > 0 ? `${v}` : 'off') },
+  // ── Victory / defeat thresholds ─────────────────────────────
+  {
+    key: 'VICTORY_ENEMY_THRESHOLD',
+    id: 'setting-victory-enemy-threshold',
+    format: (v) => `${v} cells`,
+  },
+  {
+    key: 'DEFEAT_CITY_THRESHOLD',
+    id: 'setting-defeat-city-threshold',
+    format: (v) => `${v} cells`,
+  },
+  // ── Base type spawn weights ─────────────────────────────────
+  { key: 'BASE_TYPE_FORTRESS', id: 'setting-base-type-fortress', format: (v) => v.toFixed(2) },
+  { key: 'BASE_TYPE_BUNKER', id: 'setting-base-type-bunker', format: (v) => v.toFixed(2) },
+  { key: 'BASE_TYPE_CRUISER_E', id: 'setting-base-type-cruiser-e', format: (v) => v.toFixed(2) },
+  { key: 'BASE_TYPE_CRUISER_W', id: 'setting-base-type-cruiser-w', format: (v) => v.toFixed(2) },
+  // ── Misc ────────────────────────────────────────────────────
+  {
+    key: 'REAR_DEAD_ZONE_AGE_LIMIT',
+    id: 'setting-rear-dead-zone-age-limit',
+    format: (v) => `${v} ticks`,
+  },
+  { key: 'CITY_COUNT', id: 'setting-city-count', format: (v) => `${v}` },
 ];
 
 // Boolean settings (checkboxes), e.g. enabled glider types.
@@ -167,6 +193,16 @@ export const BOOLEAN_SETTING_DEFS = [
   { key: 'VFX_SCREEN_SHAKE', id: 'setting-vfx-shake' },
   { key: 'VFX_CELL_GLOW', id: 'setting-vfx-glow' },
   { key: 'VFX_DRAW_ZONE_TINT', id: 'setting-vfx-draw-zone-tint' },
+  // Tower Defense mode toggle
+  { key: 'TD_ALLOW_INGAME_PLACEMENT', id: 'setting-td-allow-ingame-placement' },
+  // Event detection toggles
+  { key: 'EVENT_RETURN_FIRE', id: 'setting-event-return-fire' },
+  { key: 'EVENT_RICOCHET', id: 'setting-event-ricochet' },
+  { key: 'EVENT_BREACH', id: 'setting-event-breach' },
+  { key: 'EVENT_CITY_HIT', id: 'setting-event-city-hit' },
+  { key: 'EVENT_ANNIHILATION', id: 'setting-event-annihilation' },
+  // Allow opening Settings mid-game
+  { key: 'IN_PLAY_SETTINGS_ENABLED', id: 'setting-in-play-settings-enabled' },
 ];
 
 // Store defaults at module load (before any modification).
