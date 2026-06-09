@@ -2,7 +2,7 @@
  * Icon generator — run once with Node.js + canvas package to produce
  * the PWA icon set from a programmatic design.
  *
- * Usage:  node src/generate-icons.js
+ * Usage:  node generate-icons.js
  * Requires: npm install canvas  (only needed at build time)
  */
 

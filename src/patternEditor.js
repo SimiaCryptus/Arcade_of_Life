@@ -106,6 +106,83 @@ class EditorPreviewSim {
     return n;
   }
 }
+/**
+ * Sparse, dynamically-expanding Life preview. Uses a Set of "x,y"
+ * keys so the pattern can grow arbitrarily without a fixed grid
+ * size. Mirrors the simulation strategy used by inferPatternMetadata
+ * so what you see in the preview matches what inference observes.
+ */
+class SparsePreviewSim {
+  constructor(rule) {
+    this.rule = rule;
+    this.live = new Set();
+    this.generation = 0;
+    this.bounds = null; // {minX, minY, maxX, maxY}
+  }
+  setRule(rule) {
+    this.rule = rule;
+  }
+  clear() {
+    this.live.clear();
+    this.generation = 0;
+    this.bounds = null;
+  }
+  stampCentered(coords) {
+    this.clear();
+    if (!coords || coords.length === 0) return;
+    for (const [x, y] of coords) {
+      this.live.add(`${x},${y}`);
+    }
+    this._recomputeBounds();
+  }
+  _recomputeBounds() {
+    if (this.live.size === 0) {
+      this.bounds = null;
+      return;
+    }
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const k of this.live) {
+      const [x, y] = k.split(',').map(Number);
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    this.bounds = { minX, minY, maxX, maxY };
+  }
+  tick() {
+    // Use Moore neighborhood — matches the preview's tiny ruleset usage.
+    const counts = new Map();
+    for (const k of this.live) {
+      const [x, y] = k.split(',').map(Number);
+      if (!counts.has(k)) counts.set(k, 0);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nk = `${x + dx},${y + dy}`;
+          counts.set(nk, (counts.get(nk) || 0) + 1);
+        }
+      }
+    }
+    const next = new Set();
+    const rule = this.rule;
+    for (const [k, n] of counts) {
+      const alive = this.live.has(k);
+      if (alive ? rule.shouldSurvive(n) : rule.shouldBirth(n)) {
+        next.add(k);
+      }
+    }
+    this.live = next;
+    this.generation++;
+    this._recomputeBounds();
+  }
+  population() {
+    return this.live.size;
+  }
+}
 
 export class PatternEditor {
   constructor({ input, patternCapture, onChange, onOpen, onClose } = {}) {
@@ -135,6 +212,10 @@ export class PatternEditor {
 
     // Preview state.
     this._previewSim = null;
+    this._sparsePreviewSim = null;
+    // When true, preview uses the sparse, auto-expanding simulator
+    // (matching what metadata inference does). Default ON.
+    this._previewSparse = true;
     this._previewGridSize = PREVIEW_GRID_SIZE;
     this._previewRulesetId = CONFIG.ACTIVE_RULESET || 'conway';
     this._previewSpeed = PREVIEW_DEFAULT_SPEED;
@@ -142,6 +223,21 @@ export class PatternEditor {
     this._previewAccumMs = 0;
     this._previewLastTs = 0;
     this._previewRaf = null;
+    // Inference configuration (mirrors inferPatternMetadata opts).
+    this._inferConfig = {
+      maxPeriod: 60,
+      methuselahGens: 200,
+      populationCap: 100000,
+      methuselahPopRatio: 3,
+      methuselahPopAbsolute: 20,
+      unboundedWidthRatio: 3,
+      unboundedHeightRatio: 3,
+      unboundedPadding: 10,
+      sustainedGrowthPeakLateFrac: 0.75,
+      sustainedGrowthFinalNearPeakFrac: 0.9,
+      sustainedGrowthPopRatio: 3,
+      sustainedGrowthPopAbsolute: 10,
+    };
 
     // Status timers.
     this._saveStatusTimer = null;
@@ -282,6 +378,7 @@ export class PatternEditor {
        ">
          <button class="editor-tab active" data-tab="preview" type="button">▶ Preview</button>
          <button class="editor-tab" data-tab="metadata" type="button">📝 Metadata</button>
+          <button class="editor-tab" data-tab="inference" type="button">🔍 Inference</button>
          <button class="editor-tab" data-tab="io" type="button">📋 Import/Export</button>
        </div>
        <div id="editor-tab-panels"></div>
@@ -294,6 +391,7 @@ export class PatternEditor {
     const panelsHost = container.querySelector('#editor-tab-panels');
     panelsHost.appendChild(this._buildPreviewPanel());
     panelsHost.appendChild(this._buildMetadataPanel());
+    panelsHost.appendChild(this._buildInferencePanel());
     panelsHost.appendChild(this._buildIOPanel());
 
     // Wire tab switching.
@@ -314,6 +412,7 @@ export class PatternEditor {
     this._wireJsonIO();
     this._wireFileImport();
     this._wireReinferButton();
+    this._wireInferenceConfig();
   }
 
   _injectTabStyles() {
@@ -385,6 +484,11 @@ export class PatternEditor {
              Preview Ruleset:
              <select id="editor-preview-ruleset" class="setting-select" style="width:100%;"></select>
            </label>
+            <label style="font-size:11px;color:#c0c0d0;display:flex;align-items:center;gap:6px;">
+              <input id="editor-preview-sparse" type="checkbox" checked
+                style="accent-color:#00ffff;">
+              <span>Sparse / auto-expanding grid <span style="color:#8080a0;font-style:italic;">(matches inference)</span></span>
+            </label>
            <div style="display:flex;gap:6px;flex-wrap:wrap;">
              <button id="editor-preview-reset" class="editor-action-btn" type="button">↺ Reset</button>
              <button id="editor-preview-pause" class="editor-action-btn" type="button">⏸ Pause</button>
@@ -392,6 +496,7 @@ export class PatternEditor {
            </div>
            <p style="font-size:10px;color:#8080a0;font-style:italic;margin:0;">
              Edits to the grid are mirrored into the preview automatically.
+              In sparse mode, the view auto-zooms as the pattern grows.
            </p>
          </div>
        </div>
@@ -455,15 +560,102 @@ export class PatternEditor {
          </label>
        </div>
        <div class="editor-save-buttons" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-         <button id="editor-reinfer-btn" class="editor-action-btn" type="button"
-           title="Re-run simulation to auto-detect category, period, direction, etc.">
-           🔍 Re-infer Metadata
-         </button>
           <span id="editor-meta-status" class="editor-save-status"></span>
        </div>
+        <p style="font-size:11px;color:#8080a0;font-style:italic;margin-top:8px;">
+          Tip: use the <strong>🔍 Inference</strong> tab to auto-detect category,
+          period, direction, and detailed statistics.
+        </p>
+     `;
+    return panel;
+  }
+  _buildInferencePanel() {
+    const panel = document.createElement('div');
+    panel.className = 'editor-tab-panel';
+    panel.dataset.tab = 'inference';
+    panel.style.display = 'none';
+    const cfg = this._inferConfig;
+    panel.innerHTML = `
+       <div style="font-size:13px;font-weight:bold;color:#88ddff;margin-bottom:10px;letter-spacing:1px;">
+         🔍 METADATA INFERENCE
+       </div>
+       <p style="font-size:11px;color:#a0a0c0;margin:0 0 12px;">
+         Run a sparse, auto-expanding simulation to characterize the pattern. Results
+         are written back into the Metadata tab.
+       </p>
+       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+         <button id="editor-reinfer-btn" class="editor-action-btn editor-action-primary" type="button"
+           title="Re-run simulation to auto-detect category, period, direction, etc.">
+           🔍 Run Inference
+         </button>
+         <button id="editor-infer-reset-defaults" class="editor-action-btn" type="button"
+           title="Reset inference parameters to defaults">
+           ↺ Reset Defaults
+         </button>
+         <span id="editor-infer-status" style="font-size:11px;color:#a0a0c0;font-style:italic;"></span>
+       </div>
+       <details style="margin-bottom:12px;">
+         <summary style="cursor:pointer;color:#ffcc44;font-size:12px;font-weight:bold;
+           padding:4px 0;">⚙ Inference Parameters</summary>
+         <div style="
+           margin-top:8px;padding:8px 10px;
+           background:rgba(10,10,30,0.4);
+           border:1px dashed #4040a0;border-radius:3px;
+           display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;
+           font-size:11px;color:#c0c0d0;
+         ">
+           <label>Max period search:
+             <input id="cfg-maxPeriod" type="number" min="1" max="10000" step="1"
+               value="${cfg.maxPeriod}" style="width:100%;">
+           </label>
+           <label>Methuselah generations:
+             <input id="cfg-methuselahGens" type="number" min="10" max="100000" step="10"
+               value="${cfg.methuselahGens}" style="width:100%;">
+           </label>
+           <label>Population cap:
+             <input id="cfg-populationCap" type="number" min="100" max="10000000" step="100"
+               value="${cfg.populationCap}" style="width:100%;">
+           </label>
+           <label>Methuselah pop ratio:
+             <input id="cfg-methuselahPopRatio" type="number" min="1" max="100" step="0.1"
+               value="${cfg.methuselahPopRatio}" style="width:100%;">
+           </label>
+           <label>Methuselah pop absolute:
+             <input id="cfg-methuselahPopAbsolute" type="number" min="0" max="10000" step="1"
+               value="${cfg.methuselahPopAbsolute}" style="width:100%;">
+           </label>
+           <label>Unbounded width ratio:
+             <input id="cfg-unboundedWidthRatio" type="number" min="1" max="100" step="0.1"
+               value="${cfg.unboundedWidthRatio}" style="width:100%;">
+           </label>
+           <label>Unbounded height ratio:
+             <input id="cfg-unboundedHeightRatio" type="number" min="1" max="100" step="0.1"
+               value="${cfg.unboundedHeightRatio}" style="width:100%;">
+           </label>
+           <label>Unbounded padding:
+             <input id="cfg-unboundedPadding" type="number" min="0" max="1000" step="1"
+               value="${cfg.unboundedPadding}" style="width:100%;">
+           </label>
+           <label>Sustained growth: peak-late frac:
+             <input id="cfg-sustainedGrowthPeakLateFrac" type="number" min="0" max="1" step="0.05"
+               value="${cfg.sustainedGrowthPeakLateFrac}" style="width:100%;">
+           </label>
+           <label>Sustained growth: final/peak:
+             <input id="cfg-sustainedGrowthFinalNearPeakFrac" type="number" min="0" max="1" step="0.05"
+               value="${cfg.sustainedGrowthFinalNearPeakFrac}" style="width:100%;">
+           </label>
+           <label>Sustained growth: pop ratio:
+             <input id="cfg-sustainedGrowthPopRatio" type="number" min="1" max="100" step="0.1"
+               value="${cfg.sustainedGrowthPopRatio}" style="width:100%;">
+           </label>
+           <label>Sustained growth: pop absolute:
+             <input id="cfg-sustainedGrowthPopAbsolute" type="number" min="0" max="10000" step="1"
+               value="${cfg.sustainedGrowthPopAbsolute}" style="width:100%;">
+           </label>
+         </div>
+       </details>
        <div id="editor-reinfer-result" style="
-         margin-top: 10px;
-         padding: 8px 10px;
+         padding: 10px 12px;
          background: rgba(10, 10, 30, 0.6);
          border: 1px dashed #4040a0;
          border-radius: 3px;
@@ -471,10 +663,55 @@ export class PatternEditor {
          color: #a0a0c0;
          display: none;
          font-family: 'Courier New', monospace;
-         line-height: 1.5;
+         line-height: 1.6;
+         white-space: pre-wrap;
+         max-height: 360px;
+         overflow-y: auto;
        "></div>
      `;
     return panel;
+  }
+  _wireInferenceConfig() {
+    const cfgKeys = Object.keys(this._inferConfig);
+    for (const key of cfgKeys) {
+      const el = document.getElementById(`cfg-${key}`);
+      if (!el) continue;
+      el.addEventListener('change', () => {
+        const v = parseFloat(el.value);
+        if (Number.isFinite(v)) this._inferConfig[key] = v;
+      });
+    }
+    const resetBtn = document.getElementById('editor-infer-reset-defaults');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        this._inferConfig = {
+          maxPeriod: 60,
+          methuselahGens: 200,
+          populationCap: 100000,
+          methuselahPopRatio: 3,
+          methuselahPopAbsolute: 20,
+          unboundedWidthRatio: 3,
+          unboundedHeightRatio: 3,
+          unboundedPadding: 10,
+          sustainedGrowthPeakLateFrac: 0.75,
+          sustainedGrowthFinalNearPeakFrac: 0.9,
+          sustainedGrowthPopRatio: 3,
+          sustainedGrowthPopAbsolute: 10,
+        };
+        for (const key of Object.keys(this._inferConfig)) {
+          const el = document.getElementById(`cfg-${key}`);
+          if (el) el.value = this._inferConfig[key];
+        }
+        const statusEl = document.getElementById('editor-infer-status');
+        if (statusEl) {
+          statusEl.textContent = 'Defaults restored.';
+          statusEl.style.color = '#88ff88';
+          setTimeout(() => {
+            if (statusEl) statusEl.textContent = '';
+          }, 2000);
+        }
+      });
+    }
   }
 
   _buildIOPanel() {
@@ -942,6 +1179,18 @@ export class PatternEditor {
         speedLabel.textContent = this._previewSpeed === 0 ? 'Paused' : `${this._previewSpeed}/s`;
       });
     }
+    const sparseToggle = document.getElementById('editor-preview-sparse');
+    if (sparseToggle) {
+      sparseToggle.checked = this._previewSparse;
+      sparseToggle.addEventListener('change', () => {
+        this._previewSparse = sparseToggle.checked;
+        // Force reinit so the right sim type is in place.
+        this._previewSim = null;
+        this._sparsePreviewSim = null;
+        this._ensurePreviewReady(true);
+        this._refreshPreview();
+      });
+    }
 
     const resetBtn = document.getElementById('editor-preview-reset');
     if (resetBtn) resetBtn.addEventListener('click', () => this._refreshPreview());
@@ -958,13 +1207,17 @@ export class PatternEditor {
     if (stepBtn) {
       stepBtn.addEventListener('click', () => {
         this._ensurePreviewReady();
-        if (this._previewSim) {
-          this._previewSim.tick();
+        const sim = this._activePreviewSim();
+        if (sim) {
+          sim.tick();
           this._drawPreview();
           this._updatePreviewInfo();
         }
       });
     }
+  }
+  _activePreviewSim() {
+    return this._previewSparse ? this._sparsePreviewSim : this._previewSim;
   }
 
   _compilePreviewRule() {
@@ -1034,6 +1287,26 @@ export class PatternEditor {
   }
 
   _ensurePreviewReady(forceRuleRefresh = false) {
+    if (this._previewSparse) {
+      const rule = this._compilePreviewRule();
+      if (!this._sparsePreviewSim) {
+        this._sparsePreviewSim = new SparsePreviewSim(rule);
+      } else if (forceRuleRefresh) {
+        this._sparsePreviewSim.setRule(rule);
+      }
+      // Make sure canvas has a reasonable size for sparse display.
+      const canvas = document.getElementById('editor-preview-canvas');
+      if (
+        canvas &&
+        (canvas.width !== PREVIEW_CANVAS_BASE || canvas.height !== PREVIEW_CANVAS_BASE)
+      ) {
+        canvas.width = PREVIEW_CANVAS_BASE;
+        canvas.height = PREVIEW_CANVAS_BASE;
+        canvas.style.width = `${PREVIEW_CANVAS_BASE}px`;
+        canvas.style.height = `${PREVIEW_CANVAS_BASE}px`;
+      }
+      return;
+    }
     const desiredSize = this._computePreviewGridSize();
     if (!this._previewSim) {
       this._previewSim = new EditorPreviewSim(desiredSize, this._compilePreviewRule());
@@ -1052,8 +1325,9 @@ export class PatternEditor {
   _refreshPreview() {
     if (!this._editorPanelOpen) return;
     this._ensurePreviewReady();
-    if (!this._previewSim) return;
-    this._previewSim.stampCentered(this._collectCellsArray());
+    const sim = this._activePreviewSim();
+    if (!sim) return;
+    sim.stampCentered(this._collectCellsArray());
     this._previewAccumMs = 0;
     this._drawPreview();
     this._updatePreviewInfo();
@@ -1069,12 +1343,13 @@ export class PatternEditor {
       }
       const dt = ts - this._previewLastTs;
       this._previewLastTs = ts;
-      if (this._previewSim && !this._previewPaused && this._previewSpeed > 0) {
+      const sim = this._activePreviewSim();
+      if (sim && !this._previewPaused && this._previewSpeed > 0) {
         this._previewAccumMs += dt;
         const period = 1000 / this._previewSpeed;
         let ticks = 0;
         while (this._previewAccumMs >= period && ticks < 8) {
-          this._previewSim.tick();
+          sim.tick();
           this._previewAccumMs -= period;
           ticks++;
         }
@@ -1097,11 +1372,17 @@ export class PatternEditor {
 
   _drawPreview() {
     const canvas = document.getElementById('editor-preview-canvas');
-    if (!canvas || !this._previewSim) return;
+    if (!canvas) return;
+    const sim = this._activePreviewSim();
+    if (!sim) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const w = canvas.width;
     const h = canvas.height;
+    if (this._previewSparse) {
+      this._drawPreviewSparse(ctx, w, h, sim);
+      return;
+    }
     const size = this._previewSim.size;
     const cs = w / size;
     ctx.fillStyle = '#000010';
@@ -1137,11 +1418,95 @@ export class PatternEditor {
     }
     ctx.shadowBlur = 0;
   }
+  /**
+   * Render the sparse preview by auto-fitting to the pattern's
+   * current bounding box (with padding) and scaling cells to fill
+   * the canvas. The view always shows everything that's alive plus
+   * a small border for context.
+   */
+  _drawPreviewSparse(ctx, w, h, sim) {
+    ctx.fillStyle = '#000010';
+    ctx.fillRect(0, 0, w, h);
+    const bb = sim.bounds;
+    if (!bb) return;
+    // Pad bbox a little so the pattern doesn't kiss the edge.
+    const padCells = 2;
+    const bw = bb.maxX - bb.minX + 1 + padCells * 2;
+    const bh = bb.maxY - bb.minY + 1 + padCells * 2;
+    // Keep aspect square so cells don't get squashed.
+    const span = Math.max(bw, bh, 8);
+    const cs = Math.max(1, Math.floor(Math.min(w, h) / span));
+    // Center the visible region in the canvas.
+    const usedW = cs * span;
+    const usedH = cs * span;
+    const offX = Math.floor((w - usedW) / 2);
+    const offY = Math.floor((h - usedH) / 2);
+    // Origin in cell-coords that maps to (offX, offY) in pixels.
+    const originX = bb.minX - padCells - Math.floor((span - bw) / 2);
+    const originY = bb.minY - padCells - Math.floor((span - bh) / 2);
+    // Light grid for orientation when cells are big enough.
+    if (cs >= 6) {
+      ctx.strokeStyle = 'rgba(64,64,160,0.12)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= span; i++) {
+        const p = offX + i * cs + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(p, offY);
+        ctx.lineTo(p, offY + usedH);
+        ctx.stroke();
+        const q = offY + i * cs + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(offX, q);
+        ctx.lineTo(offX + usedW, q);
+        ctx.stroke();
+      }
+    }
+    // Origin marker (faint crosshair at world origin) for context.
+    ctx.strokeStyle = 'rgba(120,80,40,0.25)';
+    const ox = offX + (0 - originX) * cs;
+    const oy = offY + (0 - originY) * cs;
+    if (ox >= offX && ox <= offX + usedW && oy >= offY && oy <= offY + usedH) {
+      ctx.beginPath();
+      ctx.moveTo(ox + 0.5, offY);
+      ctx.lineTo(ox + 0.5, offY + usedH);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(offX, oy + 0.5);
+      ctx.lineTo(offX + usedW, oy + 0.5);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#00ff88';
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = Math.max(2, cs * 0.5);
+    const inset = cs < 3 ? 0 : 0.5;
+    const ds = cs < 3 ? Math.max(1, cs) : cs - 1;
+    for (const k of sim.live) {
+      const [x, y] = k.split(',').map(Number);
+      const px = offX + (x - originX) * cs + inset;
+      const py = offY + (y - originY) * cs + inset;
+      if (px < offX - cs || py < offY - cs || px > offX + usedW || py > offY + usedH) continue;
+      ctx.fillRect(px, py, ds, ds);
+    }
+    ctx.shadowBlur = 0;
+    // Footer text: span info.
+    ctx.fillStyle = 'rgba(160,160,200,0.7)';
+    ctx.font = '10px "Courier New", monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(
+      `bbox ${bb.maxX - bb.minX + 1}×${bb.maxY - bb.minY + 1} · view ${span}×${span}`,
+      4,
+      4
+    );
+  }
 
   _updatePreviewInfo() {
     const el = document.getElementById('editor-preview-info');
-    if (!el || !this._previewSim) return;
-    el.textContent = `gen ${this._previewSim.generation} · pop ${this._previewSim.population()}`;
+    if (!el) return;
+    const sim = this._activePreviewSim();
+    if (!sim) return;
+    const modeTag = this._previewSparse ? '∞ sparse' : `${this._previewGridSize}² torus`;
+    el.textContent = `gen ${sim.generation} · pop ${sim.population()} · ${modeTag}`;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -1513,6 +1878,7 @@ export class PatternEditor {
   _reinferMetadata({ silent = false } = {}) {
     const cells = this._collectCellsArray();
     const resultEl = document.getElementById('editor-reinfer-result');
+    const statusEl = document.getElementById('editor-infer-status');
     if (cells.length === 0) {
       if (resultEl) {
         resultEl.style.display = 'block';
@@ -1529,7 +1895,7 @@ export class PatternEditor {
       'conway';
     let inferred;
     try {
-      inferred = inferPatternMetadata(cells, { rule: ruleId });
+      inferred = inferPatternMetadata(cells, { rule: ruleId, ...this._inferConfig });
     } catch (e) {
       if (resultEl) {
         resultEl.style.display = 'block';
@@ -1548,28 +1914,83 @@ export class PatternEditor {
     if (dirEl) dirEl.value = inferred.direction || '';
     if (!silent && resultEl) {
       const lines = [];
-      lines.push(`✓ Inferred via ${inferred.rulesetId}:`);
-      lines.push(`  • category: ${inferred.category}`);
-      lines.push(`  • period: ${inferred.period}`);
-      if (inferred.direction) lines.push(`  • direction: ${inferred.direction}`);
+      lines.push(`✓ Inferred via ${inferred.rulesetId}`);
+      lines.push('');
+      lines.push('— CLASSIFICATION —');
+      lines.push(`  category        : ${inferred.category}`);
+      lines.push(`  period (initial): ${inferred.period}`);
+      if (inferred.finalPeriod != null) {
+        lines.push(`  final period    : ${inferred.finalPeriod}`);
+      }
+      if (inferred.direction) lines.push(`  direction       : ${inferred.direction}`);
+      if (inferred.displacement && (inferred.displacement[0] || inferred.displacement[1])) {
+        lines.push(
+          `  displacement    : (${inferred.displacement[0]}, ${inferred.displacement[1]})`
+        );
+      }
+      lines.push('');
+      lines.push('— TIMING —');
+      if (inferred.timeToOscillation != null) {
+        lines.push(`  time → cycle    : gen ${inferred.timeToOscillation}`);
+      } else if (inferred.period > 0) {
+        lines.push(`  time → cycle    : immediate (initial state)`);
+      } else {
+        lines.push(`  time → cycle    : never within observation window`);
+      }
+      if (inferred.stabilizedAt != null) {
+        lines.push(`  stabilized at   : gen ${inferred.stabilizedAt}`);
+      }
+      if (inferred.extinct) lines.push(`  ⚠ extinction    : pattern dies out`);
+      if (inferred.unbounded) lines.push(`  ⚠ unbounded     : sustained growth`);
+      lines.push('');
+      lines.push('— BOUNDS —');
       if (inferred.maxBounds) {
         const bb = inferred.maxBounds;
         const bbStr = bb.width === -1 ? '∞ (unbounded)' : `${bb.width}×${bb.height}`;
-        lines.push(`  • max bounds: ${bbStr}`);
+        lines.push(`  max bounds      : ${bbStr}`);
       }
-      lines.push(`  • max pop: ${inferred.maxPopulation}, final pop: ${inferred.finalPopulation}`);
-      if (inferred.stabilizedAt != null)
-        lines.push(`  • stabilized at gen ${inferred.stabilizedAt}`);
-      if (inferred.extinct) lines.push('  • ⚠ pattern dies out');
-      if (inferred.unbounded) lines.push('  • ⚠ unbounded growth');
-      if (inferred.exotic) lines.push('  • (exotic rule — limited analysis)');
+      lines.push('');
+      lines.push('— POPULATION —');
+      lines.push(`  initial         : ${inferred.popHistory ? inferred.popHistory[0] : '?'}`);
+      lines.push(`  max             : ${inferred.maxPopulation}`);
+      if (inferred.minPopulation != null) {
+        lines.push(`  min (after init): ${inferred.minPopulation}`);
+      }
+      lines.push(`  final           : ${inferred.finalPopulation}`);
+      if (inferred.initPhaseStats && inferred.initPhaseStats.count > 0) {
+        const s = inferred.initPhaseStats;
+        lines.push(
+          `  init phase      : ${s.count} gens, pop min/avg/max ` +
+            `= ${s.min}/${s.avg.toFixed(1)}/${s.max}`
+        );
+      }
+      if (inferred.periodicPhaseStats && inferred.periodicPhaseStats.count > 0) {
+        const s = inferred.periodicPhaseStats;
+        lines.push(
+          `  periodic phase  : ${s.count} gens, pop min/avg/max ` +
+            `= ${s.min}/${s.avg.toFixed(1)}/${s.max}`
+        );
+      }
+      if (inferred.exotic) {
+        lines.push('');
+        lines.push('  (exotic rule — limited analysis)');
+      }
       if (inferred.notes && inferred.notes.length > 0) {
-        lines.push(`  • notes: ${inferred.notes.join('; ')}`);
+        lines.push('');
+        lines.push('— NOTES —');
+        for (const note of inferred.notes) lines.push(`  • ${note}`);
       }
       resultEl.style.display = 'block';
       resultEl.style.color = '#88ff88';
       resultEl.textContent = lines.join('\n');
       resultEl.style.whiteSpace = 'pre-wrap';
+      if (statusEl) {
+        statusEl.textContent = `✓ Done (${inferred.category}${inferred.period ? `, p${inferred.period}` : ''})`;
+        statusEl.style.color = '#88ff88';
+        setTimeout(() => {
+          if (statusEl) statusEl.textContent = '';
+        }, 4000);
+      }
     }
     this._editorDirty = true;
     this._activePresetName = '';

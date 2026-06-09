@@ -277,7 +277,23 @@ export function resolveRule(rule) {
  * }}
  */
 export function inferPatternMetadata(cells, opts = {}) {
-  const { maxPeriod = 60, methuselahGens = 200, populationCap = 100000 } = opts;
+  const {
+    maxPeriod = 60,
+    methuselahGens = 200,
+    populationCap = 100000,
+    // Methuselah classification thresholds.
+    methuselahPopRatio = 3, // maxPop must be >= initialPop * this
+    methuselahPopAbsolute = 20, // OR maxPop - initialPop >= this
+    // Unbounded growth thresholds (spatial).
+    unboundedWidthRatio = 3,
+    unboundedHeightRatio = 3,
+    unboundedPadding = 10, // added to ratio*initial dim
+    // Sustained-growth heuristic (gun/puffer vs methuselah).
+    sustainedGrowthPeakLateFrac = 0.75, // peak must occur in last fraction of window
+    sustainedGrowthFinalNearPeakFrac = 0.9, // final must be >= this * peak
+    sustainedGrowthPopRatio = 3, // final pop must be >= initial * this
+    sustainedGrowthPopAbsolute = 10, // plus this constant
+  } = opts;
   const notes = [];
   const resolved = resolveRule(opts.rule);
   const { compiled, rulesetId } = resolved;
@@ -371,16 +387,29 @@ export function inferPatternMetadata(cells, opts = {}) {
       : initBB
         ? { width: initBB.width, height: initBB.height }
         : null;
+    // For directly-detected oscillators/spaceships from the initial
+    // state, the pattern enters its periodic phase immediately. We
+    // also run an extended characterization to capture init-phase
+    // stats if there's any settle-in (usually none for these).
+    const extChar = characterize(cells, compiled, Math.max(methuselahGens, found.period * 4), {
+      populationCap,
+    });
     if (dx === 0 && dy === 0) {
       return {
         category: CATEGORY.OSCILLATOR,
         period: found.period,
+        finalPeriod: found.period,
+        timeToOscillation: 0,
         direction: null,
         displacement: [0, 0],
         rulesetId,
         maxBounds,
         maxPopulation: char.maxSize,
         finalPopulation: char.finalSize,
+        minPopulation: extChar.minSizeAfterInit,
+        initPhaseStats: extChar.initPhaseStats,
+        periodicPhaseStats: extChar.periodicPhaseStats,
+        popHistory: extChar.popHistory,
         stabilizedAt: null,
         extinct: false,
         unbounded: false,
@@ -393,12 +422,18 @@ export function inferPatternMetadata(cells, opts = {}) {
     return {
       category: CATEGORY.SPACESHIP,
       period: found.period,
+      finalPeriod: found.period,
+      timeToOscillation: 0,
       direction: directionFromDisplacement(dx, dy),
       displacement: [dx, dy],
       rulesetId,
       maxBounds,
       maxPopulation: char.maxSize,
       finalPopulation: char.finalSize,
+      minPopulation: extChar.minSizeAfterInit,
+      initPhaseStats: extChar.initPhaseStats,
+      periodicPhaseStats: extChar.periodicPhaseStats,
+      popHistory: extChar.popHistory,
       stabilizedAt: null,
       extinct: false,
       unbounded: false,
@@ -431,8 +466,8 @@ export function inferPatternMetadata(cells, opts = {}) {
     char.bounds &&
     initBB
   ) {
-    const grewWide = char.bounds.width >= initBB.width * 3 + 10;
-    const grewTall = char.bounds.height >= initBB.height * 3 + 10;
+    const grewWide = char.bounds.width >= initBB.width * unboundedWidthRatio + unboundedPadding;
+    const grewTall = char.bounds.height >= initBB.height * unboundedHeightRatio + unboundedPadding;
     // Require both spatial AND population growth to flag as unbounded.
     // Methuselahs (like R-pentomino) expand spatially during their
     // chaotic phase but their population stays bounded and eventually
@@ -450,9 +485,12 @@ export function inferPatternMetadata(cells, opts = {}) {
     // population to be ≥ 90% of the peak. This catches guns/puffers
     // while excluding methuselahs like R-pentomino that have already
     // started declining by the end of the window.
-    const peakLate = char.maxSizeAt >= char.generations * 0.75;
-    const stillNearPeak = char.finalSize >= maxSize * 0.9;
-    const popGrew = char.finalSize >= initialSize * 3 + 10 && peakLate && stillNearPeak;
+    const peakLate = char.maxSizeAt >= char.generations * sustainedGrowthPeakLateFrac;
+    const stillNearPeak = char.finalSize >= maxSize * sustainedGrowthFinalNearPeakFrac;
+    const popGrew =
+      char.finalSize >= initialSize * sustainedGrowthPopRatio + sustainedGrowthPopAbsolute &&
+      peakLate &&
+      stillNearPeak;
     if ((grewWide || grewTall) && popGrew) {
       unbounded = true;
     }
@@ -470,12 +508,18 @@ export function inferPatternMetadata(cells, opts = {}) {
     return {
       category: CATEGORY.MISC,
       period: 0,
+      finalPeriod: null,
+      timeToOscillation: null,
       direction: null,
       displacement: null,
       rulesetId,
       maxBounds,
       maxPopulation: maxSize,
       finalPopulation: 0,
+      minPopulation: char.minSizeAfterInit,
+      initPhaseStats: char.initPhaseStats,
+      periodicPhaseStats: char.periodicPhaseStats,
+      popHistory: char.popHistory,
       stabilizedAt: char.generations,
       extinct: true,
       unbounded: false,
@@ -494,18 +538,36 @@ export function inferPatternMetadata(cells, opts = {}) {
   if (unbounded) {
     notes.push(`exceeded population cap (${populationCap}); marked unbounded`);
   }
+  const finalPeriod =
+    char.cyclePeriod != null ? char.cyclePeriod : char.stabilizedAt != null ? 1 : null;
+  const timeToOscillation =
+    char.cyclePeriod != null
+      ? char.cycleStart
+      : char.stabilizedAt != null
+        ? char.stabilizedAt
+        : null;
   // If population grew substantially, label as methuselah.
-  if (unbounded || maxSize >= initialSize * 3 || maxSize - initialSize >= 20) {
+  if (
+    unbounded ||
+    maxSize >= initialSize * methuselahPopRatio ||
+    maxSize - initialSize >= methuselahPopAbsolute
+  ) {
     notes.push(`max population ${maxSize} from initial ${initialSize}`);
     return {
       category: CATEGORY.METHUSELAH,
       period: 0,
+      finalPeriod,
+      timeToOscillation,
       direction: null,
       displacement: null,
       rulesetId,
       maxBounds,
       maxPopulation: maxSize,
       finalPopulation: finalSize,
+      minPopulation: char.minSizeAfterInit,
+      initPhaseStats: char.initPhaseStats,
+      periodicPhaseStats: char.periodicPhaseStats,
+      popHistory: char.popHistory,
       stabilizedAt: char.stabilizedAt,
       extinct: false,
       unbounded,
@@ -516,12 +578,18 @@ export function inferPatternMetadata(cells, opts = {}) {
   return {
     category: CATEGORY.MISC,
     period: 0,
+    finalPeriod,
+    timeToOscillation,
     direction: null,
     displacement: null,
     rulesetId,
     maxBounds,
     maxPopulation: maxSize,
     finalPopulation: finalSize,
+    minPopulation: char.minSizeAfterInit,
+    initPhaseStats: char.initPhaseStats,
+    periodicPhaseStats: char.periodicPhaseStats,
+    popHistory: char.popHistory,
     stabilizedAt: char.stabilizedAt,
     extinct: false,
     unbounded,

@@ -464,6 +464,8 @@ export function characterize(cells, rule, generations, opts = {}) {
   let state = initial;
   let maxSize = initialSize;
   let maxSizeAt = 0;
+  let minSizeAfterInit = initialSize;
+  let minSizeAfterInitAt = 0;
   let extinct = false;
   let stabilizedAt = null;
   let cycleStart = null;
@@ -474,18 +476,27 @@ export function characterize(cells, rule, generations, opts = {}) {
   seen.set(initHash, 0);
   let unionBB = boundingBox(initial);
   let prevHash = initHash;
+  // Track per-generation population history (capped to avoid memory blowup).
+  const popHistory = [initialSize];
+  const POP_HISTORY_CAP = 5000;
   let g = 0;
   for (g = 1; g <= generations; g++) {
     const nextState = step(state, rule);
     if (nextState.size === 0) {
       extinct = true;
       state = nextState;
+      if (popHistory.length < POP_HISTORY_CAP) popHistory.push(0);
       break;
     }
     if (nextState.size > maxSize) {
       maxSize = nextState.size;
       maxSizeAt = g;
     }
+    if (nextState.size < minSizeAfterInit) {
+      minSizeAfterInit = nextState.size;
+      minSizeAfterInitAt = g;
+    }
+    if (popHistory.length < POP_HISTORY_CAP) popHistory.push(nextState.size);
     const bb = boundingBox(nextState);
     if (bb) {
       if (!unionBB) {
@@ -524,11 +535,35 @@ export function characterize(cells, rule, generations, opts = {}) {
     unionBB.width = unionBB.maxX - unionBB.minX + 1;
     unionBB.height = unionBB.maxY - unionBB.minY + 1;
   }
+  // Compute initialization-phase vs periodic-phase population stats.
+  // Initialization = generations [0, cycleStart) when a cycle was found,
+  // or [0, stabilizedAt) when stabilized, or the whole run otherwise.
+  let initPhaseEnd = popHistory.length;
+  if (cycleStart != null) initPhaseEnd = Math.min(cycleStart, popHistory.length);
+  else if (stabilizedAt != null) initPhaseEnd = Math.min(stabilizedAt, popHistory.length);
+  const initPhasePops = popHistory.slice(0, initPhaseEnd);
+  const periodicPhasePops = popHistory.slice(initPhaseEnd);
+  const statsFor = (arr) => {
+    if (arr.length === 0) return { min: 0, max: 0, avg: 0, count: 0 };
+    let mn = arr[0],
+      mx = arr[0],
+      sum = 0;
+    for (const v of arr) {
+      if (v < mn) mn = v;
+      if (v > mx) mx = v;
+      sum += v;
+    }
+    return { min: mn, max: mx, avg: sum / arr.length, count: arr.length };
+  };
+  const initStats = statsFor(initPhasePops);
+  const periodicStats = statsFor(periodicPhasePops);
   return {
     generations: g,
     finalSize: state.size,
     maxSize,
     maxSizeAt,
+    minSizeAfterInit,
+    minSizeAfterInitAt,
     initialSize,
     extinct,
     stabilizedAt,
@@ -537,6 +572,9 @@ export function characterize(cells, rule, generations, opts = {}) {
     bounds: unionBB,
     exceededPopulationCap,
     finalState: state,
+    popHistory,
+    initPhaseStats: initStats,
+    periodicPhaseStats: periodicStats,
   };
 }
 /**
