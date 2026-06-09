@@ -24,7 +24,7 @@ export const PATTERN_PRESETS = LIBRARY_PRESETS;
 export class DrawToolsPanel {
   constructor(input) {
     Logger.info('[DrawTools] Constructor starting...');
-    this.input = input;
+    this._input = input;
     this.editorSize = 16; // 16x16 grid in pattern editor (larger for overlay)
     // Story engine reference, set externally. When set, only patterns
     // present in storyEngine.unlockedPatterns are stampable from presets.
@@ -70,6 +70,19 @@ export class DrawToolsPanel {
     this._initPatternEditorDelegate();
     this._updateVisibility();
     Logger.info('[DrawTools] Constructor complete.');
+  }
+  // Property accessor for `input`. When the InputManager is replaced
+  // (e.g., on world rebuild after a settings change), we need to
+  // propagate the new reference into the PatternEditor delegate so
+  // that pattern loading/editing writes to the active InputManager —
+  // otherwise pattern stamps appear "broken" (the editor mutates a
+  // stale, detached InputManager whose `pattern` is never read).
+  get input() {
+    return this._input;
+  }
+  set input(v) {
+    this._input = v;
+    if (this.patternEditor) this.patternEditor.input = v;
   }
   // Create the PatternEditor instance. We pass onOpen/onClose hooks so the
   // host (main.js) can pause/resume the game. The editor handles its own
@@ -498,24 +511,21 @@ export class DrawToolsPanel {
       // Auto-rotate spaceships to face north (toward enemy side).
       const presetCells = bag[name];
       const orientedCells = this._autoOrientNorthward(name, presetCells);
-      this.editorCells.clear();
-      // Center preset in editor.
-      let maxX = 0,
-        maxY = 0;
-      for (const [x, y] of orientedCells) {
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
+      // Load through PatternEditor so the dynamic grid auto-fits and
+      // the input.pattern gets populated correctly. Use 'library' mode
+      // so built-in presets remain read-only (save-as-new only).
+      if (this.patternEditor) {
+        this.patternEditor.loadPattern(orientedCells, null, 'library', name);
+        // loadPattern resets _activePresetName to the libraryId; mirror it here.
+        this._activePresetName = name;
+        this._editorDirty = false;
+      } else {
+        // Fallback: populate input.pattern directly so stamping works
+        // even if the editor delegate isn't available.
+        this.input.setPattern(orientedCells);
+        this._activePresetName = name;
+        this._editorDirty = false;
       }
-      const offX = Math.floor((this.editorSize - maxX - 1) / 2);
-      const offY = Math.floor((this.editorSize - maxY - 1) / 2);
-      for (const [x, y] of orientedCells) {
-        this.editorCells.add(`${x + offX},${y + offY}`);
-      }
-      // Record which preset is active and mark editor as clean.
-      this._activePresetName = name;
-      this._editorDirty = false;
-      this._syncPatternToInput();
-      this._drawEditor();
       // Auto-switch to pattern mode FIRST so pattern-tools is visible.
       this.setMode(DRAW_MODE.PATTERN);
       // Keep the combobox showing the selected preset name via sync.
