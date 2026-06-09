@@ -135,7 +135,7 @@ export class PatternEditor {
 
     // Preview state.
     this._previewSim = null;
-   this._previewGridSize = PREVIEW_GRID_SIZE;
+    this._previewGridSize = PREVIEW_GRID_SIZE;
     this._previewRulesetId = CONFIG.ACTIVE_RULESET || 'conway';
     this._previewSpeed = PREVIEW_DEFAULT_SPEED;
     this._previewPaused = false;
@@ -980,71 +980,70 @@ export class PatternEditor {
       return new CompiledRuleset(CONWAY);
     }
   }
-   /**
-    * Compute a suitable preview grid size for the current pattern.
-    * Gives the pattern at least 2x its bbox plus padding so evolution
-    * (especially for spaceships / methuselahs) has room to breathe.
-    */
-   _computePreviewGridSize() {
-     const cells = this._collectCellsArray();
-     if (cells.length === 0) return PREVIEW_GRID_SIZE;
-     let minX = Infinity,
-       minY = Infinity,
-       maxX = -Infinity,
-       maxY = -Infinity;
-     for (const [x, y] of cells) {
-       if (x < minX) minX = x;
-       if (y < minY) minY = y;
-       if (x > maxX) maxX = x;
-       if (y > maxY) maxY = y;
-     }
-     const bw = maxX - minX + 1;
-     const bh = maxY - minY + 1;
-     const maxDim = Math.max(bw, bh);
-     // Target: pattern fills ~40% of preview grid, with at least 8 cells of
-     // padding on every side so evolution has somewhere to go.
-     let target = Math.max(maxDim * 2 + 16, PREVIEW_GRID_SIZE);
-     // Round up to a clean even number.
-     target = Math.ceil(target / 2) * 2;
-     if (target < PREVIEW_MIN_GRID_SIZE) target = PREVIEW_MIN_GRID_SIZE;
-     if (target > PREVIEW_MAX_GRID_SIZE) target = PREVIEW_MAX_GRID_SIZE;
-     return target;
-   }
-   /**
-    * Resize the preview canvas pixel dimensions so that each cell stays
-    * reasonably visible for the chosen grid size.
-    */
-   _resizePreviewCanvas(gridSize) {
-     const canvas = document.getElementById('editor-preview-canvas');
-     if (!canvas) return;
-     // Aim for ~7-8 pixels per cell at default, scaling up the canvas
-     // for larger grids so cells don't get unreadable.
-     let pxPerCell = Math.max(4, Math.floor(PREVIEW_CANVAS_BASE / gridSize));
-     let canvasSize = pxPerCell * gridSize;
-     if (canvasSize < PREVIEW_CANVAS_BASE) canvasSize = PREVIEW_CANVAS_BASE;
-     if (canvasSize > PREVIEW_CANVAS_MAX) canvasSize = PREVIEW_CANVAS_MAX;
-     if (canvas.width !== canvasSize || canvas.height !== canvasSize) {
-       canvas.width = canvasSize;
-       canvas.height = canvasSize;
-       // Keep CSS size in sync (so it doesn't get stretched by the
-       // inline width="240" / height="240" attributes from buildPreviewPanel).
-       canvas.style.width = `${canvasSize}px`;
-       canvas.style.height = `${canvasSize}px`;
-     }
-   }
-
+  /**
+   * Compute a suitable preview grid size for the current pattern.
+   * Gives the pattern at least 2x its bbox plus padding so evolution
+   * (especially for spaceships / methuselahs) has room to breathe.
+   */
+  _computePreviewGridSize() {
+    const cells = this._collectCellsArray();
+    if (cells.length === 0) return PREVIEW_GRID_SIZE;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const [x, y] of cells) {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    const bw = maxX - minX + 1;
+    const bh = maxY - minY + 1;
+    const maxDim = Math.max(bw, bh);
+    // Target: pattern fills ~40% of preview grid, with at least 8 cells of
+    // padding on every side so evolution has somewhere to go.
+    let target = Math.max(maxDim * 2 + 16, PREVIEW_GRID_SIZE);
+    // Round up to a clean even number.
+    target = Math.ceil(target / 2) * 2;
+    if (target < PREVIEW_MIN_GRID_SIZE) target = PREVIEW_MIN_GRID_SIZE;
+    if (target > PREVIEW_MAX_GRID_SIZE) target = PREVIEW_MAX_GRID_SIZE;
+    return target;
+  }
+  /**
+   * Resize the preview canvas pixel dimensions so that each cell stays
+   * reasonably visible for the chosen grid size.
+   */
+  _resizePreviewCanvas(gridSize) {
+    const canvas = document.getElementById('editor-preview-canvas');
+    if (!canvas) return;
+    // Aim for ~7-8 pixels per cell at default, scaling up the canvas
+    // for larger grids so cells don't get unreadable.
+    let pxPerCell = Math.max(4, Math.floor(PREVIEW_CANVAS_BASE / gridSize));
+    let canvasSize = pxPerCell * gridSize;
+    if (canvasSize < PREVIEW_CANVAS_BASE) canvasSize = PREVIEW_CANVAS_BASE;
+    if (canvasSize > PREVIEW_CANVAS_MAX) canvasSize = PREVIEW_CANVAS_MAX;
+    if (canvas.width !== canvasSize || canvas.height !== canvasSize) {
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
+      // Keep CSS size in sync (so it doesn't get stretched by the
+      // inline width="240" / height="240" attributes from buildPreviewPanel).
+      canvas.style.width = `${canvasSize}px`;
+      canvas.style.height = `${canvasSize}px`;
+    }
+  }
 
   _ensurePreviewReady(forceRuleRefresh = false) {
-     const desiredSize = this._computePreviewGridSize();
+    const desiredSize = this._computePreviewGridSize();
     if (!this._previewSim) {
-       this._previewSim = new EditorPreviewSim(desiredSize, this._compilePreviewRule());
-       this._previewGridSize = desiredSize;
-       this._resizePreviewCanvas(desiredSize);
-     } else if (desiredSize !== this._previewGridSize) {
-       // Pattern grew/shrank — rebuild sim at the new size.
-       this._previewSim = new EditorPreviewSim(desiredSize, this._compilePreviewRule());
-       this._previewGridSize = desiredSize;
-       this._resizePreviewCanvas(desiredSize);
+      this._previewSim = new EditorPreviewSim(desiredSize, this._compilePreviewRule());
+      this._previewGridSize = desiredSize;
+      this._resizePreviewCanvas(desiredSize);
+    } else if (desiredSize !== this._previewGridSize) {
+      // Pattern grew/shrank — rebuild sim at the new size.
+      this._previewSim = new EditorPreviewSim(desiredSize, this._compilePreviewRule());
+      this._previewGridSize = desiredSize;
+      this._resizePreviewCanvas(desiredSize);
     } else if (forceRuleRefresh) {
       this._previewSim.setRule(this._compilePreviewRule());
     }
