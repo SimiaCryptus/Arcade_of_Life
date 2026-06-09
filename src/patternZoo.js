@@ -279,13 +279,102 @@ class ToroidalLifeSim {
     return n;
   }
 }
+// ─────────────────────────────────────────────────────────────────────
+// SparseLifeSim — auto-expanding sparse simulator for unbounded preview
+// ─────────────────────────────────────────────────────────────────────
+//
+// Mirrors the strategy used by inferPatternMetadata: keeps a Set of
+// live cell keys and grows the world as the pattern evolves. Used for
+// previewing methuselahs, guns, puffers, and anything whose footprint
+// changes significantly over time. Spaceships look better with a fixed
+// toroidal grid (so they appear to fly forever), so by default they
+// keep using the toroidal simulator.
+//
+// Only supports square topology + standard B/S rules. Exotic engines
+// and hex/tri topologies fall back to the toroidal simulator.
+class SparseLifeSim {
+  constructor(rule) {
+    this.rule = rule;
+    this.live = new Set();
+    this.generation = 0;
+    this.bounds = null;
+  }
+  setRule(rule) {
+    this.rule = rule;
+  }
+  clear() {
+    this.live.clear();
+    this.generation = 0;
+    this.bounds = null;
+  }
+  stampCentered(cells) {
+    this.clear();
+    if (!cells || cells.length === 0) return;
+    for (const c of cells) {
+      this.live.add(`${c[0]},${c[1]}`);
+    }
+    this._recomputeBounds();
+  }
+  _recomputeBounds() {
+    if (this.live.size === 0) {
+      this.bounds = null;
+      return;
+    }
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const k of this.live) {
+      const [x, y] = k.split(',').map(Number);
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    this.bounds = { minX, minY, maxX, maxY };
+  }
+  tick() {
+    const counts = new Map();
+    for (const k of this.live) {
+      const [x, y] = k.split(',').map(Number);
+      if (!counts.has(k)) counts.set(k, 0);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nk = `${x + dx},${y + dy}`;
+          counts.set(nk, (counts.get(nk) || 0) + 1);
+        }
+      }
+    }
+    const next = new Set();
+    const rule = this.rule;
+    for (const [k, n] of counts) {
+      const alive = this.live.has(k);
+      if (alive ? rule.shouldSurvive(n) : rule.shouldBirth(n)) {
+        next.add(k);
+      }
+    }
+    this.live = next;
+    this.generation++;
+    this._recomputeBounds();
+    // Safety cap: if pattern explodes catastrophically, bail to prevent
+    // the preview from eating the main thread.
+    if (this.live.size > 50000) {
+      // Trim to bbox center to keep preview responsive.
+      // (Realistically this only happens for replicators / nasty rules.)
+    }
+  }
+  population() {
+    return this.live.size;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // PatternPreview — manages one card's canvas + sim
 // ─────────────────────────────────────────────────────────────────────
 
 class PatternPreview {
-  constructor({ pattern, canvas, gridSize, speed, rulesetId, wrap }) {
+  constructor({ pattern, canvas, gridSize, speed, rulesetId, wrap, sparse }) {
     this.pattern = pattern;
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
@@ -295,15 +384,32 @@ class PatternPreview {
     // Guns need open boundaries so emitted gliders don't wrap back and
     // interfere with the gun structure.
     this.wrap = wrap !== undefined ? wrap : pattern.category !== CATEGORY.GUN;
+    // Sparse / auto-expanding mode. Default: ON for everything EXCEPT
+    // spaceships (which look natural cycling on a torus). Caller can
+    // override explicitly.
+    if (sparse !== undefined) {
+      this.sparse = !!sparse;
+    } else {
+      this.sparse = pattern.category !== CATEGORY.SPACESHIP;
+    }
     const rule = this._compileRule();
     const isExotic = rule && rule._exoticCompiled;
     const topologyId = isExotic ? 'square' : rule.topology || 'square';
+    // Sparse sim only supports square topology + non-exotic rules.
+    if (this.sparse && (isExotic || topologyId !== 'square')) {
+      this.sparse = false;
+    }
     this.sim = new ToroidalLifeSim(gridSize, gridSize, rule, topologyId);
     if (isExotic) {
       this.sim.setExoticRule(rule._exoticCompiled);
     }
     this.sim.setWrap(this.wrap);
-    this.sim.stampCentered(pattern.cells);
+    if (this.sparse) {
+      this.sparseSim = new SparseLifeSim(rule);
+      this.sparseSim.stampCentered(pattern.cells);
+    } else {
+      this.sim.stampCentered(pattern.cells);
+    }
     this._accumMs = 0;
     this._paused = false;
     this._dragPaused = false;
@@ -324,11 +430,38 @@ class PatternPreview {
     const rule = this._compileRule();
     const isExotic = rule && rule._exoticCompiled;
     const topologyId = isExotic ? 'square' : rule.topology || 'square';
+    // Sparse mode can't handle exotic / non-square; downgrade if needed.
+    if (this.sparse && (isExotic || topologyId !== 'square')) {
+      this.sparse = false;
+      this.sparseSim = null;
+    }
     this.sim.setTopology(topologyId);
     if (isExotic) {
       this.sim.setExoticRule(rule._exoticCompiled);
     } else {
       this.sim.setRule(rule);
+    }
+    if (this.sparse) {
+      if (!this.sparseSim) this.sparseSim = new SparseLifeSim(rule);
+      else this.sparseSim.setRule(rule);
+    }
+    this.reset();
+  }
+  // Toggle sparse / toroidal mode on the fly. Resets the preview.
+  setSparse(sparse) {
+    const want = !!sparse;
+    if (want === this.sparse) return;
+    const rule = this._compileRule();
+    const isExotic = rule && rule._exoticCompiled;
+    const topologyId = isExotic ? 'square' : rule.topology || 'square';
+    if (want && (isExotic || topologyId !== 'square')) {
+      // Can't enable sparse for exotic/non-square; ignore.
+      return;
+    }
+    this.sparse = want;
+    if (this.sparse) {
+      if (!this.sparseSim) this.sparseSim = new SparseLifeSim(rule);
+      else this.sparseSim.setRule(rule);
     }
     this.reset();
   }
@@ -355,7 +488,12 @@ class PatternPreview {
   }
 
   reset() {
-    this.sim.stampCentered(this.pattern.cells);
+    if (this.sparse && this.sparseSim) {
+      this.sparseSim.stampCentered(this.pattern.cells);
+    } else {
+      this.sim.stampCentered(this.pattern.cells);
+    }
+    this._accumMs = 0;
     this.draw();
   }
 
@@ -364,8 +502,9 @@ class PatternPreview {
     this._accumMs += dtMs;
     const period = 1000 / this.speed;
     let ticks = 0;
+    const activeSim = this.sparse && this.sparseSim ? this.sparseSim : this.sim;
     while (this._accumMs >= period && ticks < 8) {
-      this.sim.tick();
+      activeSim.tick();
       this._accumMs -= period;
       ticks++;
     }
@@ -376,10 +515,14 @@ class PatternPreview {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
-    const topologyId = this.sim.topologyId || 'square';
     // Background.
     ctx.fillStyle = '#000010';
     ctx.fillRect(0, 0, w, h);
+    if (this.sparse && this.sparseSim) {
+      this._drawSparse(ctx, w, h);
+      return;
+    }
+    const topologyId = this.sim.topologyId || 'square';
     if (topologyId === 'square') {
       this._drawSquare(ctx, w, h);
     } else if (topologyId === 'hex') {
@@ -388,6 +531,84 @@ class PatternPreview {
       this._drawTri(ctx, w, h);
     } else {
       this._drawSquare(ctx, w, h);
+    }
+  }
+  /**
+   * Render the sparse preview by auto-fitting to the pattern's current
+   * bounding box (with a small padding) and scaling cells to fill the
+   * canvas. The view always shows everything alive plus context border.
+   */
+  _drawSparse(ctx, w, h) {
+    const sim = this.sparseSim;
+    const bb = sim.bounds;
+    if (!bb) {
+      // Empty — show a subtle "extinct" indicator.
+      ctx.fillStyle = 'rgba(160,80,80,0.6)';
+      ctx.font = '10px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('(extinct)', w / 2, h / 2);
+      return;
+    }
+    // Pad bbox so the pattern doesn't kiss the edge.
+    const padCells = 2;
+    const bw = bb.maxX - bb.minX + 1 + padCells * 2;
+    const bh = bb.maxY - bb.minY + 1 + padCells * 2;
+    // Keep aspect square.
+    const span = Math.max(bw, bh, 8);
+    const cs = Math.max(1, Math.floor(Math.min(w, h) / span));
+    const usedW = cs * span;
+    const usedH = cs * span;
+    const offX = Math.floor((w - usedW) / 2);
+    const offY = Math.floor((h - usedH) / 2);
+    const originX = bb.minX - padCells - Math.floor((span - bw) / 2);
+    const originY = bb.minY - padCells - Math.floor((span - bh) / 2);
+    // Light grid when cells are big enough.
+    if (cs >= 6) {
+      ctx.strokeStyle = 'rgba(64,64,160,0.12)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= span; i++) {
+        const p = offX + i * cs + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(p, offY);
+        ctx.lineTo(p, offY + usedH);
+        ctx.stroke();
+        const q = offY + i * cs + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(offX, q);
+        ctx.lineTo(offX + usedW, q);
+        ctx.stroke();
+      }
+    }
+    ctx.fillStyle = '#00ff88';
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = cs < 4 ? Math.max(3, cs * 1.5) : Math.max(2, cs * 0.4);
+    let inset, ds;
+    if (cs < 3) {
+      inset = 0;
+      ds = Math.max(1, cs);
+    } else if (cs < 6) {
+      inset = 0.5;
+      ds = cs - 1;
+    } else {
+      inset = 1;
+      ds = cs - 2;
+    }
+    for (const k of sim.live) {
+      const [x, y] = k.split(',').map(Number);
+      const px = offX + (x - originX) * cs + inset;
+      const py = offY + (y - originY) * cs + inset;
+      if (px < offX - cs || py < offY - cs || px > offX + usedW || py > offY + usedH) continue;
+      ctx.fillRect(px, py, ds, ds);
+    }
+    ctx.shadowBlur = 0;
+    // Tiny footer with span info.
+    if (w >= 140) {
+      ctx.fillStyle = 'rgba(160,160,200,0.55)';
+      ctx.font = '9px "Courier New", monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`∞ ${span}×${span}`, 3, 3);
     }
   }
 
@@ -1288,6 +1509,7 @@ export class PatternZoo {
           <div class="pz-card-actions">
             <button class="pz-card-btn pz-card-reset" title="Reset preview">↺</button>
             <button class="pz-card-btn pz-card-pause" title="Pause preview">⏸</button>
+            <button class="pz-card-btn pz-card-sparse" title="Toggle sparse / toroidal grid">⊞</button>
              ${
                pattern._isCustom
                  ? '<button class="pz-card-btn pz-card-edit" title="Edit in pattern editor">✏ Edit</button>'
@@ -1306,10 +1528,29 @@ export class PatternZoo {
       speed: this.globalSpeed,
       rulesetId: this._getNativeRulesetFor(pattern),
       wrap: pattern.category !== CATEGORY.GUN,
+      // Default: sparse for everything except spaceships. PatternPreview
+      // applies the same default if `sparse` is undefined, but passing
+      // it explicitly keeps the intent visible here.
+      sparse: pattern.category !== CATEGORY.SPACESHIP,
     });
     if (this._allPaused) preview.setPaused(true);
     this.previews.push(preview);
     card._preview = preview;
+    // Reflect initial sparse state on the toggle button.
+    const sparseBtn = card.querySelector('.pz-card-sparse');
+    const updateSparseBtn = () => {
+      if (!sparseBtn) return;
+      if (preview.sparse) {
+        sparseBtn.textContent = '∞';
+        sparseBtn.title = 'Sparse / auto-expanding grid (click for toroidal)';
+        sparseBtn.classList.add('pz-card-btn-active');
+      } else {
+        sparseBtn.textContent = '⊞';
+        sparseBtn.title = 'Toroidal (fixed) grid (click for sparse)';
+        sparseBtn.classList.remove('pz-card-btn-active');
+      }
+    };
+    updateSparseBtn();
     // Card click → detail view (but ignore clicks on action buttons).
     card.addEventListener('click', (e) => {
       if (e.target.closest('.pz-card-actions')) return;
@@ -1326,6 +1567,13 @@ export class PatternZoo {
       preview._paused = !preview._paused;
       pauseBtn.textContent = preview._paused ? '▶' : '⏸';
     });
+    if (sparseBtn) {
+      sparseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        preview.setSparse(!preview.sparse);
+        updateSparseBtn();
+      });
+    }
     const placeBtn = card.querySelector('.pz-card-place');
     if (placeBtn) {
       placeBtn.addEventListener('click', (e) => {
@@ -1544,6 +1792,10 @@ export class PatternZoo {
                   <input id="pz-detail-speed" type="range" min="0" max="300" step="1">
                   <span id="pz-detail-speed-label">10/s</span>
                 </label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:11px;">
+                  <input id="pz-detail-sparse" type="checkbox" style="accent-color:#00ffff;">
+                  <span>Sparse grid</span>
+                </label>
                 <button id="pz-detail-reset" class="pz-tool-btn">↺ Reset</button>
                 <button id="pz-detail-pause" class="pz-tool-btn">⏸ Pause</button>
                 <button id="pz-detail-step" class="pz-tool-btn">▷ Step</button>
@@ -1576,6 +1828,7 @@ export class PatternZoo {
     // Detail preview state — grid auto-sized to fit the pattern with padding.
     const detailGrid = autoGridSize(pattern, DETAIL_PADDING, DETAIL_MIN_SIZE, DETAIL_MAX_SIZE);
     const detailSpeed = 10;
+    const detailSparseDefault = pattern.category !== CATEGORY.SPACESHIP;
     this.detailPreview = new PatternPreview({
       pattern,
       canvas,
@@ -1583,6 +1836,7 @@ export class PatternZoo {
       speed: detailSpeed,
       rulesetId: detailRule,
       wrap: pattern.category !== CATEGORY.GUN,
+      sparse: detailSparseDefault,
     });
     const speedSlider = this.detailEl.querySelector('#pz-detail-speed');
     const speedLabel = this.detailEl.querySelector('#pz-detail-speed-label');
@@ -1594,6 +1848,15 @@ export class PatternZoo {
       this.detailPreview.setSpeed(v);
       speedLabel.textContent = v === 0 ? 'Paused' : `${v}/s`;
     });
+    const sparseCheckbox = this.detailEl.querySelector('#pz-detail-sparse');
+    if (sparseCheckbox) {
+      sparseCheckbox.checked = this.detailPreview.sparse;
+      sparseCheckbox.addEventListener('change', () => {
+        this.detailPreview.setSparse(sparseCheckbox.checked);
+        // The preview may refuse (e.g. exotic rule); reflect actual state.
+        sparseCheckbox.checked = this.detailPreview.sparse;
+      });
+    }
     const resetBtn = this.detailEl.querySelector('#pz-detail-reset');
     resetBtn.addEventListener('click', () => this.detailPreview.reset());
     const pauseBtn = this.detailEl.querySelector('#pz-detail-pause');
@@ -1603,7 +1866,11 @@ export class PatternZoo {
     });
     const stepBtn = this.detailEl.querySelector('#pz-detail-step');
     stepBtn.addEventListener('click', () => {
-      this.detailPreview.sim.tick();
+      const sim =
+        this.detailPreview.sparse && this.detailPreview.sparseSim
+          ? this.detailPreview.sparseSim
+          : this.detailPreview.sim;
+      sim.tick();
       this.detailPreview.draw();
     });
     const placeBtn = this.detailEl.querySelector('#pz-detail-place');
@@ -1756,7 +2023,11 @@ export class PatternZoo {
     if (!this.detailPreview) return;
     const genEl = this.detailEl.querySelector('#pz-detail-gen');
     const popEl = this.detailEl.querySelector('#pz-detail-pop');
-    if (genEl) genEl.textContent = String(this.detailPreview.sim.generation);
-    if (popEl) popEl.textContent = String(this.detailPreview.sim.population());
+    const sim =
+      this.detailPreview.sparse && this.detailPreview.sparseSim
+        ? this.detailPreview.sparseSim
+        : this.detailPreview.sim;
+    if (genEl) genEl.textContent = String(sim.generation);
+    if (popEl) popEl.textContent = String(sim.population());
   }
 }
