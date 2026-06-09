@@ -620,7 +620,8 @@ export class PatternEditor {
   /**
    * Auto-fit the grid to the current cell set:
    *  - Compute bounding box of live cells.
-   *  - Target size = bbox + 1-cell border on each side (min 3×3).
+   *  - Target size = bbox + 3-cell border on each side (min 3×3).
+   *  - Width and height are kept equal (square grid).
    *  - Recenter cells inside the new grid.
    *  - Capped at EDITOR_MAX_SIZE.
    */
@@ -643,13 +644,15 @@ export class PatternEditor {
     }
     const bw = maxX - minX + 1;
     const bh = maxY - minY + 1;
-    // Target grid: bbox + 1 border each side = bbox + 2; min 3.
-    let targetW = Math.max(EDITOR_MIN_SIZE, bw + 2);
-    let targetH = Math.max(EDITOR_MIN_SIZE, bh + 2);
-    if (targetW > EDITOR_MAX_SIZE) targetW = EDITOR_MAX_SIZE;
-    if (targetH > EDITOR_MAX_SIZE) targetH = EDITOR_MAX_SIZE;
-    // New origin: place bbox so there's a 1-cell border on the top/left.
-    // i.e., shift so that minX→1, minY→1 (when target = bbox+2).
+    // Target grid: bbox + 3 border each side = bbox + 6; min 3.
+    // Keep width and height equal (square grid).
+    let targetW = Math.max(EDITOR_MIN_SIZE, bw + 6);
+    let targetH = Math.max(EDITOR_MIN_SIZE, bh + 6);
+    let target = Math.max(targetW, targetH);
+    if (target > EDITOR_MAX_SIZE) target = EDITOR_MAX_SIZE;
+    targetW = target;
+    targetH = target;
+    // New origin: center bbox inside the square grid.
     const offX = Math.floor((targetW - bw) / 2) - minX;
     const offY = Math.floor((targetH - bh) / 2) - minY;
     const newCells = new Set();
@@ -848,8 +851,8 @@ export class PatternEditor {
   }
 
   // For DrawTools backwards-compat: old method name.
-  loadPatternIntoEditor(cells, customName = null, mode = 'view') {
-    this.loadPattern(cells, customName, mode, null);
+  loadPatternIntoEditor(cells, customName = null, mode = 'view', libraryId = null) {
+    this.loadPattern(cells, customName, mode, libraryId);
   }
 
   // Cell access for hotkey-triggered transforms in DrawToolsPanel.
@@ -1128,7 +1131,7 @@ export class PatternEditor {
     } else {
       // For library mode, pre-fill name with a derivative suggestion.
       if (this._editorMode === 'library' && this._sourceLibraryId) {
-        nameEl.value = `${this._sourceLibraryId}_copy`;
+        nameEl.value = `${this._sourceLibraryId} (edit)`;
       } else {
         nameEl.value = '';
       }

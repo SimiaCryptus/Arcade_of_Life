@@ -1288,7 +1288,11 @@ export class PatternZoo {
           <div class="pz-card-actions">
             <button class="pz-card-btn pz-card-reset" title="Reset preview">↺</button>
             <button class="pz-card-btn pz-card-pause" title="Pause preview">⏸</button>
-             ${pattern._isCustom ? '<button class="pz-card-btn pz-card-edit" title="Edit in pattern editor">✏ Edit</button>' : ''}
+             ${
+               pattern._isCustom
+                 ? '<button class="pz-card-btn pz-card-edit" title="Edit in pattern editor">✏ Edit</button>'
+                 : '<button class="pz-card-btn pz-card-edit" title="Open in pattern editor (read-only; save as new)">✏ Edit</button>'
+             }
              ${pattern._isCustom ? '<button class="pz-card-btn pz-card-delete" title="Delete custom pattern">🗑</button>' : ''}
             ${this.game ? '<button class="pz-card-btn pz-card-place" title="Load into game pattern editor">⊕ Use</button>' : ''}
           </div>
@@ -1368,6 +1372,11 @@ export class PatternZoo {
   _openEditorForPattern(pattern) {
     if (!this.game || !this.game.drawTools) return;
     const dt = this.game.drawTools;
+    // Open the editor panel FIRST, then load the pattern. Opening the
+    // panel may reset editor state (clearing cells, resetting mode to
+    // 'new'), so loading the pattern afterwards ensures the library
+    // pattern's cells and mode survive into the editor.
+    dt._openEditorPanel();
     // Load pattern cells into the editor. Built-in (library) patterns
     // load in read-only "library" mode (must save-as-new). Custom
     // patterns load in editable "edit" mode.
@@ -1376,17 +1385,12 @@ export class PatternZoo {
     } else {
       dt.loadPatternIntoEditor(pattern.cells, null, 'library', pattern.id);
     }
-    // Open the editor on top of the zoo. The editor has a higher z-index
-    // than the zoo, so it will appear above. We intentionally keep the
-    // zoo open so closing the editor returns the user to the zoo rather
-    // than back to the game.
-    dt._openEditorPanel();
   }
   _openEditorForNew() {
     if (!this.game || !this.game.drawTools) return;
     const dt = this.game.drawTools;
-    dt.loadPatternIntoEditor([], null, 'new', null);
     dt._openEditorPanel();
+    dt.loadPatternIntoEditor([], null, 'new', null);
   }
   _deleteCustomPattern(pattern) {
     if (!pattern._isCustom || !pattern._customName) return;
@@ -1511,7 +1515,15 @@ export class PatternZoo {
               <button id="pz-detail-rename-custom" class="pz-tool-btn">Rename</button>
             </div>
           </div>`
-      : '';
+      : `<div class="pz-detail-library-controls" style="margin-top:14px;padding:10px;background:rgba(102,204,255,0.06);border:1px solid #66ccff;border-radius:4px;">
+            <strong style="color:#66ccff;">📚 Library Pattern</strong>
+            <p style="font-size:11px;color:#a0a0c0;margin:6px 0 8px;font-style:italic;">
+              Built-in patterns are read-only. Opening in the editor lets you tweak the cells and save the result as a new custom pattern.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button id="pz-detail-edit-library" class="pz-tool-btn" style="color:#66ccff;border-color:#66ccff;">✏ Open in Editor (save as new)</button>
+            </div>
+          </div>`;
     const detailRule = this._getNativeRulesetFor(pattern);
     const detailRuleDef = getRuleset(detailRule);
     const detailRuleLabel = detailRuleDef
@@ -1617,6 +1629,13 @@ export class PatternZoo {
       delCustomBtn.addEventListener('click', () => {
         this._deleteCustomPattern(pattern);
         this._closeDetail();
+      });
+    }
+    const editLibraryBtn = this.detailEl.querySelector('#pz-detail-edit-library');
+    if (editLibraryBtn) {
+      editLibraryBtn.addEventListener('click', () => {
+        this._closeDetail();
+        this._openEditorForPattern(pattern);
       });
     }
     const renameBtn = this.detailEl.querySelector('#pz-detail-rename-custom');
