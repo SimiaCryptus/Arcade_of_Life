@@ -1,91 +1,91 @@
 name: ✨ Feature Request
-    description: Suggest a new feature or enhancement
-    title: "[Feature]: "
-    labels: ["enhancement", "needs-triage"]
-    body:
-      - type: markdown
-        attributes:
-          value: |
-            Got an idea to make The Arcade of Life better? We'd love to hear it!
-    
-      - type: textarea
-        id: problem
-        attributes:
-          label: Problem / Motivation
-          description: What problem does this feature solve? What's missing or frustrating today?
-          placeholder: I want to be able to share my custom levels with friends via URL...
-        validations:
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Got an idea to make The Arcade of Life better? We'd love to hear it!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: What problem does this feature solve? What's missing or frustrating today?
+      placeholder: I want to be able to share my custom levels with friends via URL...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature you'd like to see.
+      placeholder: Add a "Share Level" button in the Level Designer that generates a shareable URL...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you thought about other ways to solve this problem?
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      options:
+        - New Game Mode
+        - New Ruleset / CA Engine
+        - New Pattern / Pattern Library
+        - Drawing Tool / Ink Type
+        - Level Designer
+        - Visual Effects / Renderer
+        - Audio / SFX
+        - UI / UX
+        - Performance / Optimization
+        - Console API / Cheats
+        - Accessibility
+        - Mobile / Touch
+        - PWA / Offline
+        - Developer Experience
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Estimated Scope
+      description: How big of a change do you think this is?
+      options:
+        - Small (a few lines, single file)
+        - Medium (new module or significant refactor)
+        - Large (cross-cutting feature affecting multiple systems)
+        - Not sure
+
+  - type: textarea
+    id: mockup
+    attributes:
+      label: Mockups / Examples
+      description: Screenshots, sketches, links to similar features in other projects, etc.
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd be willing to submit a PR for this feature
+        - label: I'd be willing to help test this feature
+        - label: I'd be willing to help with documentation
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched existing issues and discussions to make sure this isn't a duplicate
           required: true
-    
-      - type: textarea
-        id: solution
-        attributes:
-          label: Proposed Solution
-          description: Describe the feature you'd like to see.
-          placeholder: Add a "Share Level" button in the Level Designer that generates a shareable URL...
-        validations:
-          required: true
-    
-      - type: textarea
-        id: alternatives
-        attributes:
-          label: Alternatives Considered
-          description: Have you thought about other ways to solve this problem?
-    
-      - type: dropdown
-        id: category
-        attributes:
-          label: Feature Category
-          options:
-            - New Game Mode
-            - New Ruleset / CA Engine
-            - New Pattern / Pattern Library
-            - Drawing Tool / Ink Type
-            - Level Designer
-            - Visual Effects / Renderer
-            - Audio / SFX
-            - UI / UX
-            - Performance / Optimization
-            - Console API / Cheats
-            - Accessibility
-            - Mobile / Touch
-            - PWA / Offline
-            - Developer Experience
-            - Documentation
-            - Other
-        validations:
-          required: true
-    
-      - type: dropdown
-        id: scope
-        attributes:
-          label: Estimated Scope
-          description: How big of a change do you think this is?
-          options:
-            - Small (a few lines, single file)
-            - Medium (new module or significant refactor)
-            - Large (cross-cutting feature affecting multiple systems)
-            - Not sure
-    
-      - type: textarea
-        id: mockup
-        attributes:
-          label: Mockups / Examples
-          description: Screenshots, sketches, links to similar features in other projects, etc.
-    
-      - type: checkboxes
-        id: contribution
-        attributes:
-          label: Contribution
-          options:
-            - label: I'd be willing to submit a PR for this feature
-            - label: I'd be willing to help test this feature
-            - label: I'd be willing to help with documentation
-    
-      - type: checkboxes
-        id: checks
-        attributes:
-          label: Pre-submission Checklist
-          options:
-            - label: I have searched existing issues and discussions to make sure this isn't a duplicate
-              required: true

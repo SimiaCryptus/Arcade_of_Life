@@ -1,86 +1,86 @@
 name: 🐌 Performance Issue
-    description: Report a slowdown, frame drop, or memory issue
-    title: "[Perf]: "
-    labels: ["performance", "needs-triage"]
-    body:
-      - type: textarea
-        id: description
-        attributes:
-          label: Performance Issue Description
-          description: Describe what's slow, laggy, or consuming too many resources.
-        validations:
-          required: true
-    
-      - type: textarea
-        id: reproduction
-        attributes:
-          label: Steps to Reproduce
-          description: How can we reproduce the slowdown?
-        validations:
-          required: true
-    
-      - type: input
-        id: fps
-        attributes:
-          label: Observed FPS
-          description: Toggle FPS display with `F` key. What FPS do you see?
-          placeholder: e.g., 15 fps (expected 60)
-    
-      - type: input
-        id: grid-size
-        attributes:
-          label: Grid Size
-          description: Approximate grid dimensions (visible in settings)
-          placeholder: e.g., 200x150
-    
-      - type: input
-        id: cell-count
-        attributes:
-          label: Approximate Live Cell Count
-          description: Run `cheats.cellCount()` in console if available
-    
-      - type: dropdown
-        id: backend
-        attributes:
-          label: Simulation Backend
-          options:
-            - CPU (default)
-            - WebGL2 GPU
-            - Tried both
-        validations:
-          required: true
-    
-      - type: textarea
-        id: vfx-stats
-        attributes:
-          label: VFX Stats
-          description: Run `cheats.vfxStats()` in console and paste the output
-          render: shell
-    
-      - type: dropdown
-        id: browser
-        attributes:
-          label: Browser
-          options:
-            - Chrome
-            - Edge
-            - Firefox
-            - Safari (desktop)
-            - Safari (iOS)
-            - Chrome (Android)
-            - Other
-        validations:
-          required: true
-    
-      - type: input
-        id: hardware
-        attributes:
-          label: Hardware
-          description: CPU, GPU, RAM (especially relevant for performance issues)
-          placeholder: e.g., M1 MacBook Air, 16GB RAM
-    
-      - type: textarea
-        id: profiling
-        attributes:
-          label: Profiling Data
-          description: If you've captured a Chrome DevTools Performance recording, share key findings or attach the .json export.
+description: Report a slowdown, frame drop, or memory issue
+title: "[Perf]: "
+labels: ["performance", "needs-triage"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Performance Issue Description
+      description: Describe what's slow, laggy, or consuming too many resources.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce the slowdown?
+    validations:
+      required: true
+
+  - type: input
+    id: fps
+    attributes:
+      label: Observed FPS
+      description: Toggle FPS display with `F` key. What FPS do you see?
+      placeholder: e.g., 15 fps (expected 60)
+
+  - type: input
+    id: grid-size
+    attributes:
+      label: Grid Size
+      description: Approximate grid dimensions (visible in settings)
+      placeholder: e.g., 200x150
+
+  - type: input
+    id: cell-count
+    attributes:
+      label: Approximate Live Cell Count
+      description: Run `cheats.cellCount()` in console if available
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Simulation Backend
+      options:
+        - CPU (default)
+        - WebGL2 GPU
+        - Tried both
+    validations:
+      required: true
+
+  - type: textarea
+    id: vfx-stats
+    attributes:
+      label: VFX Stats
+      description: Run `cheats.vfxStats()` in console and paste the output
+      render: shell
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Edge
+        - Firefox
+        - Safari (desktop)
+        - Safari (iOS)
+        - Chrome (Android)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      description: CPU, GPU, RAM (especially relevant for performance issues)
+      placeholder: e.g., M1 MacBook Air, 16GB RAM
+
+  - type: textarea
+    id: profiling
+    attributes:
+      label: Profiling Data
+      description: If you've captured a Chrome DevTools Performance recording, share key findings or attach the .json export.

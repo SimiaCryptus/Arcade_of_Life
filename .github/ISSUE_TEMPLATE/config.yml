@@ -1,11 +1,11 @@
 blank_issues_enabled: true
-    contact_links:
-      - name: 🎮 Play the Game
-        url: https://aol.cognotik.com
-        about: Try the hosted version of The Arcade of Life
-      - name: 💬 Discussions
-        url: https://github.com/SimiaCryptus/arcade-of-life/discussions
-        about: Ask questions, share patterns, or discuss ideas
-      - name: 📖 Console Guide
-        url: https://github.com/SimiaCryptus/arcade-of-life/blob/main/console_guide.md
-        about: Learn the in-game console API before reporting issues
+contact_links:
+  - name: 🎮 Play the Game
+    url: https://aol.cognotik.com
+    about: Try the hosted version of The Arcade of Life
+  - name: 💬 Discussions
+    url: https://github.com/SimiaCryptus/arcade-of-life/discussions
+    about: Ask questions, share patterns, or discuss ideas
+  - name: 📖 Console Guide
+    url: https://github.com/SimiaCryptus/arcade-of-life/blob/main/console_guide.md
+    about: Learn the in-game console API before reporting issues

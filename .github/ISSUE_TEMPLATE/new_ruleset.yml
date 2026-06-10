@@ -1,83 +1,83 @@
 name: 🧬 New Ruleset Proposal
-    description: Suggest a new cellular automaton ruleset to add to the game
-    title: "[Ruleset]: "
-    labels: ["ruleset", "enhancement"]
-    body:
-      - type: markdown
-        attributes:
-          value: |
-            Want to propose a new CA ruleset? Awesome! Please provide as much detail as possible so we can implement and balance it for gameplay.
-    
-      - type: input
-        id: name
-        attributes:
-          label: Ruleset Name
-          placeholder: e.g., HighLife, Day & Night, Maze
-        validations:
-          required: true
-    
-      - type: input
-        id: notation
-        attributes:
-          label: Notation
-          description: B/S notation if applicable, or describe the rule type
-          placeholder: e.g., B36/S23, B3/S12345, or "3-state Brian's Brain variant"
-        validations:
-          required: true
-    
-      - type: dropdown
-        id: type
-        attributes:
-          label: Ruleset Type
-          options:
-            - Standard B/S (2-state, Moore neighborhood)
-            - Multi-state (3+ states)
-            - Custom neighborhood (hex, tri, extended)
-            - Time-integrated (cells remember history)
-            - Probabilistic / Fractional
-            - Turing Complete Ant (TCA)
-            - Other (describe below)
-        validations:
-          required: true
-    
-      - type: textarea
-        id: description
-        attributes:
-          label: Rule Description
-          description: Explain the rule precisely — birth/survival conditions, state transitions, etc.
-          placeholder: |
-            A cell is born if it has exactly 3 or 6 live neighbors.
-            A cell survives if it has 2 or 3 live neighbors.
-            Otherwise it dies.
-        validations:
-          required: true
-    
-      - type: textarea
-        id: character
-        attributes:
-          label: Behavior / Character
-          description: What's interesting about this ruleset? What kind of patterns emerge?
-          placeholder: Self-replicating patterns, explosive growth, stable oscillators, etc.
-        validations:
-          required: true
-    
-      - type: textarea
-        id: gameplay
-        attributes:
-          label: Gameplay Implications
-          description: How would this ruleset affect gameplay? Would gliders still work? Would it favor offense or defense?
-    
-      - type: textarea
-        id: references
-        attributes:
-          label: References
-          description: Links to LifeWiki, papers, or other resources about this ruleset.
-          placeholder: |
-            - https://conwaylife.com/wiki/...
-            - Wikipedia article: ...
-    
-      - type: textarea
-        id: patterns
-        attributes:
-          label: Notable Patterns
-          description: Are there famous patterns specific to this ruleset? Include RLE if possible.
+description: Suggest a new cellular automaton ruleset to add to the game
+title: "[Ruleset]: "
+labels: ["ruleset", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Want to propose a new CA ruleset? Awesome! Please provide as much detail as possible so we can implement and balance it for gameplay.
+
+  - type: input
+    id: name
+    attributes:
+      label: Ruleset Name
+      placeholder: e.g., HighLife, Day & Night, Maze
+    validations:
+      required: true
+
+  - type: input
+    id: notation
+    attributes:
+      label: Notation
+      description: B/S notation if applicable, or describe the rule type
+      placeholder: e.g., B36/S23, B3/S12345, or "3-state Brian's Brain variant"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Ruleset Type
+      options:
+        - Standard B/S (2-state, Moore neighborhood)
+        - Multi-state (3+ states)
+        - Custom neighborhood (hex, tri, extended)
+        - Time-integrated (cells remember history)
+        - Probabilistic / Fractional
+        - Turing Complete Ant (TCA)
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Rule Description
+      description: Explain the rule precisely — birth/survival conditions, state transitions, etc.
+      placeholder: |
+        A cell is born if it has exactly 3 or 6 live neighbors.
+        A cell survives if it has 2 or 3 live neighbors.
+        Otherwise it dies.
+    validations:
+      required: true
+
+  - type: textarea
+    id: character
+    attributes:
+      label: Behavior / Character
+      description: What's interesting about this ruleset? What kind of patterns emerge?
+      placeholder: Self-replicating patterns, explosive growth, stable oscillators, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: gameplay
+    attributes:
+      label: Gameplay Implications
+      description: How would this ruleset affect gameplay? Would gliders still work? Would it favor offense or defense?
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to LifeWiki, papers, or other resources about this ruleset.
+      placeholder: |
+        - https://conwaylife.com/wiki/...
+        - Wikipedia article: ...
+
+  - type: textarea
+    id: patterns
+    attributes:
+      label: Notable Patterns
+      description: Are there famous patterns specific to this ruleset? Include RLE if possible.
