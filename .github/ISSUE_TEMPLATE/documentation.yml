@@ -1,0 +1,39 @@
+name: 📖 Documentation Issue
+    description: Report missing, unclear, or incorrect documentation
+    title: "[Docs]: "
+    labels: ["documentation"]
+    body:
+      - type: dropdown
+        id: location
+        attributes:
+          label: Documentation Location
+          options:
+            - README.md
+            - console_guide.md
+            - In-game Help / Guide overlay
+            - Code comments / JSDoc
+            - Issue templates
+            - Contributing guide
+            - Other (specify below)
+        validations:
+          required: true
+    
+      - type: textarea
+        id: issue
+        attributes:
+          label: Issue Description
+          description: What's wrong, missing, or unclear?
+        validations:
+          required: true
+    
+      - type: textarea
+        id: suggestion
+        attributes:
+          label: Suggested Improvement
+          description: How should it be fixed? Proposed wording is very welcome.
+    
+      - type: input
+        id: link
+        attributes:
+          label: Link / File Path
+          description: Direct link or file path to the documentation in question

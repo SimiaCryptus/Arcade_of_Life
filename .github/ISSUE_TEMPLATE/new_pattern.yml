@@ -1,0 +1,88 @@
+name: 🔬 New Pattern Submission
+    description: Submit a new Life pattern to add to the Pattern Zoo
+    title: "[Pattern]: "
+    labels: ["pattern", "enhancement"]
+    body:
+      - type: markdown
+        attributes:
+          value: |
+            Submitting a cool pattern? Please provide the RLE and metadata below.
+    
+      - type: input
+        id: name
+        attributes:
+          label: Pattern Name
+          placeholder: e.g., Copperhead, Snark, R-pentomino
+        validations:
+          required: true
+    
+      - type: dropdown
+        id: category
+        attributes:
+          label: Category
+          options:
+            - Spaceship
+            - Oscillator
+            - Still Life
+            - Gun
+            - Methuselah
+            - Puffer
+            - Rake
+            - Wick / Fuse
+            - Reflector
+            - Other
+        validations:
+          required: true
+    
+      - type: textarea
+        id: rle
+        attributes:
+          label: RLE Encoding
+          description: Run-Length Encoded pattern data
+          placeholder: |
+            x = 3, y = 3, rule = B3/S23
+            bo$2bo$3o!
+          render: text
+        validations:
+          required: true
+    
+      - type: input
+        id: ruleset
+        attributes:
+          label: Target Ruleset
+          description: Which ruleset does this pattern work in?
+          placeholder: B3/S23 (Conway's Life)
+        validations:
+          required: true
+    
+      - type: textarea
+        id: description
+        attributes:
+          label: Description
+          description: What does this pattern do? Period, speed, special properties, etc.
+          placeholder: |
+            A c/10 orthogonal spaceship discovered in 2016.
+            Period: 10, Speed: c/10 orthogonal
+        validations:
+          required: true
+    
+      - type: input
+        id: discoverer
+        attributes:
+          label: Discoverer / Year (if known)
+          placeholder: e.g., Tim Coe, 2016
+    
+      - type: textarea
+        id: references
+        attributes:
+          label: References
+          description: LifeWiki link, original paper, forum post, etc.
+          placeholder: https://conwaylife.com/wiki/Copperhead
+    
+      - type: checkboxes
+        id: rights
+        attributes:
+          label: Attribution
+          options:
+            - label: This pattern is in the public domain, or I have permission to submit it
+              required: true

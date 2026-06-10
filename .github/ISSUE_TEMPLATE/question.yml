@@ -1,0 +1,40 @@
+name: ❓ Question
+    description: Ask a question about the game, code, or CA mechanics
+    title: "[Question]: "
+    labels: ["question"]
+    body:
+      - type: markdown
+        attributes:
+          value: |
+            > 💡 **Tip:** For open-ended discussions, consider using [GitHub Discussions](https://github.com/SimiaCryptus/arcade-of-life/discussions) instead.
+    
+      - type: textarea
+        id: question
+        attributes:
+          label: Your Question
+          description: What would you like to know?
+        validations:
+          required: true
+    
+      - type: textarea
+        id: context
+        attributes:
+          label: Context
+          description: What have you already tried? What documentation have you looked at?
+    
+      - type: dropdown
+        id: topic
+        attributes:
+          label: Topic
+          options:
+            - Gameplay / How to play
+            - Cellular Automata concepts
+            - Console API / Cheats
+            - Level Designer
+            - Pattern Editor / RLE format
+            - Custom rulesets
+            - Building / Contributing
+            - PWA / Installation
+            - Other
+        validations:
+          required: true

@@ -1,0 +1,74 @@
+name: 🗺️ New Level Submission
+    description: Submit a custom level designed in the Level Designer
+    title: "[Level]: "
+    labels: ["level", "content"]
+    body:
+      - type: markdown
+        attributes:
+          value: |
+            Designed a fun level? Share it for inclusion in the official catalog!
+    
+      - type: input
+        id: name
+        attributes:
+          label: Level Name
+        validations:
+          required: true
+    
+      - type: dropdown
+        id: mode
+        attributes:
+          label: Game Mode
+          options:
+            - Missile Defender
+            - Space Invaders
+            - Tower Defense Simulator
+            - Spectator / Showcase
+            - Free Play / Sandbox
+            - Other
+        validations:
+          required: true
+    
+      - type: dropdown
+        id: difficulty
+        attributes:
+          label: Difficulty
+          options:
+            - Tutorial / Beginner
+            - Easy
+            - Medium
+            - Hard
+            - Expert
+            - Impossible (showcase only)
+        validations:
+          required: true
+    
+      - type: textarea
+        id: description
+        attributes:
+          label: Level Description
+          description: What makes this level interesting? Strategy hints, gimmicks, etc.
+        validations:
+          required: true
+    
+      - type: textarea
+        id: json
+        attributes:
+          label: Level JSON
+          description: Paste the exported JSON from the Level Designer
+          render: json
+        validations:
+          required: true
+    
+      - type: textarea
+        id: screenshots
+        attributes:
+          label: Screenshots
+          description: Drag-and-drop screenshots of the level (initial state, gameplay, etc.)
+    
+      - type: input
+        id: tested-on
+        attributes:
+          label: Tested Rulesets
+          description: Which rulesets did you test this level on?
+          placeholder: B3/S23, HighLife

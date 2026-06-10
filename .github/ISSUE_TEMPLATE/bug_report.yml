@@ -1,0 +1,162 @@
+name: 🐛 Bug Report
+    description: Report a bug or unexpected behavior in the game
+    title: "[Bug]: "
+    labels: ["bug", "needs-triage"]
+    body:
+      - type: markdown
+        attributes:
+          value: |
+            Thanks for taking the time to report a bug! Please fill out the form below so we can reproduce and fix the issue.
+    
+      - type: textarea
+        id: description
+        attributes:
+          label: Bug Description
+          description: A clear and concise description of what the bug is.
+          placeholder: When I draw a glider in Missile Defender, it disappears immediately...
+        validations:
+          required: true
+    
+      - type: textarea
+        id: reproduction
+        attributes:
+          label: Steps to Reproduce
+          description: Step-by-step instructions to reproduce the bug.
+          placeholder: |
+            1. Open the game
+            2. Select Missile Defender mode
+            3. Choose the Glider pattern
+            4. Click on the grid at position (10, 10)
+            5. Observe that...
+        validations:
+          required: true
+    
+      - type: textarea
+        id: expected
+        attributes:
+          label: Expected Behavior
+          description: What did you expect to happen?
+        validations:
+          required: true
+    
+      - type: textarea
+        id: actual
+        attributes:
+          label: Actual Behavior
+          description: What actually happened? Include error messages from the browser console (F12) if any.
+        validations:
+          required: true
+    
+      - type: dropdown
+        id: game-mode
+        attributes:
+          label: Game Mode
+          description: Which game mode were you playing?
+          options:
+            - Missile Defender
+            - Space Invaders
+            - Tower Defense Simulator
+            - Fire Line
+            - Free Play / Sandbox
+            - Level Designer
+            - Pattern Editor
+            - Pattern Zoo
+            - Main Menu / Settings
+            - Other (specify in description)
+        validations:
+          required: true
+    
+      - type: input
+        id: ruleset
+        attributes:
+          label: Active Ruleset
+          description: Which CA ruleset was active? (e.g., B3/S23, HighLife, Seeds)
+          placeholder: B3/S23 (Conway's Life)
+    
+      - type: dropdown
+        id: backend
+        attributes:
+          label: Simulation Backend
+          description: Were you using CPU or WebGL2 backend?
+          options:
+            - CPU (default)
+            - WebGL2 GPU
+            - Not sure
+    
+      - type: dropdown
+        id: browser
+        attributes:
+          label: Browser
+          options:
+            - Chrome
+            - Edge
+            - Firefox
+            - Safari (desktop)
+            - Safari (iOS)
+            - Chrome (Android)
+            - Other (specify in description)
+        validations:
+          required: true
+    
+      - type: input
+        id: browser-version
+        attributes:
+          label: Browser Version
+          placeholder: e.g., Chrome 120.0.6099.71
+    
+      - type: dropdown
+        id: platform
+        attributes:
+          label: Platform
+          options:
+            - Windows
+            - macOS
+            - Linux
+            - iOS
+            - Android
+            - ChromeOS
+            - Other
+        validations:
+          required: true
+    
+      - type: dropdown
+        id: install-type
+        attributes:
+          label: Installation Type
+          options:
+            - Hosted version (aol.cognotik.com)
+            - Installed as PWA
+            - Running locally via npm run serve
+            - Opened index.html directly (file://)
+            - Cloned repo, custom setup
+    
+      - type: textarea
+        id: console-output
+        attributes:
+          label: Browser Console Output
+          description: Open DevTools (F12), check the Console tab, and paste any errors or warnings here.
+          render: shell
+    
+      - type: textarea
+        id: screenshots
+        attributes:
+          label: Screenshots / Recording
+          description: If applicable, drag-and-drop screenshots or a screen recording showing the bug.
+    
+      - type: textarea
+        id: additional
+        attributes:
+          label: Additional Context
+          description: Anything else that might help — custom settings, level JSON, pattern RLE, etc.
+    
+      - type: checkboxes
+        id: checks
+        attributes:
+          label: Pre-submission Checklist
+          options:
+            - label: I have searched existing issues to make sure this isn't a duplicate
+              required: true
+            - label: I have tried reloading the page / clearing cache
+              required: false
+            - label: I have included steps to reproduce the bug
+              required: true
