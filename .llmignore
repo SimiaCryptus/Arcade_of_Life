@@ -3,7 +3,7 @@
 *.png
 *.generated.json
 src/marked.min.js
-*.md
+#*.md
 #src/story.js
 #test/
 #levels/

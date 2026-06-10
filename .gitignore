@@ -40,7 +40,7 @@ node_modules/
 terraform.tfstate
 .doc-processor-cache/
 
-demo/
+#demo/
 android-twa/
 src/version.js
 
