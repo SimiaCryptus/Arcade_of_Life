@@ -99,7 +99,13 @@
        stdio: 'inherit',
        cwd: projectRoot,
        ...opts,
-       env: { ...process.env, ...(opts.env || {}) },
+       env: {
+         ...process.env,
+         ...(opts.env || {}),
+         // Ensure only ANDROID_HOME is set, unset the deprecated ANDROID_SDK_ROOT
+         // to avoid Gradle conflicts
+         ANDROID_SDK_ROOT: undefined,
+       },
      });
     }
 
@@ -145,6 +151,7 @@
        process.env.ANDROID_SDK_ROOT = home;
      } else if (!home && root) {
        process.env.ANDROID_HOME = root;
+       process.env.ANDROID_SDK_ROOT = undefined;
      }
 
 

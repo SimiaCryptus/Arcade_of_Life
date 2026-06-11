@@ -1,104 +1,272 @@
 {
-      "manifest_version": 3,
-      "name": "The Arcade of Life",
-      "short_name": "ArcadeOfLife",
-      "version": "0.0.1",
-      "description": "Defend your cities from incoming missiles using Conway's Game of Life!",
-      "start_url": "./",
-      "scope": "./",
-      "display": "standalone",
-      "orientation": "landscape",
-      "background_color": "#000010",
-      "theme_color": "#00ffff",
-      "icons": [
-        {
-          "src": "icons/icon-72.png",
-          "sizes": "72x72",
-          "type": "image/png",
-          "purpose": "any maskable"
-        },
-        {
-          "src": "icons/icon-96.png",
-          "sizes": "96x96",
-          "type": "image/png",
-          "purpose": "any maskable"
-        },
-        {
-          "src": "icons/icon-128.png",
-          "sizes": "128x128",
-          "type": "image/png",
-          "purpose": "any maskable"
-        },
-        {
-          "src": "icons/icon-144.png",
-          "sizes": "144x144",
-          "type": "image/png",
-          "purpose": "any maskable"
-        },
-        {
-          "src": "icons/icon-152.png",
-          "sizes": "152x152",
-          "type": "image/png",
-          "purpose": "any maskable"
-        },
-        {
-          "src": "icons/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png",
-          "purpose": "any maskable"
-        },
-        {
-          "src": "icons/icon-384.png",
-          "sizes": "384x384",
-          "type": "image/png",
-          "purpose": "any maskable"
-        },
-        {
-          "src": "icons/icon-512.png",
-          "sizes": "512x512",
-          "type": "image/png",
-          "purpose": "any maskable"
-        }
-      ],
-      "categories": ["games", "entertainment"],
-      "lang": "en",
-      "dir": "ltr",
-      "shortcuts": [
-        {
-          "name": "New Game",
-          "short_name": "Play",
-          "description": "Start a new game immediately",
-          "url": "./?autostart=1",
-          "icons": [
-            {
-              "src": "icons/icon-96.png",
-              "sizes": "96x96"
-            }
-          ]
-        },
-        {
-          "name": "Pattern Zoo",
-          "short_name": "Zoo",
-          "description": "Browse the Game of Life pattern zoo",
-          "url": "./?mode=zoo",
-          "icons": [
-            {
-              "src": "icons/icon-96.png",
-              "sizes": "96x96"
-            }
-          ]
-        },
-        {
-          "name": "Level Designer",
-          "short_name": "Designer",
-          "description": "Create and edit custom levels",
-          "url": "./?mode=designer",
-          "icons": [
-            {
-              "src": "icons/icon-96.png",
-              "sizes": "96x96"
-            }
-          ]
-        }
-      ]
+  "name": "The Arcade of Life",
+  "short_name": "Arcade of Life",
+  "description": "Defend your cities from incoming missiles using Conway's Game of Life!",
+   "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+   "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"],
+  "orientation": "portrait-primary",
+  "theme_color": "#00ffff",
+  "background_color": "#000010",
+   "lang": "en",
+   "dir": "ltr",
+  "icons": [
+    {
+      "src": "/icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+     },
+     {
+       "src": "/icons/icon-monochrome-192.png",
+       "sizes": "192x192",
+       "type": "image/png",
+       "purpose": "monochrome"
+     },
+     {
+       "src": "/icons/icon-monochrome-512.png",
+       "sizes": "512x512",
+       "type": "image/png",
+       "purpose": "monochrome"
+     },
+     {
+       "src": "/icons/icon.svg",
+       "sizes": "any",
+       "type": "image/svg+xml",
+       "purpose": "any maskable"
     }
+  ],
+  "categories": ["games"],
+  "screenshots": [
+    {
+       "src": "/screenshot/main_menu.png",
+       "sizes": "390x844",
+       "type": "image/png",
+       "form_factor": "narrow",
+       "label": "Main Menu — choose your game mode"
+    },
+    {
+       "src": "/screenshot/missile_defense.png",
+       "sizes": "390x844",
+       "type": "image/png",
+       "form_factor": "narrow",
+       "label": "Missile Defender — intercept incoming gliders"
+     },
+     {
+       "src": "/screenshot/space_invaders.png",
+       "sizes": "390x844",
+       "type": "image/png",
+       "form_factor": "narrow",
+       "label": "Space Invaders — shoot down descending spaceships"
+     },
+     {
+       "src": "/screenshot/tower_defense.png",
+       "sizes": "390x844",
+       "type": "image/png",
+       "form_factor": "narrow",
+       "label": "Tower Defense — place barriers and fire tiles strategically"
+     },
+     {
+       "src": "/screenshot/gameplay.png",
+       "sizes": "1280x800",
+       "type": "image/png",
+       "form_factor": "wide",
+       "label": "Missile Defender — wave in progress on desktop"
+     },
+     {
+       "src": "/screenshot/level_designer.png",
+       "sizes": "1280x800",
+       "type": "image/png",
+       "form_factor": "wide",
+       "label": "Level Designer — build and share custom levels"
+     },
+     {
+       "src": "/screenshot/pattern_zoo.png",
+       "sizes": "1280x800",
+       "type": "image/png",
+       "form_factor": "wide",
+       "label": "Pattern Zoo — browse hundreds of LifeWiki patterns"
+    }
+   ],
+   "shortcuts": [
+     {
+       "name": "Missile Defender",
+       "short_name": "Defender",
+       "description": "Jump straight into Missile Defender — protect your cities from incoming gliders",
+       "url": "/?mode=missile_defender",
+       "icons": [
+         {
+           "src": "/icons/shortcut-defender.png",
+           "sizes": "96x96",
+           "type": "image/png"
+         }
+       ]
+     },
+     {
+       "name": "Space Invaders",
+       "short_name": "Invaders",
+       "description": "Launch Space Invaders mode — shoot down descending spaceships",
+       "url": "/?mode=space_invaders",
+       "icons": [
+         {
+           "src": "/icons/shortcut-invaders.png",
+           "sizes": "96x96",
+           "type": "image/png"
+         }
+       ]
+     },
+     {
+       "name": "Tower Defense",
+       "short_name": "Tower",
+       "description": "Open Tower Defense Simulator — place barriers before the simulation starts",
+       "url": "/?mode=tower_defense",
+       "icons": [
+         {
+           "src": "/icons/shortcut-tower.png",
+           "sizes": "96x96",
+           "type": "image/png"
+         }
+       ]
+     },
+     {
+       "name": "Level Designer",
+       "short_name": "Designer",
+       "description": "Open the Level Designer and build a custom level",
+       "url": "/?tool=level_designer",
+       "icons": [
+         {
+           "src": "/icons/shortcut-designer.png",
+           "sizes": "96x96",
+           "type": "image/png"
+         }
+       ]
+     }
+   ],
+   "share_target": {
+     "action": "/share-target",
+     "method": "POST",
+     "enctype": "multipart/form-data",
+     "params": {
+       "title": "title",
+       "text": "text",
+       "url": "url",
+       "files": [
+         {
+           "name": "level",
+           "accept": ["application/json", ".json"]
+         },
+         {
+           "name": "pattern",
+           "accept": ["text/plain", ".rle", ".cells", ".lif"]
+         }
+       ]
+     }
+   },
+   "file_handlers": [
+     {
+       "action": "/open-level",
+       "accept": {
+         "application/json": [".json"]
+       },
+       "icons": [
+         {
+           "src": "/icons/filetype-level.png",
+           "sizes": "256x256",
+           "type": "image/png"
+         }
+       ],
+       "launch_type": "single-client"
+     },
+     {
+       "action": "/open-pattern",
+       "accept": {
+         "text/plain": [".rle", ".cells", ".lif"]
+       },
+       "icons": [
+         {
+           "src": "/icons/filetype-pattern.png",
+           "sizes": "256x256",
+           "type": "image/png"
+         }
+       ],
+       "launch_type": "single-client"
+     }
+   ],
+   "protocol_handlers": [
+     {
+       "protocol": "web+arcadeoflife",
+       "url": "/?protocol=%s"
+     }
+   ],
+   "edge_side_panel": {
+     "preferred_width": 480
+   },
+   "handle_links": "preferred",
+   "launch_handler": {
+     "client_mode": ["navigate-existing", "auto"]
+   },
+   "prefer_related_applications": false,
+   "related_applications": [
+     {
+       "platform": "webapp",
+       "url": "https://aol.cognotik.com/manifest.json",
+       "id": "com.cognotik.arcadeoflife"
+     }
+   ]
+}
