@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta content="Privacy Policy — The Arcade of Life" name="description" />
+    <title>Privacy Policy — The Arcade of Life</title>
+    <link href="./icons/favicon.ico" rel="icon" type="image/x-icon" />
+    <style>
+      /* ── Page shell ───────────────────────────────────────────── */
+      body {
+        background: #000010;
+        color: #c0c0e0;
+        font-family: 'Courier New', Courier, monospace;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+      overflow: auto !important;
+      overflow-y: auto !important;
+      display: block !important;
+      touch-action: auto !important;
+      overscroll-behavior: auto !important;
+      }
+
+      /* Subtle animated grid background — same vibe as the game */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 24px 24px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* ── Layout ───────────────────────────────────────────────── */
+      .privacy-wrap {
+        position: relative;
+        z-index: 1;
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 40px 24px 80px;
+      }
+
+      /* ── Header ───────────────────────────────────────────────── */
+      .privacy-header {
+        text-align: center;
+        margin-bottom: 48px;
+      }
+
+      .privacy-header .game-title {
+        font-size: clamp(1.4rem, 4vw, 2.2rem);
+        color: #00ffff;
+        text-shadow:
+          0 0 8px #00ffff,
+          0 0 24px #0088ff;
+        letter-spacing: 0.12em;
+        margin: 0 0 4px;
+      }
+
+      .privacy-header .page-subtitle {
+        font-size: 0.85rem;
+        color: #6060a0;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        margin: 0 0 20px;
+      }
+
+      .privacy-header .scanline-divider {
+        border: none;
+        border-top: 1px solid #00ffff44;
+        box-shadow: 0 0 6px #00ffff33;
+        margin: 0 auto;
+        width: 60%;
+      }
+
+      /* ── Status badges ────────────────────────────────────────── */
+      .status-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: center;
+        margin: 32px 0 40px;
+      }
+
+      .status-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 0.82rem;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+        border: 1px solid;
+      }
+
+      .status-badge.good {
+        background: rgba(0, 255, 136, 0.08);
+        border-color: #00ff8866;
+        color: #00ff88;
+        text-shadow: 0 0 6px #00ff8866;
+      }
+
+      .status-badge.warn {
+        background: rgba(255, 170, 0, 0.08);
+        border-color: #ffaa0066;
+        color: #ffaa00;
+        text-shadow: 0 0 6px #ffaa0066;
+      }
+
+      /* ── Sections ─────────────────────────────────────────────── */
+      .privacy-section {
+        margin-bottom: 36px;
+        padding: 24px 28px;
+        background: rgba(10, 10, 40, 0.7);
+        border: 1px solid #1a1a4a;
+        border-left: 3px solid #00ffff44;
+        border-radius: 4px;
+      }
+
+      .privacy-section.danger-zone {
+        border-left-color: #ff4444aa;
+        background: rgba(40, 5, 5, 0.5);
+      }
+
+      .privacy-section.neutral-zone {
+        border-left-color: #ffaa0088;
+        background: rgba(30, 20, 0, 0.4);
+      }
+
+      .privacy-section h2 {
+        font-size: 1rem;
+        color: #00ffff;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        margin: 0 0 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .privacy-section.danger-zone h2 {
+        color: #ff6666;
+        text-shadow: 0 0 6px #ff444466;
+      }
+
+      .privacy-section.neutral-zone h2 {
+        color: #ffcc44;
+        text-shadow: 0 0 6px #ffaa0044;
+      }
+
+      .privacy-section p {
+        margin: 0 0 12px;
+        line-height: 1.75;
+        font-size: 0.9rem;
+        color: #b0b0d0;
+      }
+
+      .privacy-section p:last-child {
+        margin-bottom: 0;
+      }
+
+      .privacy-section ul {
+        margin: 8px 0 12px 0;
+        padding-left: 20px;
+        color: #b0b0d0;
+        font-size: 0.9rem;
+        line-height: 1.8;
+      }
+
+      .privacy-section ul li::marker {
+        color: #00ffff88;
+      }
+
+      /* ── Highlighted callout ──────────────────────────────────── */
+      .callout {
+        background: rgba(0, 255, 255, 0.05);
+        border: 1px solid #00ffff33;
+        border-radius: 3px;
+        padding: 12px 16px;
+        margin: 14px 0 0;
+        font-size: 0.85rem;
+        color: #80e0ff;
+        line-height: 1.7;
+      }
+
+      .callout.warn {
+        background: rgba(255, 170, 0, 0.06);
+        border-color: #ffaa0044;
+        color: #ffd080;
+      }
+
+      .callout.danger {
+        background: rgba(255, 50, 50, 0.07);
+        border-color: #ff444455;
+        color: #ff9999;
+      }
+
+      /* ── Inline code ──────────────────────────────────────────── */
+      code {
+        background: rgba(0, 255, 255, 0.08);
+        border: 1px solid #00ffff22;
+        border-radius: 3px;
+        padding: 1px 6px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.85em;
+        color: #66ddff;
+      }
+
+      /* ── Links ───────────overflow: scroll;─────────────────────────────────────── */
+      a {
+        color: #00ccff;
+        text-decoration: none;
+        border-bottom: 1px solid #00ccff44;
+        transition: color 0.15s, border-color 0.15s;
+      }
+
+      a:hover {
+        color: #00ffff;
+        border-color: #00ffff;
+        text-shadow: 0 0 6px #00ffff66;
+      }
+
+      /* ── Footer ───────────────────────────────────────────────── */
+      .privacy-footer {
+        text-align: center;
+        margin-top: 56px;
+        padding-top: 24px;
+        border-top: 1px solid #1a1a3a;
+        font-size: 0.78rem;
+        color: #404060;
+        line-height: 1.9;
+      }
+
+      .privacy-footer .back-link {
+        display: inline-block;
+        margin-top: 16px;
+        padding: 8px 24px;
+        border: 1px solid #00ffff44;
+        border-radius: 3px;
+        color: #00ccff;
+        font-size: 0.85rem;
+        letter-spacing: 0.1em;
+        transition: all 0.15s;
+      }
+
+      .privacy-footer .back-link:hover {
+        background: rgba(0, 255, 255, 0.08);
+        border-color: #00ffff;
+        color: #00ffff;
+        text-shadow: 0 0 8px #00ffff88;
+        box-shadow: 0 0 12px #00ffff22;
+      }
+
+      /* ── Glider decoration ────────────────────────────────────── */
+      .glider-art {
+        font-size: 0.6rem;
+        line-height: 1.2;
+        color: #00ffff22;
+        text-align: right;
+        margin-top: -8px;
+        margin-bottom: 8px;
+        letter-spacing: 0.05em;
+        user-select: none;
+        pointer-events: none;
+      }
+
+      /* ── Responsive ───────────────────────────────────────────── */
+      @media (max-width: 540px) {
+        .privacy-wrap {
+          padding: 24px 14px 60px;
+        }
+        .privacy-section {
+          padding: 18px 16px;
+        }
+        .status-grid {
+          flex-direction: column;
+          align-items: center;
+        }
+      }
+    </style>
+  </head>
+   <body>
+    <div class="privacy-wrap">
+
+      <!-- ── Header ─────────────────────────────────────────────── -->
+      <header class="privacy-header">
+        <p class="game-title">⬛ THE ARCADE OF LIFE ⬛</p>
+        <p class="page-subtitle">Privacy Policy &amp; Data Manifesto</p>
+        <hr class="scanline-divider" />
+      </header>
+
+      <!-- ── At-a-glance status badges ──────────────────────────── -->
+      <div class="status-grid" role="list" aria-label="Privacy status summary">
+        <div class="status-badge good" role="listitem">✔ Open Source</div>
+        <div class="status-badge good" role="listitem">✔ No Ads</div>
+        <div class="status-badge good" role="listitem">✔ No Cookies</div>
+        <div class="status-badge good" role="listitem">✔ No Tracking</div>
+        <div class="status-badge good" role="listitem">✔ No Accounts</div>
+        <div class="status-badge good" role="listitem">✔ No Servers</div>
+        <div class="status-badge warn" role="listitem">⚠ Subject to Change</div>
+      </div>
+
+      <!-- ── Section: What we collect ───────────────────────────── -->
+      <section class="privacy-section" aria-labelledby="s-collect">
+        <h2 id="s-collect">📡 What We Collect</h2>
+        <p>
+          Absolutely nothing. Zero. The void. We collect fewer data points than a dead cell in
+          an empty grid.
+        </p>
+        <p>
+          The Arcade of Life runs entirely in your browser. There is no backend, no database,
+          no analytics pipeline, and no server that knows you exist. Your game state, settings,
+          high scores, and custom levels live exclusively in your browser's
+          <code>localStorage</code> — on your device, under your control.
+        </p>
+        <div class="callout">
+          💡 To wipe everything: open DevTools → Application → Local Storage → clear the
+          <code>aol_*</code> keys. Or just uninstall the PWA. We'll never know either way.
+        </div>
+      </section>
+
+      <!-- ── Section: Cookies ────────────────────────────────────── -->
+      <section class="privacy-section" aria-labelledby="s-cookies">
+        <h2 id="s-cookies">🍪 Cookies</h2>
+        <p>
+          There are no cookies. Not even the good kind. We didn't bake any, we don't serve any,
+          and we won't ask you to accept a banner about them — because there is nothing to accept.
+        </p>
+        <p>
+          The service worker used for offline PWA support stores a cache of game assets in your
+          browser's Cache API. This is purely for making the game work offline and contains no
+          personal information whatsoever.
+        </p>
+      </section>
+
+      <!-- ── Section: Third parties ─────────────────────────────── -->
+      <section class="privacy-section" aria-labelledby="s-third">
+        <h2 id="s-third">🌐 Third-Party Services</h2>
+        <p>
+          None. The game loads no external scripts, no ad networks, no social widgets, no
+          telemetry SDKs, and no CDN-hosted libraries. Every byte is served from the same origin
+          as the page itself.
+        </p>
+        <ul>
+          <li>No Google Analytics</li>
+          <li>No Facebook Pixel</li>
+          <li>No Sentry / Datadog / any crash reporter</li>
+          <li>No "share" buttons phoning home</li>
+          <li>No cryptocurrency miners (obviously)</li>
+        </ul>
+        <p>
+          The GitHub link in the footer is just a plain <code>&lt;a&gt;</code> tag. GitHub will
+          see your IP if you click it — that's between you and GitHub.
+        </p>
+      </section>
+
+      <!-- ── Section: Open source ────────────────────────────────── -->
+      <section class="privacy-section" aria-labelledby="s-oss">
+        <h2 id="s-oss">🔓 Open Source &amp; Auditable</h2>
+        <p>
+          You don't have to take our word for any of this. The entire codebase is open source
+          under the <strong>LGPL 3.0</strong> licence and available for inspection at:
+        </p>
+        <p>
+          <a
+            href="https://github.com/SimiaCryptus/Arcade_of_Life"
+            target="_blank"
+            rel="noopener noreferrer"
+          >github.com/SimiaCryptus/Arcade_of_Life</a>
+        </p>
+        <p>
+          If you find something that contradicts this policy — a hidden tracker, a sneaky fetch,
+          a rogue cookie — please open an issue. We'd genuinely want to know.
+        </p>
+        <div class="callout">
+          🔬 Paranoid? Run <code>cheats.help()</code> in the browser console to inspect the live
+          game API. Everything is right there in plain JavaScript — no minification, no
+          obfuscation.
+        </div>
+      </section>
+
+      <!-- ── Section: The Enshittification Clause ────────────────── -->
+      <section class="privacy-section danger-zone" aria-labelledby="s-enshit">
+        <h2 id="s-enshit">☠ The Enshittification Clause</h2>
+        <p>
+          Let's be honest with each other. Right now this game is a labour of love: free, clean,
+          and ad-free. That's the intention and the strong preference.
+        </p>
+        <p>
+          However — and we say this with full transparency rather than hiding it in paragraph 47
+          of legalese — <strong>if donations dry up and the hosting bills don't pay themselves,
+          we reserve the right to introduce monetisation in a future version.</strong>
+        </p>
+        <p>
+          What that might look like, in rough order of how much we'd hate ourselves:
+        </p>
+        <ul>
+          <li>A tasteful, static "support the project" banner (low self-loathing)</li>
+          <li>An optional donation nag screen you can dismiss forever (mild self-loathing)</li>
+          <li>A cosmetic supporter badge or colour theme (acceptable self-loathing)</li>
+          <li>Ads. God forbid. (maximum self-loathing — we'd probably just shut it down instead)</li>
+        </ul>
+        <div class="callout danger">
+          ⚠ <strong>What we will never do regardless of financial pressure:</strong> sell your
+          data (we don't have any), introduce tracking without explicit opt-in, or lock gameplay
+          features behind a paywall. The core game will remain open source under LGPL 3.0 — that
+          licence is irrevocable.
+        </div>
+        <p style="margin-top: 14px;">
+          The best way to prevent any of this from happening is to
+          <a href="https://github.com/SimiaCryptus/Arcade_of_Life" target="_blank" rel="noopener noreferrer">
+            star the repo
+          </a>,
+          tell your friends, and — if you're feeling generous — throw a few dollars at the
+          project. A well-fed developer writes cleaner code and resists the siren call of
+          ad networks.
+        </p>
+      </section>
+
+      <!-- ── Section: Changes ────────────────────────────────────── -->
+      <section class="privacy-section neutral-zone" aria-labelledby="s-changes">
+        <h2 id="s-changes">📋 Changes to This Policy</h2>
+        <p>
+          If this policy changes materially — especially in the direction of the Enshittification
+          Clause above — we will:
+        </p>
+        <ul>
+          <li>Update this page with a clear "Last updated" date</li>
+          <li>Note the change in the GitHub repository's changelog</li>
+          <li>Not bury it in a 3am commit with the message "minor fixes"</li>
+        </ul>
+        <p>
+          Since we have no way to contact you (no accounts, no emails, no tracking — see above),
+          the onus is on you to check back if you care. We recommend starring the repo to watch
+          for releases.
+        </p>
+        <div class="callout warn">
+          📅 <strong>Last updated:</strong> June 2025 &nbsp;|&nbsp;
+          <strong>Version:</strong> 1.0 — the "we're still pure and innocent" edition
+        </div>
+      </section>
+
+      <!-- ── Section: Contact ────────────────────────────────────── -->
+      <section class="privacy-section" aria-labelledby="s-contact">
+        <h2 id="s-contact">📬 Contact</h2>
+        <p>
+          Questions, concerns, or just want to tell us about a cool glider pattern you found?
+          Open an issue or start a discussion on GitHub:
+        </p>
+        <p>
+          <a
+            href="https://github.com/SimiaCryptus/Arcade_of_Life/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+          >github.com/SimiaCryptus/Arcade_of_Life/issues</a>
+        </p>
+        <p>
+          We don't have a privacy@&nbsp;email address because we don't have a company, a legal
+          department, or a GDPR compliance officer. We have a GitHub account and good intentions.
+          That'll have to do.
+        </p>
+      </section>
+
+      <!-- ── Glider art ──────────────────────────────────────────── -->
+      <div class="glider-art" aria-hidden="true">
+        .█.<br />
+        ..█<br />
+        ███
+      </div>
+
+      <!-- ── Footer ─────────────────────────────────────────────── -->
+      <footer class="privacy-footer">
+        <p>
+          The Arcade of Life &nbsp;·&nbsp; LGPL 3.0 &nbsp;·&nbsp;
+          <a
+            href="https://github.com/SimiaCryptus/Arcade_of_Life"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Source on GitHub</a>
+        </p>
+        <p>
+          No cells were harmed in the making of this privacy policy.<br />
+          (Several gliders were annihilated, but they consented.)
+        </p>
+        <a class="back-link" href="./index.html">← Back to the Game</a>
+      </footer>
+
+    </div>
+  </body>
+</html>

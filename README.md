@@ -1,7 +1,6 @@
 # 🕹️ The Arcade of Life
 
-> **A browser-based arcade game collection powered by Conway's Game of Life — and 50+ other cellular automaton rulesets.
-**
+> **A browser-based arcade game collection powered by Conway's Game of Life — and 50+ other cellular automaton rulesets.**
 
 Draw defensive patterns that evolve into intercepting structures. Watch glider-based missiles clash with your living
 defenses. Explore exotic CA rulesets, design your own levels, and browse hundreds of known Life patterns — all in a
