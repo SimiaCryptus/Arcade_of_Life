@@ -1,3 +1,6 @@
+npm run build
+
+npm run validate
 
 aws s3 cp --recursive ./ s3://aol.cognotik.com/ \
   --exclude "node_modules/*" \
@@ -16,3 +19,7 @@ aws s3 cp --recursive ./ s3://aol.cognotik.com/ \
   --exclude ".*/*" \
   --exclude "*.sh" \
   --exclude "LICENSE"
+
+aws cloudfront create-invalidation \
+  --distribution-id EDKLKTHBU0FXD \
+  --paths "/*"
