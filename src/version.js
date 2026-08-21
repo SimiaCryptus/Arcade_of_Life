@@ -2,13 +2,13 @@
 // Regenerate via: npm run gen:version
 // Generated: 2026-06-11T21:20:29.777Z
 export const VERSION = {
-  "version": "0.1.0",
-  "gitHash": "83183644f3c086eeb6b24f04c815fd1cf79f1931",
-  "gitShortHash": "8318364-dirty",
-  "gitBranch": "main",
-  "gitTag": "0.0.1",
-  "dirty": true,
-  "buildTime": "2026-06-11T21:20:29.777Z",
-  "buildTimestamp": 1781212829778
+  version: '0.1.0',
+  gitHash: '83183644f3c086eeb6b24f04c815fd1cf79f1931',
+  gitShortHash: '8318364-dirty',
+  gitBranch: 'main',
+  gitTag: '0.0.1',
+  dirty: true,
+  buildTime: '2026-06-11T21:20:29.777Z',
+  buildTimestamp: 1781212829778,
 };
 export default VERSION;

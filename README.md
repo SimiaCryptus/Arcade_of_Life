@@ -1,4 +1,5 @@
 # ![🕹️ The Arcade of Life](og-image.png)
+
 > **A browser-based arcade game collection powered by Conway's Game of Life — and 50+ other cellular automaton rulesets.**
 
 Draw defensive patterns that evolve into intercepting structures. Watch glider-based missiles clash with your living
@@ -112,7 +113,7 @@ Invaders.
 Switch rulesets mid-game in **Settings → Ruleset**:
 
 | Ruleset         | Notation     | Character                         |
-|-----------------|--------------|-----------------------------------|
+| --------------- | ------------ | --------------------------------- |
 | Conway's Life   | B3/S23       | Classic gliders, oscillators      |
 | HighLife        | B36/S23      | Self-replicating patterns         |
 | Day & Night     | B3678/S34678 | Symmetric — dead/alive equivalent |
@@ -135,7 +136,7 @@ Switch rulesets mid-game in **Settings → Ruleset**:
 ### Ink Types
 
 | Ink         | Color        | Behavior                                      |
-|-------------|--------------|-----------------------------------------------|
+| ----------- | ------------ | --------------------------------------------- |
 | **Defense** | Blue/Green   | Evolves with CA rules — your living cells     |
 | **Enemy**   | Red/Orange   | Evolves with CA rules — hostile cells         |
 | **Barrier** | Gray         | Static dead cell — never changes, blocks life |
@@ -144,14 +145,14 @@ Switch rulesets mid-game in **Settings → Ruleset**:
 
 ### Drawing Tools
 
-| Tool            | Description                                   |
-|-----------------|-----------------------------------------------|
-| ✏️ **Freehand** | Draw with mouse/touch — variable line width   |
-| 📏 **Line**     | Straight lines with dash patterns             |
+| Tool             | Description                                   |
+| ---------------- | --------------------------------------------- |
+| ✏️ **Freehand**  | Draw with mouse/touch — variable line width   |
+| 📏 **Line**      | Straight lines with dash patterns             |
 | ⬜ **Rectangle** | Filled or outlined rectangles                 |
-| 🔵 **Ellipse**  | Circles and ovals                             |
-| 🪣 **Fill**     | Flood fill a region (solid or random density) |
-| 🔬 **Pattern**  | Stamp a pattern from the library              |
+| 🔵 **Ellipse**   | Circles and ovals                             |
+| 🪣 **Fill**      | Flood fill a region (solid or random density) |
+| 🔬 **Pattern**   | Stamp a pattern from the library              |
 
 ### Pattern Stamping
 
@@ -177,8 +178,8 @@ Build your own levels with the full-featured level designer:
 ### What You Can Place
 
 | Element            | Description                               |
-|--------------------|-------------------------------------------|
-| 🏙️ **City**       | Player objective — protect these to win   |
+| ------------------ | ----------------------------------------- |
+| 🏙️ **City**        | Player objective — protect these to win   |
 | 🔫 **Base**        | Enemy structure — destroy to score points |
 | 🌀 **Spawner**     | Repeatedly spawns a chosen pattern        |
 | 🎨 **Ink regions** | Pre-fill areas with any ink type          |
@@ -209,7 +210,7 @@ Spawners can emit any pattern from the library on a configurable interval. Popul
 The game ships with curated levels showcasing different mechanics:
 
 | Level          | Mode             | Highlights             |
-|----------------|------------------|------------------------|
+| -------------- | ---------------- | ---------------------- |
 | **Pillbox**    | Missile Defender | Classic intro level    |
 | **Firewalls**  | Missile Defender | Barrier-conduit puzzle |
 | **Mothership** | Space Invaders   | Boss wave finale       |
@@ -225,7 +226,7 @@ The game ships with curated levels showcasing different mechanics:
 ### Keyboard Shortcuts
 
 | Key       | Action                      |
-|-----------|-----------------------------|
+| --------- | --------------------------- |
 | `Space`   | Pause / Resume              |
 | `→` / `L` | Step one generation         |
 | `+` / `-` | Speed up / slow down        |
@@ -241,7 +242,7 @@ The game ships with curated levels showcasing different mechanics:
 ### Mouse / Touch
 
 | Action                       | Result                           |
-|------------------------------|----------------------------------|
+| ---------------------------- | -------------------------------- |
 | **Left drag**                | Draw with current tool           |
 | **Right click**              | Rotate pattern (in pattern tool) |
 | **Scroll wheel**             | Zoom in/out                      |
@@ -283,12 +284,12 @@ Access via the **⚙️ Settings** button or `Escape` menu:
 The renderer features a full VFX suite (all toggleable):
 
 | Effect                 | Trigger                                  |
-|------------------------|------------------------------------------|
+| ---------------------- | ---------------------------------------- |
 | 💥 **Particle bursts** | Explosions, missile impacts              |
 | 🌊 **Shockwave rings** | Expanding circles on collision           |
 | 💬 **Floating text**   | "RETURN FIRE!", "CITY HIT!", "RICOCHET!" |
 | 📳 **Screen shake**    | Intensity-scaled impact feedback         |
-| ✨ **Cell glow**        | Neon rendering for missile cells         |
+| ✨ **Cell glow**       | Neon rendering for missile cells         |
 | 🎨 **Draw-zone tint**  | Subtle playable-region highlight         |
 | 📣 **Wave banners**    | Dramatic chapter intro animations        |
 
@@ -297,7 +298,7 @@ rate.
 
 ```js
 // Check VFX performance stats in the browser console:
-cheats.vfxStats()
+cheats.vfxStats();
 ```
 
 ---
@@ -337,31 +338,31 @@ The game exposes a rich console API for power users and developers. Open browser
 
 ```js
 // === Simulation Control ===
-cheats.setRule('B36/S23')        // Switch to HighLife
-cheats.setRule('B2/S')           // Switch to Seeds (explosive!)
-cheats.setSpeed(10)              // Set simulation speed
-cheats.step(100)                 // Advance 100 generations
+cheats.setRule('B36/S23'); // Switch to HighLife
+cheats.setRule('B2/S'); // Switch to Seeds (explosive!)
+cheats.setSpeed(10); // Set simulation speed
+cheats.step(100); // Advance 100 generations
 
 // === Grid Manipulation ===
-cheats.fillRandom(0.3)           // 30% random fill
-cheats.clear()                   // Clear all cells
-cheats.placePattern('glider', 10, 10)  // Place a glider at (10,10)
-cheats.placePattern('gosper_glider_gun', 5, 5)
+cheats.fillRandom(0.3); // 30% random fill
+cheats.clear(); // Clear all cells
+cheats.placePattern('glider', 10, 10); // Place a glider at (10,10)
+cheats.placePattern('gosper_glider_gun', 5, 5);
 
 // === Game State ===
-cheats.addScore(9999)            // Add score
-cheats.skipWave()                // Skip to next wave
-cheats.godMode()                 // Cities can't be destroyed
-cheats.killAll()                 // Destroy all enemy cells
+cheats.addScore(9999); // Add score
+cheats.skipWave(); // Skip to next wave
+cheats.godMode(); // Cities can't be destroyed
+cheats.killAll(); // Destroy all enemy cells
 
 // === VFX & Debug ===
-cheats.vfxStats()                // VFX performance report
-cheats.showGrid(true)            // Toggle grid overlay
-cheats.fps()                     // Show FPS counter
+cheats.vfxStats(); // VFX performance report
+cheats.showGrid(true); // Toggle grid overlay
+cheats.fps(); // Show FPS counter
 
 // === Pattern Capture ===
-cheats.captureRegion(x, y, w, h) // Export region as RLE
-cheats.importRLE('bo$2bo$3o!')   // Import RLE string
+cheats.captureRegion(x, y, w, h); // Export region as RLE
+cheats.importRLE('bo$2bo$3o!'); // Import RLE string
 ```
 
 See the full API in **Help → Console Guide** (in-game) or `console_guide.md`.
@@ -434,7 +435,7 @@ manifest.json          PWA manifest
 ### Design Principles
 
 | Principle             | Implementation                                         |
-|-----------------------|--------------------------------------------------------|
+| --------------------- | ------------------------------------------------------ |
 | **Zero dependencies** | Pure ES6 modules, no build step                        |
 | **Modular**           | Each subsystem owns its state, exposes a focused API   |
 | **Hackable**          | Live config, console cheats, runtime ruleset switching |
@@ -566,8 +567,8 @@ Open a PR with tests for new features!
 
 ## 🌐 Browser Compatibility
 
-| Browser          | Status        | Notes                |
-|------------------|---------------|----------------------|
+| Browser          | Status         | Notes                |
+| ---------------- | -------------- | -------------------- |
 | Chrome / Edge    | ✅ Recommended | Full feature support |
 | Firefox          | ✅ Supported   | Full feature support |
 | Safari (desktop) | ✅ Supported   | Full feature support |
@@ -591,15 +592,15 @@ Open a PR with tests for new features!
 ## 📸 Screenshots
 
 |                                                |                                                  |
-|------------------------------------------------|--------------------------------------------------|
+| ---------------------------------------------- | ------------------------------------------------ |
 | ![Gameplay](screenshot/gameplay.png)           | ![Space Invaders](screenshot/space_invaders.png) |
-| *Missile Defender — wave in progress*          | *Space Invaders mode*                            |
+| _Missile Defender — wave in progress_          | _Space Invaders mode_                            |
 | ![Tower Defense](screenshot/tower_defense.png) | ![Level Designer](screenshot/level_designer.png) |
-| *Tower Defense — pre-placement phase*          | *Level Designer*                                 |
+| _Tower Defense — pre-placement phase_          | _Level Designer_                                 |
 | ![Pattern Zoo](screenshot/pattern_zoo.png)     | ![Pattern Editor](screenshot/pattern_editor.png) |
-| *Pattern Zoo — LifeWiki browser*               | *Pattern Editor*                                 |
+| _Pattern Zoo — LifeWiki browser_               | _Pattern Editor_                                 |
 | ![Help Menu](screenshot/help_menu.png)         | ![Main Menu](screenshot/main_menu.png)           |
-| *Help & Console Guide*                         | *Main Menu*                                      |
+| _Help & Console Guide_                         | _Main Menu_                                      |
 
 ---
 
@@ -609,4 +610,4 @@ LGPL 3.0 — see LICENSE file.
 
 ---
 
-*Built with ❤️ and cellular automata. No frameworks were harmed in the making of this game.*
+_Built with ❤️ and cellular automata. No frameworks were harmed in the making of this game._

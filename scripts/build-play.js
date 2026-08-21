@@ -23,14 +23,7 @@
  *   PWA's HTTPS URL (e.g. https://yourdomain.com/arcade-of-life/).
  */
 
-import {
-    copyFileSync,
-    existsSync,
-    mkdirSync,
-    readFileSync,
-    statSync,
-    writeFileSync,
-} from 'fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync, spawnSync } from 'child_process';
@@ -73,59 +66,57 @@ const DIST_DIR = 'dist';
 // ---------------------------------------------------------------------------
 
 function log(msg) {
-    console.log(`[build-play] ${msg}`);
+  console.log(`[build-play] ${msg}`);
 }
 
 function warn(msg) {
-    console.warn(`[build-play] WARNING: ${msg}`);
+  console.warn(`[build-play] WARNING: ${msg}`);
 }
 
 function fail(msg) {
-    console.error(`[build-play] ERROR: ${msg}`);
-    process.exit(1);
+  console.error(`[build-play] ERROR: ${msg}`);
+  process.exit(1);
 }
 
 function hasCommand(cmd) {
-    const result = spawnSync(process.platform === 'win32' ? 'where' : 'which', [cmd], {
-        stdio: 'ignore',
-    });
-    return result.status === 0;
+  const result = spawnSync(process.platform === 'win32' ? 'where' : 'which', [cmd], {
+    stdio: 'ignore',
+  });
+  return result.status === 0;
 }
 
 function run(cmd, opts = {}) {
-    log(`$ ${cmd}`);
-    execSync(cmd, {
-        stdio: 'inherit',
-        cwd: projectRoot,
-        ...opts,
-        env: {
-            ...process.env,
-            ...(opts.env || {}),
-            // Ensure only ANDROID_HOME is set, unset the deprecated ANDROID_SDK_ROOT
-            // to avoid Gradle conflicts
-            ANDROID_SDK_ROOT: undefined,
-        },
-    });
+  log(`$ ${cmd}`);
+  execSync(cmd, {
+    stdio: 'inherit',
+    cwd: projectRoot,
+    ...opts,
+    env: {
+      ...process.env,
+      ...(opts.env || {}),
+      // Ensure only ANDROID_HOME is set, unset the deprecated ANDROID_SDK_ROOT
+      // to avoid Gradle conflicts
+      ANDROID_SDK_ROOT: undefined,
+    },
+  });
 }
 
 function getVersion() {
-    try {
-        const manifestPath = join(projectRoot, 'manifest.json');
-        if (existsSync(manifestPath)) {
-            const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-            if (manifest.version) return manifest.version;
-        }
-    } catch {
-        /* ignore */
+  try {
+    const manifestPath = join(projectRoot, 'manifest.json');
+    if (existsSync(manifestPath)) {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      if (manifest.version) return manifest.version;
     }
-    try {
-        const pkg = JSON.parse(
-            readFileSync(join(projectRoot, 'package.json'), 'utf8'),
-        );
-        return pkg.version || '0.0.0';
-    } catch {
-        return '0.0.0';
-    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const pkg = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8'));
+    return pkg.version || '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -133,82 +124,77 @@ function getVersion() {
 // ---------------------------------------------------------------------------
 
 function preflight() {
-    log('Running preflight checks...');
-    // Reconcile Android SDK env vars. Gradle/AGP fail hard if ANDROID_HOME and
-    // ANDROID_SDK_ROOT point to different directories. Prefer ANDROID_HOME
-    // (ANDROID_SDK_ROOT is deprecated) and force them to match for child
-    // processes (gradle, bubblewrap) that we spawn.
-    const home = process.env.ANDROID_HOME;
-    const root = process.env.ANDROID_SDK_ROOT;
-    if (home && root && home !== root) {
-        warn(
-            `ANDROID_HOME (${home}) and ANDROID_SDK_ROOT (${root}) disagree.\n` +
-            `  Forcing both to ANDROID_HOME for this build.`,
-        );
-        process.env.ANDROID_SDK_ROOT = home;
-    } else if (home && !root) {
-        process.env.ANDROID_SDK_ROOT = home;
-    } else if (!home && root) {
-        process.env.ANDROID_HOME = root;
-        process.env.ANDROID_SDK_ROOT = undefined;
-    }
-
-
-    // Verify manifest exists and has required fields for TWA.
-    const manifestPath = join(projectRoot, 'manifest.json');
-    if (!existsSync(manifestPath)) {
-        fail('manifest.json not found at project root.');
-    }
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-    const required = ['name', 'short_name', 'icons', 'start_url', 'display'];
-    for (const key of required) {
-        if (!manifest[key]) {
-            warn(`manifest.json is missing recommended field: ${key}`);
-        }
-    }
-
-    // Bubblewrap requires at least one 512x512 icon for TWA splash/launcher.
-    const has512 = (manifest.icons || []).some(
-        (i) => (i.sizes || '').split(' ').includes('512x512'),
+  log('Running preflight checks...');
+  // Reconcile Android SDK env vars. Gradle/AGP fail hard if ANDROID_HOME and
+  // ANDROID_SDK_ROOT point to different directories. Prefer ANDROID_HOME
+  // (ANDROID_SDK_ROOT is deprecated) and force them to match for child
+  // processes (gradle, bubblewrap) that we spawn.
+  const home = process.env.ANDROID_HOME;
+  const root = process.env.ANDROID_SDK_ROOT;
+  if (home && root && home !== root) {
+    warn(
+      `ANDROID_HOME (${home}) and ANDROID_SDK_ROOT (${root}) disagree.\n` +
+        `  Forcing both to ANDROID_HOME for this build.`
     );
-    if (!has512) {
-        warn('manifest.json should include a 512x512 icon for Play Store TWA.');
-    }
+    process.env.ANDROID_SDK_ROOT = home;
+  } else if (home && !root) {
+    process.env.ANDROID_SDK_ROOT = home;
+  } else if (!home && root) {
+    process.env.ANDROID_HOME = root;
+    process.env.ANDROID_SDK_ROOT = undefined;
+  }
 
-    // Verify Bubblewrap CLI is installed.
-    if (!hasCommand('bubblewrap')) {
-        fail(
-            'Bubblewrap CLI not found. Install with:\n' +
-            '    npm install -g @bubblewrap/cli\n' +
-            '  Then re-run this script.',
-        );
+  // Verify manifest exists and has required fields for TWA.
+  const manifestPath = join(projectRoot, 'manifest.json');
+  if (!existsSync(manifestPath)) {
+    fail('manifest.json not found at project root.');
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const required = ['name', 'short_name', 'icons', 'start_url', 'display'];
+  for (const key of required) {
+    if (!manifest[key]) {
+      warn(`manifest.json is missing recommended field: ${key}`);
     }
+  }
 
-    // Verify Java is installed (needed for Android Gradle build).
-    if (!hasCommand('java')) {
-        warn(
-            'Java not found on PATH. Bubblewrap requires JDK 17+ for Android builds.',
-        );
-    }
+  // Bubblewrap requires at least one 512x512 icon for TWA splash/launcher.
+  const has512 = (manifest.icons || []).some((i) => (i.sizes || '').split(' ').includes('512x512'));
+  if (!has512) {
+    warn('manifest.json should include a 512x512 icon for Play Store TWA.');
+  }
 
-    // Verify configured PWA_URL looks reasonable.
-    if (!PWA_URL.startsWith('https://')) {
-        fail(
-            `PWA_URL must be an HTTPS URL. Got: ${PWA_URL}\n` +
-            '  Set the PWA_URL environment variable or edit scripts/build-play.js.',
-        );
-    }
-    if (PWA_URL.includes('example.com')) {
-        warn(
-            'PWA_URL is still set to a placeholder (example.com).\n' +
-            '  Set PWA_URL=https://your-deployed-url/ before publishing.',
-        );
-    }
+  // Verify Bubblewrap CLI is installed.
+  if (!hasCommand('bubblewrap')) {
+    fail(
+      'Bubblewrap CLI not found. Install with:\n' +
+        '    npm install -g @bubblewrap/cli\n' +
+        '  Then re-run this script.'
+    );
+  }
 
-    log('Preflight OK.');
-    log(`  PWA URL:   ${PWA_URL}`);
-    log(`  App ID:    ${ANDROID_APP_ID}`);
-    log(`  Version:   ${getVersion()}`);
+  // Verify Java is installed (needed for Android Gradle build).
+  if (!hasCommand('java')) {
+    warn('Java not found on PATH. Bubblewrap requires JDK 17+ for Android builds.');
+  }
+
+  // Verify configured PWA_URL looks reasonable.
+  if (!PWA_URL.startsWith('https://')) {
+    fail(
+      `PWA_URL must be an HTTPS URL. Got: ${PWA_URL}\n` +
+        '  Set the PWA_URL environment variable or edit scripts/build-play.js.'
+    );
+  }
+  if (PWA_URL.includes('example.com')) {
+    warn(
+      'PWA_URL is still set to a placeholder (example.com).\n' +
+        '  Set PWA_URL=https://your-deployed-url/ before publishing.'
+    );
+  }
+
+  log('Preflight OK.');
+  log(`  PWA URL:   ${PWA_URL}`);
+  log(`  App ID:    ${ANDROID_APP_ID}`);
+  log(`  Version:   ${getVersion()}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -216,57 +202,52 @@ function preflight() {
 // ---------------------------------------------------------------------------
 
 function initTwa() {
-    const twaPath = join(projectRoot, TWA_DIR);
-    if (existsSync(twaPath) && existsSync(join(twaPath, 'twa-manifest.json'))) {
-        log(`TWA project already exists at ${TWA_DIR}/. Skipping init.`);
-        log('  Delete the directory to regenerate from scratch.');
-        return;
+  const twaPath = join(projectRoot, TWA_DIR);
+  if (existsSync(twaPath) && existsSync(join(twaPath, 'twa-manifest.json'))) {
+    log(`TWA project already exists at ${TWA_DIR}/. Skipping init.`);
+    log('  Delete the directory to regenerate from scratch.');
+    return;
+  }
+
+  mkdirSync(twaPath, { recursive: true });
+  const manifestUrl = new URL('manifest.json', PWA_URL).toString();
+
+  log(`Initializing TWA project from ${manifestUrl} ...`);
+
+  log('  Bubblewrap will prompt for signing key + Android SDK details.');
+  log('  Accept defaults unless you have a reason to change them.\n');
+
+  // Pass --packageId so the generated Android project files (build.gradle,
+  // AndroidManifest.xml, etc.) are created with the correct package name
+  // from the very beginning, rather than relying on a post-init patch.
+  run(`bubblewrap init --manifest="${manifestUrl}" --packageId="${ANDROID_APP_ID}"`, {
+    cwd: twaPath,
+  });
+
+  // Patch the generated twa-manifest.json with our configured app id.
+  const twaManifestPath = join(twaPath, 'twa-manifest.json');
+  if (existsSync(twaManifestPath)) {
+    try {
+      const twaManifest = JSON.parse(readFileSync(twaManifestPath, 'utf8'));
+      twaManifest.packageId = ANDROID_APP_ID;
+      twaManifest.appVersionName = getVersion();
+      writeFileSync(twaManifestPath, JSON.stringify(twaManifest, null, 2), 'utf8');
+      log(`Patched twa-manifest.json with packageId=${ANDROID_APP_ID}`);
+      // Re-run update so all generated Android project files (build.gradle,
+      // AndroidManifest.xml, strings.xml, etc.) are regenerated to reflect
+      // the patched packageId before any build takes place.
+      log('Regenerating Android project files from patched twa-manifest.json...');
+      run('bubblewrap update', { cwd: twaPath });
+    } catch (err) {
+      warn(`Could not patch twa-manifest.json: ${err.message}`);
     }
+  }
 
-    mkdirSync(twaPath, { recursive: true });
-    const manifestUrl = new URL('manifest.json', PWA_URL).toString();
-
-    log(`Initializing TWA project from ${manifestUrl} ...`);
-
-     log('  Bubblewrap will prompt for signing key + Android SDK details.');
-     log('  Accept defaults unless you have a reason to change them.\n');
-
-     // Pass --packageId so the generated Android project files (build.gradle,
-     // AndroidManifest.xml, etc.) are created with the correct package name
-     // from the very beginning, rather than relying on a post-init patch.
-     run(
-         `bubblewrap init --manifest="${manifestUrl}" --packageId="${ANDROID_APP_ID}"`,
-         { cwd: twaPath },
-     );
-
-    // Patch the generated twa-manifest.json with our configured app id.
-    const twaManifestPath = join(twaPath, 'twa-manifest.json');
-    if (existsSync(twaManifestPath)) {
-        try {
-            const twaManifest = JSON.parse(readFileSync(twaManifestPath, 'utf8'));
-            twaManifest.packageId = ANDROID_APP_ID;
-            twaManifest.appVersionName = getVersion();
-            writeFileSync(
-                twaManifestPath,
-                JSON.stringify(twaManifest, null, 2),
-                'utf8',
-            );
-            log(`Patched twa-manifest.json with packageId=${ANDROID_APP_ID}`);
-             // Re-run update so all generated Android project files (build.gradle,
-             // AndroidManifest.xml, strings.xml, etc.) are regenerated to reflect
-             // the patched packageId before any build takes place.
-             log('Regenerating Android project files from patched twa-manifest.json...');
-             run('bubblewrap update', { cwd: twaPath });
-        } catch (err) {
-            warn(`Could not patch twa-manifest.json: ${err.message}`);
-        }
-    }
-
-    log('\nTWA project initialized.');
-    log('Next steps:');
-    log('  1. Host the generated assetlinks.json at:');
-    log(`     ${new URL('.well-known/assetlinks.json', PWA_URL).toString()}`);
-    log('  2. Run: npm run build:play:build');
+  log('\nTWA project initialized.');
+  log('Next steps:');
+  log('  1. Host the generated assetlinks.json at:');
+  log(`     ${new URL('.well-known/assetlinks.json', PWA_URL).toString()}`);
+  log('  2. Run: npm run build:play:build');
 }
 
 // ---------------------------------------------------------------------------
@@ -274,83 +255,71 @@ function initTwa() {
 // ---------------------------------------------------------------------------
 
 function buildTwa() {
-    const twaPath = join(projectRoot, TWA_DIR);
-    if (!existsSync(join(twaPath, 'twa-manifest.json'))) {
-        fail(
-            `No TWA project found at ${TWA_DIR}/.\n` +
-            '  Run: npm run build:play:init',
-        );
+  const twaPath = join(projectRoot, TWA_DIR);
+  if (!existsSync(join(twaPath, 'twa-manifest.json'))) {
+    fail(`No TWA project found at ${TWA_DIR}/.\n` + '  Run: npm run build:play:init');
+  }
+
+  // Bump version in twa-manifest.json to match current package version
+  // so each Play Store upload gets a fresh versionCode.
+  try {
+    const twaManifestPath = join(twaPath, 'twa-manifest.json');
+    const twaManifest = JSON.parse(readFileSync(twaManifestPath, 'utf8'));
+    // Always enforce the canonical package name in case the file was
+    // hand-edited or regenerated with a different id.
+    twaManifest.packageId = ANDROID_APP_ID;
+    twaManifest.appVersionName = getVersion();
+    twaManifest.appVersionCode = (twaManifest.appVersionCode || 0) + 1;
+    writeFileSync(twaManifestPath, JSON.stringify(twaManifest, null, 2), 'utf8');
+    log(
+      `Bumped appVersionCode to ${twaManifest.appVersionCode} ` +
+        `(versionName=${twaManifest.appVersionName}, ` +
+        `packageId=${twaManifest.packageId})`
+    );
+  } catch (err) {
+    warn(`Could not bump version in twa-manifest.json: ${err.message}`);
+  }
+
+  // bubblewrap update regenerates all Android project files (build.gradle,
+  // AndroidManifest.xml, strings.xml, etc.) from twa-manifest.json.
+  // This is the single source of truth for the packageId that ends up in
+  // the compiled .aab / .apk — running it here (after patching) ensures
+  // the Play Store sees com.cognotik.aol and not whatever was inferred at
+  // init time.
+  log('Regenerating Android project files from twa-manifest.json...');
+  run('bubblewrap update', { cwd: twaPath });
+
+  log('Building signed Android App Bundle (.aab) ...');
+  run('bubblewrap build', { cwd: twaPath });
+
+  // Copy artifacts to dist/.
+  const distDir = join(projectRoot, DIST_DIR);
+  if (!existsSync(distDir)) mkdirSync(distDir, { recursive: true });
+
+  const version = getVersion();
+  const artifacts = [
+    { src: 'app-release-bundle.aab', dest: `play-store-v${version}.aab` },
+    { src: 'app-release-signed.apk', dest: `play-store-v${version}.apk` },
+  ];
+
+  let copied = 0;
+  for (const { src, dest } of artifacts) {
+    const srcPath = join(twaPath, src);
+    const destPath = join(distDir, dest);
+    if (existsSync(srcPath)) {
+      copyFileSync(srcPath, destPath);
+      const size = statSync(destPath).size;
+      log(`✓ ${relative(projectRoot, destPath)} ` + `(${(size / 1024).toFixed(1)} KB)`);
+      copied++;
     }
+  }
 
-    // Bump version in twa-manifest.json to match current package version
-    // so each Play Store upload gets a fresh versionCode.
-    try {
-        const twaManifestPath = join(twaPath, 'twa-manifest.json');
-        const twaManifest = JSON.parse(readFileSync(twaManifestPath, 'utf8'));
-         // Always enforce the canonical package name in case the file was
-         // hand-edited or regenerated with a different id.
-         twaManifest.packageId = ANDROID_APP_ID;
-        twaManifest.appVersionName = getVersion();
-        twaManifest.appVersionCode = (twaManifest.appVersionCode || 0) + 1;
-        writeFileSync(
-            twaManifestPath,
-            JSON.stringify(twaManifest, null, 2),
-            'utf8',
-        );
-        log(
-            `Bumped appVersionCode to ${twaManifest.appVersionCode} ` +
-             `(versionName=${twaManifest.appVersionName}, ` +
-             `packageId=${twaManifest.packageId})`,
-        );
-    } catch (err) {
-        warn(`Could not bump version in twa-manifest.json: ${err.message}`);
-    }
-
-     // bubblewrap update regenerates all Android project files (build.gradle,
-     // AndroidManifest.xml, strings.xml, etc.) from twa-manifest.json.
-     // This is the single source of truth for the packageId that ends up in
-     // the compiled .aab / .apk — running it here (after patching) ensures
-     // the Play Store sees com.cognotik.aol and not whatever was inferred at
-     // init time.
-     log('Regenerating Android project files from twa-manifest.json...');
-     run('bubblewrap update', { cwd: twaPath });
-
-    log('Building signed Android App Bundle (.aab) ...');
-    run('bubblewrap build', { cwd: twaPath });
-
-    // Copy artifacts to dist/.
-    const distDir = join(projectRoot, DIST_DIR);
-    if (!existsSync(distDir)) mkdirSync(distDir, { recursive: true });
-
-    const version = getVersion();
-    const artifacts = [
-        { src: 'app-release-bundle.aab', dest: `play-store-v${version}.aab` },
-        { src: 'app-release-signed.apk', dest: `play-store-v${version}.apk` },
-    ];
-
-    let copied = 0;
-    for (const { src, dest } of artifacts) {
-        const srcPath = join(twaPath, src);
-        const destPath = join(distDir, dest);
-        if (existsSync(srcPath)) {
-            copyFileSync(srcPath, destPath);
-            const size = statSync(destPath).size;
-            log(
-                `✓ ${relative(projectRoot, destPath)} ` +
-                `(${(size / 1024).toFixed(1)} KB)`,
-            );
-            copied++;
-        }
-    }
-
-    if (copied === 0) {
-        warn(
-            'No build artifacts found in TWA directory. Check bubblewrap output above.',
-        );
-    } else {
-        log('\nBuild complete.');
-        log(`  Upload the .aab file to: https://play.google.com/console`);
-    }
+  if (copied === 0) {
+    warn('No build artifacts found in TWA directory. Check bubblewrap output above.');
+  } else {
+    log('\nBuild complete.');
+    log(`  Upload the .aab file to: https://play.google.com/console`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -358,23 +327,23 @@ function buildTwa() {
 // ---------------------------------------------------------------------------
 
 function main() {
-    const args = process.argv.slice(2);
-    const initOnly = args.includes('--init');
-    const buildOnly = args.includes('--build');
+  const args = process.argv.slice(2);
+  const initOnly = args.includes('--init');
+  const buildOnly = args.includes('--build');
 
-    preflight();
+  preflight();
 
-    if (initOnly) {
-        initTwa();
-        return;
-    }
-    if (buildOnly) {
-        buildTwa();
-        return;
-    }
-    // Default: init if needed, then build.
+  if (initOnly) {
     initTwa();
+    return;
+  }
+  if (buildOnly) {
     buildTwa();
+    return;
+  }
+  // Default: init if needed, then build.
+  initTwa();
+  buildTwa();
 }
 
 main();

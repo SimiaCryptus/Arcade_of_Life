@@ -6,12 +6,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": [
-    "window-controls-overlay",
-    "standalone",
-    "minimal-ui",
-    "browser"
-  ],
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"],
   "orientation": "portrait-primary",
   "theme_color": "#00ffff",
   "background_color": "#000010",
@@ -97,9 +92,7 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": [
-    "games"
-  ],
+  "categories": ["games"],
   "screenshots": [
     {
       "src": "/screenshot/main_menu.png",
@@ -216,19 +209,11 @@
       "files": [
         {
           "name": "level",
-          "accept": [
-            "application/json",
-            ".json"
-          ]
+          "accept": ["application/json", ".json"]
         },
         {
           "name": "pattern",
-          "accept": [
-            "text/plain",
-            ".rle",
-            ".cells",
-            ".lif"
-          ]
+          "accept": ["text/plain", ".rle", ".cells", ".lif"]
         }
       ]
     }
@@ -237,9 +222,7 @@
     {
       "action": "/open-level",
       "accept": {
-        "application/json": [
-          ".json"
-        ]
+        "application/json": [".json"]
       },
       "icons": [
         {
@@ -253,11 +236,7 @@
     {
       "action": "/open-pattern",
       "accept": {
-        "text/plain": [
-          ".rle",
-          ".cells",
-          ".lif"
-        ]
+        "text/plain": [".rle", ".cells", ".lif"]
       },
       "icons": [
         {
@@ -280,10 +259,7 @@
   },
   "handle_links": "preferred",
   "launch_handler": {
-    "client_mode": [
-      "navigate-existing",
-      "auto"
-    ]
+    "client_mode": ["navigate-existing", "auto"]
   },
   "prefer_related_applications": false,
   "related_applications": [

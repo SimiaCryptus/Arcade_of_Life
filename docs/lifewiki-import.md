@@ -46,20 +46,18 @@ provided):
 
 ## Tunable limits
 
-- `--max-period`        Period search ceiling (default 60).
-- `--methuselah-gens`   Methuselah observation window (default 200).
-- `--max-cells`         Skip large patterns above this live-cell count
-                        (default 5000) — prevents pathological CPU use.
-- `--max-dim`           Skip patterns whose bounding box exceeds this
-                        width or height (default 400).
+- `--max-period` Period search ceiling (default 60).
+- `--methuselah-gens` Methuselah observation window (default 200).
+- `--max-cells` Skip large patterns above this live-cell count
+  (default 5000) — prevents pathological CPU use.
+- `--max-dim` Skip patterns whose bounding box exceeds this
+  width or height (default 400).
 
 ## Loading the generated library at runtime
 
 ```js
 import { loadGeneratedLibrary } from './src/patterns/lifewikiImporter.js';
-const n = await loadGeneratedLibrary(
-  './src/patterns/lifewiki.generated.json'
-);
+const n = await loadGeneratedLibrary('./src/patterns/lifewiki.generated.json');
 console.log(`Registered ${n} imported patterns`);
 ```
 

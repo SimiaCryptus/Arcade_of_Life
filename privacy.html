@@ -15,11 +15,11 @@
         margin: 0;
         padding: 0;
         min-height: 100vh;
-      overflow: auto !important;
-      overflow-y: auto !important;
-      display: block !important;
-      touch-action: auto !important;
-      overscroll-behavior: auto !important;
+        overflow: auto !important;
+        overflow-y: auto !important;
+        display: block !important;
+        touch-action: auto !important;
+        overscroll-behavior: auto !important;
       }
 
       /* Subtle animated grid background — same vibe as the game */
@@ -215,7 +215,9 @@
         color: #00ccff;
         text-decoration: none;
         border-bottom: 1px solid #00ccff44;
-        transition: color 0.15s, border-color 0.15s;
+        transition:
+          color 0.15s,
+          border-color 0.15s;
       }
 
       a:hover {
@@ -283,9 +285,8 @@
       }
     </style>
   </head>
-   <body>
+  <body>
     <div class="privacy-wrap">
-
       <!-- ── Header ─────────────────────────────────────────────── -->
       <header class="privacy-header">
         <p class="game-title">⬛ THE ARCADE OF LIFE ⬛</p>
@@ -308,13 +309,13 @@
       <section class="privacy-section" aria-labelledby="s-collect">
         <h2 id="s-collect">📡 What We Collect</h2>
         <p>
-          Absolutely nothing. Zero. The void. We collect fewer data points than a dead cell in
-          an empty grid.
+          Absolutely nothing. Zero. The void. We collect fewer data points than a dead cell in an
+          empty grid.
         </p>
         <p>
-          The Arcade of Life runs entirely in your browser. There is no backend, no database,
-          no analytics pipeline, and no server that knows you exist. Your game state, settings,
-          high scores, and custom levels live exclusively in your browser's
+          The Arcade of Life runs entirely in your browser. There is no backend, no database, no
+          analytics pipeline, and no server that knows you exist. Your game state, settings, high
+          scores, and custom levels live exclusively in your browser's
           <code>localStorage</code> — on your device, under your control.
         </p>
         <div class="callout">
@@ -327,8 +328,8 @@
       <section class="privacy-section" aria-labelledby="s-cookies">
         <h2 id="s-cookies">🍪 Cookies</h2>
         <p>
-          There are no cookies. Not even the good kind. We didn't bake any, we don't serve any,
-          and we won't ask you to accept a banner about them — because there is nothing to accept.
+          There are no cookies. Not even the good kind. We didn't bake any, we don't serve any, and
+          we won't ask you to accept a banner about them — because there is nothing to accept.
         </p>
         <p>
           The service worker used for offline PWA support stores a cache of game assets in your
@@ -341,9 +342,9 @@
       <section class="privacy-section" aria-labelledby="s-third">
         <h2 id="s-third">🌐 Third-Party Services</h2>
         <p>
-          None. The game loads no external scripts, no ad networks, no social widgets, no
-          telemetry SDKs, and no CDN-hosted libraries. Every byte is served from the same origin
-          as the page itself.
+          None. The game loads no external scripts, no ad networks, no social widgets, no telemetry
+          SDKs, and no CDN-hosted libraries. Every byte is served from the same origin as the page
+          itself.
         </p>
         <ul>
           <li>No Google Analytics</li>
@@ -353,8 +354,8 @@
           <li>No cryptocurrency miners (obviously)</li>
         </ul>
         <p>
-          The GitHub link in the footer is just a plain <code>&lt;a&gt;</code> tag. GitHub will
-          see your IP if you click it — that's between you and GitHub.
+          The GitHub link in the footer is just a plain <code>&lt;a&gt;</code> tag. GitHub will see
+          your IP if you click it — that's between you and GitHub.
         </p>
       </section>
 
@@ -362,24 +363,24 @@
       <section class="privacy-section" aria-labelledby="s-oss">
         <h2 id="s-oss">🔓 Open Source &amp; Auditable</h2>
         <p>
-          You don't have to take our word for any of this. The entire codebase is open source
-          under the <strong>LGPL 3.0</strong> licence and available for inspection at:
+          You don't have to take our word for any of this. The entire codebase is open source under
+          the <strong>LGPL 3.0</strong> licence and available for inspection at:
         </p>
         <p>
           <a
             href="https://github.com/SimiaCryptus/Arcade_of_Life"
             target="_blank"
             rel="noopener noreferrer"
-          >github.com/SimiaCryptus/Arcade_of_Life</a>
+            >github.com/SimiaCryptus/Arcade_of_Life</a
+          >
         </p>
         <p>
-          If you find something that contradicts this policy — a hidden tracker, a sneaky fetch,
-          a rogue cookie — please open an issue. We'd genuinely want to know.
+          If you find something that contradicts this policy — a hidden tracker, a sneaky fetch, a
+          rogue cookie — please open an issue. We'd genuinely want to know.
         </p>
         <div class="callout">
           🔬 Paranoid? Run <code>cheats.help()</code> in the browser console to inspect the live
-          game API. Everything is right there in plain JavaScript — no minification, no
-          obfuscation.
+          game API. Everything is right there in plain JavaScript — no minification, no obfuscation.
         </div>
       </section>
 
@@ -387,37 +388,43 @@
       <section class="privacy-section danger-zone" aria-labelledby="s-enshit">
         <h2 id="s-enshit">☠ The Enshittification Clause</h2>
         <p>
-          Let's be honest with each other. Right now this game is a labour of love: free, clean,
-          and ad-free. That's the intention and the strong preference.
+          Let's be honest with each other. Right now this game is a labour of love: free, clean, and
+          ad-free. That's the intention and the strong preference.
         </p>
         <p>
-          However — and we say this with full transparency rather than hiding it in paragraph 47
-          of legalese — <strong>if donations dry up and the hosting bills don't pay themselves,
-          we reserve the right to introduce monetisation in a future version.</strong>
+          However — and we say this with full transparency rather than hiding it in paragraph 47 of
+          legalese —
+          <strong
+            >if donations dry up and the hosting bills don't pay themselves, we reserve the right to
+            introduce monetisation in a future version.</strong
+          >
         </p>
-        <p>
-          What that might look like, in rough order of how much we'd hate ourselves:
-        </p>
+        <p>What that might look like, in rough order of how much we'd hate ourselves:</p>
         <ul>
           <li>A tasteful, static "support the project" banner (low self-loathing)</li>
           <li>An optional donation nag screen you can dismiss forever (mild self-loathing)</li>
           <li>A cosmetic supporter badge or colour theme (acceptable self-loathing)</li>
-          <li>Ads. God forbid. (maximum self-loathing — we'd probably just shut it down instead)</li>
+          <li>
+            Ads. God forbid. (maximum self-loathing — we'd probably just shut it down instead)
+          </li>
         </ul>
         <div class="callout danger">
-          ⚠ <strong>What we will never do regardless of financial pressure:</strong> sell your
-          data (we don't have any), introduce tracking without explicit opt-in, or lock gameplay
-          features behind a paywall. The core game will remain open source under LGPL 3.0 — that
-          licence is irrevocable.
+          ⚠ <strong>What we will never do regardless of financial pressure:</strong> sell your data
+          (we don't have any), introduce tracking without explicit opt-in, or lock gameplay features
+          behind a paywall. The core game will remain open source under LGPL 3.0 — that licence is
+          irrevocable.
         </div>
-        <p style="margin-top: 14px;">
+        <p style="margin-top: 14px">
           The best way to prevent any of this from happening is to
-          <a href="https://github.com/SimiaCryptus/Arcade_of_Life" target="_blank" rel="noopener noreferrer">
-            star the repo
-          </a>,
-          tell your friends, and — if you're feeling generous — throw a few dollars at the
-          project. A well-fed developer writes cleaner code and resists the siren call of
-          ad networks.
+          <a
+            href="https://github.com/SimiaCryptus/Arcade_of_Life"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            star the repo </a
+          >, tell your friends, and — if you're feeling generous — throw a few dollars at the
+          project. A well-fed developer writes cleaner code and resists the siren call of ad
+          networks.
         </p>
       </section>
 
@@ -434,13 +441,13 @@
           <li>Not bury it in a 3am commit with the message "minor fixes"</li>
         </ul>
         <p>
-          Since we have no way to contact you (no accounts, no emails, no tracking — see above),
-          the onus is on you to check back if you care. We recommend starring the repo to watch
-          for releases.
+          Since we have no way to contact you (no accounts, no emails, no tracking — see above), the
+          onus is on you to check back if you care. We recommend starring the repo to watch for
+          releases.
         </p>
         <div class="callout warn">
-          📅 <strong>Last updated:</strong> June 2025 &nbsp;|&nbsp;
-          <strong>Version:</strong> 1.0 — the "we're still pure and innocent" edition
+          📅 <strong>Last updated:</strong> June 2025 &nbsp;|&nbsp; <strong>Version:</strong> 1.0 —
+          the "we're still pure and innocent" edition
         </div>
       </section>
 
@@ -448,15 +455,16 @@
       <section class="privacy-section" aria-labelledby="s-contact">
         <h2 id="s-contact">📬 Contact</h2>
         <p>
-          Questions, concerns, or just want to tell us about a cool glider pattern you found?
-          Open an issue or start a discussion on GitHub:
+          Questions, concerns, or just want to tell us about a cool glider pattern you found? Open
+          an issue or start a discussion on GitHub:
         </p>
         <p>
           <a
             href="https://github.com/SimiaCryptus/Arcade_of_Life/issues"
             target="_blank"
             rel="noopener noreferrer"
-          >github.com/SimiaCryptus/Arcade_of_Life/issues</a>
+            >github.com/SimiaCryptus/Arcade_of_Life/issues</a
+          >
         </p>
         <p>
           We don't have a privacy@&nbsp;email address because we don't have a company, a legal
@@ -480,7 +488,8 @@
             href="https://github.com/SimiaCryptus/Arcade_of_Life"
             target="_blank"
             rel="noopener noreferrer"
-          >Source on GitHub</a>
+            >Source on GitHub</a
+          >
         </p>
         <p>
           No cells were harmed in the making of this privacy policy.<br />
@@ -488,7 +497,6 @@
         </p>
         <a class="back-link" href="./index.html">← Back to the Game</a>
       </footer>
-
     </div>
   </body>
 </html>
