@@ -742,16 +742,16 @@ CONFIG.SPEED_MULTIPLIER = 4;
 ## ❓ FAQ
 
 **Q: Will cheats persist after page reload?**  
- A: Most don't. Settings/config changes persist via localStorage (in Settings panel). Cheat function calls are one-shot.
+A: Most don't. Settings/config changes persist via localStorage (in Settings panel). Cheat function calls are one-shot.
 
 **Q: Can I save my hacked game state?**  
- A: Not directly, but you can: (1) screenshot, (2) use Level Designer to recreate, (3) export settings JSON.
+A: Not directly, but you can: (1) screenshot, (2) use Level Designer to recreate, (3) export settings JSON.
 
 **Q: Why doesn't `CONFIG.GRID_WIDTH = 500` work immediately?**  
- A: Grid size changes require `game.rebuildWorld()` to take effect.
+A: Grid size changes require `game.rebuildWorld()` to take effect.
 
 **Q: How do I make my own ruleset?**  
- A: Either via Settings → Gameplay → Build Custom Neighborhood, or programmatically:
+A: Either via Settings → Gameplay → Build Custom Neighborhood, or programmatically:
 
 ```javascript
 import { registerRuleset, setActiveRuleset } from './src/rules/index.js';
@@ -767,10 +767,10 @@ setActiveRuleset('my_rule');
 ```
 
 **Q: Can I run the simulation without rendering?**  
- A: Yes — set `CONFIG.SPEED_MULTIPLIER = 0` and call `game.simulation.tick()` in a loop. Use the test/sim infrastructure for headless evolution analysis.
+A: Yes — set `CONFIG.SPEED_MULTIPLIER = 0` and call `game.simulation.tick()` in a loop. Use the test/sim infrastructure for headless evolution analysis.
 
 **Q: How do I report a bug I found via console hacking?**  
- A: Open a GitHub issue with your steps to reproduce. Include `cheats.dump()` output and `ArcadeOfLifeLogger` history.
+A: Open a GitHub issue with your steps to reproduce. Include `cheats.dump()` output and `ArcadeOfLifeLogger` history.
 
 ---
 

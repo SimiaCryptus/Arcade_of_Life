@@ -1,6 +1,7 @@
 # The Arcade of Life — Developer Notes
 
 ## Overview
+
 "The Arcade of Life" is a Conway's Game-of-Life missile-defense game housed at
 `games/aol/`. Players draw defensive cellular patterns on the bottom half of
 the grid, which evolve alongside incoming enemy gliders/missiles spawned from
@@ -9,6 +10,7 @@ required for basic hosting) served via `index.html`, `style.css`, and an
 ES-module entrypoint at `src/main.js`.
 
 ## Entry Points
+
 - `games/aol/index.html` — Markup for the game shell: canvas, draw toolbar,
   in-game hamburger menu, settings overlay (tabbed), pattern editor, pattern
   zoo, level designer, story mode dialogue, and the epilepsy/photosensitivity
@@ -24,6 +26,7 @@ ES-module entrypoint at `src/main.js`.
   (loaded relative to the repo root, outside the `games/aol/` folder).
 
 ## Site Integration
+
 - The game page now includes a **Home** link back to the site root (`/`),
   available from the in-game hamburger menu (`#gm-home`). This lets players
   navigate back to the arcade's landing page without using browser back
@@ -41,23 +44,26 @@ ES-module entrypoint at `src/main.js`.
     the anchor also carries that class.
 
 ## PWA Considerations
+
 - The page defines manifest link, apple touch icons, and various icon sizes
   for install-ability.
 - `#pwa-install-banner`, `#pwa-update-banner`, and `#pwa-version-banner` are
   injected/controlled via site-level JS (not shown in this file) and are
   styled in `style.css`.
 - When running in standalone/installed mode (`@media (display-mode:
-  standalone)`), the GitHub footer link is hidden and safe-area insets are
+standalone)`), the GitHub footer link is hidden and safe-area insets are
   applied — the new Home menu link is unaffected by this rule and remains
   available via the hamburger menu in all display modes.
 
 ## Settings Overlay
+
 Tabbed interface (`#settings-tabs` / `.settings-tab-panel`) covering:
 Gameplay, Enemies, Drawing, Aging Matrix, Abilities, Display, Advanced, and
 Profiles (save/load/import/export as JSON). Each tab is independently
 scrollable within `#settings-list`.
 
 ## Follow-up / TODO
+
 - Consider adding a matching "Home" entry to the main menu overlay
   (`#overlay`) library/help tabs for consistency, not just the in-game
   hamburger menu.
