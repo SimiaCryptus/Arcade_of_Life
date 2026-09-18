@@ -1,13 +1,13 @@
 {
-  "id": "arcade-of-life",
-  "category": "game",
-  "section": "games",
-  "order": 0,
-  "icon": "AL",
-  "title": "The Arcade of Life",
-  "href": "https://aol.cognotik.com/",
-  "readme": "INTRO.md",
-  "video": "/videos/arcade-of-life.mp4",
-  "launchLabel": "Open The Arcade of Life",
-  "pitch": "A browser-based arcade built on Conway's Game of Life and 50+ cellular automaton rulesets. Play, tweak, and explore emergent behavior across a wide catalog of rules. <a href=\"https://aol.cognotik.com/\" target=\"_blank\" rel=\"noopener\">Visit the sister site ↗</a>."
+    "id": "arcade-of-life",
+    "title": "The Arcade of Life",
+    "category": "game",
+    "href": "https:/aol.cognotik.com",
+    "readme": "INTRO.md",
+    "video": "/videos/arcade-of-life.mp4",
+    "order": 0,
+    "section": "games",
+    "icon": "AL",
+    "launchLabel": "Open The Arcade of Life",
+    "pitch": "A browser-based arcade built on Conway's Game of Life and 50+ cellular automaton rulesets. Play, tweak, and explore emergent behavior across a wide catalog of rules. <a href=\"https://aol.cognotik.com/\" target=\"_blank\" rel=\"noopener\">Visit the sister site ↗</a>."
 }
