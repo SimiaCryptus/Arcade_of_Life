@@ -2,7 +2,7 @@
     "id": "arcade-of-life",
     "title": "The Arcade of Life",
     "category": "game",
-    "href": "https:/aol.cognotik.com",
+    "href": "https://aol.cognotik.com",
     "readme": "INTRO.md",
     "video": "/videos/arcade-of-life.mp4",
     "order": 0,
